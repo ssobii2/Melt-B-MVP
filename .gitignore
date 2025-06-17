@@ -1,0 +1,39 @@
+# Logs & system files
+*.log
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.backup
+.env.production
+auth.json
+
+# PHP / Laravel specific
+.phpactor.json
+.phpunit.result.cache
+/.phpunit.cache
+/storage/*.key
+/storage/pail
+/vendor
+/node_modules
+
+# Laravel build and temp folders
+/public/build
+/public/hot
+/public/storage
+/storage/*
+/bootstrap/cache/*
+
+# Keep necessary gitignore placeholders
+!/storage/app/.gitignore
+!/storage/framework/.gitignore
+!/storage/logs/.gitignore
+!/bootstrap/cache/.gitignore
+
+# IDE / tool configs
+/.idea
+/.vscode
+/.fleet
+/.zed
+/.nova
