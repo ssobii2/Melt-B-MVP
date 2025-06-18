@@ -1,0 +1,115 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BuildingController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\EntitlementController;
+use App\Http\Controllers\Admin\AuditLogController;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "api" middleware group. Make something great!
+|
+*/
+
+// Public authentication routes (no middleware)
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+
+// Health check endpoint (public)
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now(),
+        'version' => '1.0.0',
+        'message' => 'MELT-B MVP API is working correctly'
+    ]);
+});
+
+// Protected routes requiring authentication
+Route::middleware('auth:sanctum')->group(function () {
+    // User authentication endpoints
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/user', [AuthController::class, 'user']);
+
+    // API token management
+    Route::post('/tokens/generate', [AuthController::class, 'generateApiToken']);
+    Route::delete('/tokens/revoke', [AuthController::class, 'revokeApiTokens']);
+
+    // User entitlements
+    Route::get('/me/entitlements', function (Request $request) {
+        $user = $request->user();
+
+        if (!$user) {
+            if (!$request->hasHeader('Authorization')) {
+                return response()->json([
+                    'message' => 'API endpoint is working. Authentication required.',
+                    'error' => 'authentication_required',
+                    'hint' => 'Add "Authorization: Bearer {token}" header to access this endpoint.'
+                ], 401);
+            }
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $entitlements = $user->entitlements()
+            ->with('dataset:id,name,data_type')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->get();
+
+        return response()->json([
+            'entitlements' => $entitlements
+        ]);
+    });
+});
+
+// Protected data access routes with entitlement filtering
+Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
+    // Building data endpoints
+    Route::get('/buildings', [BuildingController::class, 'index']);
+    Route::get('/buildings/{gid}', [BuildingController::class, 'show']);
+    Route::get('/buildings/within/bounds', [BuildingController::class, 'withinBounds']);
+    Route::get('/buildings/stats', [BuildingController::class, 'stats']);
+});
+
+// Admin-only routes (same token, but checks user role)
+Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(function () {
+    // System statistics
+    Route::get('/stats', function (Request $request) {
+        return response()->json([
+            'total_users' => \App\Models\User::count(),
+            'total_datasets' => \App\Models\Dataset::count(),
+            'total_entitlements' => \App\Models\Entitlement::count(),
+            'total_buildings' => \App\Models\Building::count(),
+        ]);
+    });
+
+    // User management
+    Route::apiResource('users', UserController::class);
+    Route::get('/users/{id}/entitlements', [UserController::class, 'entitlements']);
+    Route::post('/users/{userId}/entitlements/{entitlementId}', [UserController::class, 'assignEntitlement']);
+    Route::delete('/users/{userId}/entitlements/{entitlementId}', [UserController::class, 'removeEntitlement']);
+
+    // Entitlement management
+    Route::apiResource('entitlements', EntitlementController::class);
+    Route::get('/entitlements/datasets', [EntitlementController::class, 'datasets']);
+    Route::get('/entitlements/stats', [EntitlementController::class, 'stats']);
+
+    // Audit log management
+    Route::get('/audit-logs', [AuditLogController::class, 'index']);
+    Route::get('/audit-logs/{id}', [AuditLogController::class, 'show']);
+    Route::get('/audit-logs/stats', [AuditLogController::class, 'stats']);
+    Route::get('/audit-logs/actions', [AuditLogController::class, 'actions']);
+    Route::get('/audit-logs/target-types', [AuditLogController::class, 'targetTypes']);
+});

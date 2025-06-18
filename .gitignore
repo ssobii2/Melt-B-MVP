@@ -25,6 +25,11 @@ auth.json
 /storage/*
 /bootstrap/cache/*
 
+# AdminLTE related (keep config but ignore build assets)
+/public/vendor
+/resources/adminlte-build/*
+/lang/vendor
+
 # Keep necessary gitignore placeholders
 !/storage/app/.gitignore
 !/storage/framework/.gitignore
