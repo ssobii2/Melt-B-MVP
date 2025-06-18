@@ -1,13 +1,12 @@
-import './bootstrap';
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import HelloWorld from './components/HelloWorld';
+import { createInertiaApp } from "@inertiajs/react";
+import { createRoot } from "react-dom/client";
 
-const el = document.getElementById('app');
-if (el) {
-  ReactDOM.createRoot(el).render(
-    <React.StrictMode>
-      <HelloWorld />
-    </React.StrictMode>
-  );
-}
+createInertiaApp({
+    resolve: (name) => {
+        const pages = import.meta.glob("./Pages/**/*.jsx", { eager: true });
+        return pages[`./Pages/${name}.jsx`];
+    },
+    setup({ el, App, props }) {
+        createRoot(el).render(<App {...props} />);
+    },
+});
