@@ -22,7 +22,7 @@
             <div class="icon">
                 <i class="fas fa-users"></i>
             </div>
-            <a href="#" class="small-box-footer">
+            <a href="{{ route('admin.users') }}" class="small-box-footer">
                 View Details <i class="fas fa-arrow-circle-right"></i>
             </a>
         </div>
@@ -37,7 +37,7 @@
             <div class="icon">
                 <i class="fas fa-database"></i>
             </div>
-            <a href="#" class="small-box-footer">
+            <a href="{{ route('admin.datasets') }}" class="small-box-footer">
                 Manage Datasets <i class="fas fa-arrow-circle-right"></i>
             </a>
         </div>
@@ -67,7 +67,7 @@
             <div class="icon">
                 <i class="fas fa-key"></i>
             </div>
-            <a href="#" class="small-box-footer">
+            <a href="{{ route('admin.entitlements') }}" class="small-box-footer">
                 Manage Access <i class="fas fa-arrow-circle-right"></i>
             </a>
         </div>
@@ -173,15 +173,19 @@
                     <i class="fas fa-history"></i>
                     Recent Activity
                 </h3>
+                <div class="card-tools">
+                    <a href="{{ route('admin.audit-logs') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-eye"></i> View All Logs
+                    </a>
+                </div>
             </div>
-            <div class="card-body">
-                <table class="table table-striped">
+            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-striped table-sm">
                     <thead>
                         <tr>
                             <th>User</th>
                             <th>Action</th>
                             <th>Target</th>
-                            <th>IP Address</th>
                             <th>Time</th>
                         </tr>
                     </thead>
@@ -190,9 +194,8 @@
                         <tr>
                             <td>
                                 <strong>{{ $log->user->name ?? 'System' }}</strong>
-                                @if($log->user)
-                                <br><small class="text-muted">{{ $log->user->email }}</small>
-                                @endif
+                                <br>
+                                <small class="text-muted">{{ $log->user->email ?? 'system@admin' }}</small>
                             </td>
                             <td>
                                 <span class="badge badge-secondary">{{ str_replace('_', ' ', ucfirst($log->action)) }}</span>
@@ -205,15 +208,12 @@
                                 @endif
                             </td>
                             <td>
-                                <code>{{ $log->ip_address ?? 'N/A' }}</code>
-                            </td>
-                            <td>
                                 <small>{{ $log->created_at->diffForHumans() }}</small>
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="5" class="text-center text-muted">
+                            <td colspan="4" class="text-center text-muted">
                                 No recent activity
                             </td>
                         </tr>

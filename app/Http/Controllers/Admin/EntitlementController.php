@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use MatanYadaev\EloquentSpatial\Objects\Polygon;
 use MatanYadaev\EloquentSpatial\Objects\Point;
+use MatanYadaev\EloquentSpatial\Objects\LineString;
 
 class EntitlementController extends Controller
 {
@@ -52,7 +53,7 @@ class EntitlementController extends Controller
     /**
      * Get details of a specific entitlement.
      */
-    public function show(int $id): JsonResponse
+    public function show(string $id): JsonResponse
     {
         $entitlement = Entitlement::with(['dataset', 'users'])->find($id);
 
@@ -60,8 +61,29 @@ class EntitlementController extends Controller
             return response()->json(['message' => 'Entitlement not found'], 404);
         }
 
+        $entitlementData = $entitlement->toArray();
+
+        // Extract coordinates from geometry if present
+        if ($entitlement->aoi_geom && in_array($entitlement->type, ['DS-AOI', 'TILES'])) {
+            try {
+                // The aoi_geom is already converted to GeoJSON format
+                $geoJson = $entitlement->aoi_geom;
+
+                if ($geoJson && isset($geoJson['coordinates']) && isset($geoJson['coordinates'][0])) {
+                    // Extract the coordinates from the GeoJSON polygon
+                    $coordinates = $geoJson['coordinates'][0];
+                    $entitlementData['aoi_coordinates'] = $coordinates;
+                } else {
+                    $entitlementData['aoi_coordinates'] = null;
+                }
+            } catch (\Exception $e) {
+                // If there's an issue extracting coordinates, just continue without them
+                $entitlementData['aoi_coordinates'] = null;
+            }
+        }
+
         return response()->json([
-            'entitlement' => $entitlement,
+            'entitlement' => $entitlementData,
             'is_expired' => $entitlement->isExpired(),
             'users_count' => $entitlement->users()->count()
         ]);
@@ -120,7 +142,9 @@ class EntitlementController extends Controller
                     return new Point($coord[1], $coord[0]); // Note: Point expects (lat, lng)
                 }, $coordinates);
 
-                $polygon = new Polygon([$points]);
+                // Create a LineString from the points, then a Polygon from the LineString
+                $lineString = new LineString($points);
+                $polygon = new Polygon([$lineString]);
 
                 $entitlementData['aoi_geom'] = $polygon;
             } catch (\Exception $e) {
@@ -153,14 +177,14 @@ class EntitlementController extends Controller
 
         return response()->json([
             'message' => 'Entitlement created successfully',
-            'entitlement' => $entitlement->load('dataset')
+            'entitlement' => $entitlement->load(['dataset', 'users'])
         ], 201);
     }
 
     /**
      * Update an existing entitlement.
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(Request $request, string $id): JsonResponse
     {
         $entitlement = Entitlement::find($id);
 
@@ -205,7 +229,9 @@ class EntitlementController extends Controller
                     return new Point($coord[1], $coord[0]); // Note: Point expects (lat, lng)
                 }, $coordinates);
 
-                $polygon = new Polygon([$points]);
+                // Create a LineString from the points, then a Polygon from the LineString
+                $lineString = new LineString($points);
+                $polygon = new Polygon([$lineString]);
 
                 $updateData['aoi_geom'] = $polygon;
             } catch (\Exception $e) {
@@ -235,14 +261,14 @@ class EntitlementController extends Controller
 
         return response()->json([
             'message' => 'Entitlement updated successfully',
-            'entitlement' => $entitlement->fresh(['dataset'])
+            'entitlement' => $entitlement->fresh(['dataset', 'users'])
         ]);
     }
 
     /**
      * Delete an entitlement.
      */
-    public function destroy(Request $request, int $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
         $entitlement = Entitlement::find($id);
 

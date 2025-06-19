@@ -52,6 +52,23 @@ Route::prefix('admin')->group(function () {
     Route::middleware(['admin.token'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
         Route::post('/logout', [DashboardController::class, 'logout'])->name('admin.logout');
+
+        // Admin management views
+        Route::get('/users', function () {
+            return view('admin.users');
+        })->name('admin.users');
+
+        Route::get('/datasets', function () {
+            return view('admin.datasets');
+        })->name('admin.datasets');
+
+        Route::get('/entitlements', function () {
+            return view('admin.entitlements');
+        })->name('admin.entitlements');
+
+        Route::get('/audit-logs', function () {
+            return view('admin.audit-logs');
+        })->name('admin.audit-logs');
     });
 });
 

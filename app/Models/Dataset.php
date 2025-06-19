@@ -18,7 +18,20 @@ class Dataset extends Model
         'data_type',
         'storage_location',
         'version',
+        'metadata',
     ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+        ];
+    }
 
     /**
      * Get the entitlements for the dataset.

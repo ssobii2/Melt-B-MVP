@@ -55,7 +55,7 @@ class AuditLogController extends Controller
     /**
      * Get details of a specific audit log entry.
      */
-    public function show(int $id): JsonResponse
+    public function show(string $id): JsonResponse
     {
         $auditLog = AuditLog::with('user:id,name,email')->find($id);
 

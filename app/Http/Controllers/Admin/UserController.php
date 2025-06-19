@@ -53,7 +53,7 @@ class UserController extends Controller
     /**
      * Get details of a specific user.
      */
-    public function show(int $id): JsonResponse
+    public function show(string $id): JsonResponse
     {
         $user = User::with(['entitlements.dataset', 'auditLogs' => function ($query) {
             $query->latest()->limit(20);
@@ -81,7 +81,10 @@ class UserController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', PasswordRule::defaults()],
             'role' => ['required', 'string', 'in:user,researcher,contractor,municipality,admin'],
-            'contact_info' => ['sometimes', 'array'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'company' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'department' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'address' => ['sometimes', 'nullable', 'string', 'max:500'],
         ]);
 
         if ($validator->fails()) {
@@ -91,12 +94,19 @@ class UserController extends Controller
             ], 422);
         }
 
+        // Build contact_info array from individual fields
+        $contactInfo = [];
+        if ($request->phone) $contactInfo['phone'] = $request->phone;
+        if ($request->company) $contactInfo['company'] = $request->company;
+        if ($request->department) $contactInfo['department'] = $request->department;
+        if ($request->address) $contactInfo['address'] = $request->address;
+
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
-            'contact_info' => $request->contact_info ?? null,
+            'contact_info' => !empty($contactInfo) ? $contactInfo : null,
         ]);
 
         // Log the admin action
@@ -123,7 +133,7 @@ class UserController extends Controller
     /**
      * Update an existing user.
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(Request $request, string $id): JsonResponse
     {
         $user = User::find($id);
 
@@ -136,7 +146,10 @@ class UserController extends Controller
             'email' => ['sometimes', 'string', 'email', 'max:255', 'unique:users,email,' . $id],
             'password' => ['sometimes', PasswordRule::defaults()],
             'role' => ['sometimes', 'string', 'in:user,researcher,contractor,municipality,admin'],
-            'contact_info' => ['sometimes', 'array'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'company' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'department' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'address' => ['sometimes', 'nullable', 'string', 'max:500'],
         ]);
 
         if ($validator->fails()) {
@@ -147,7 +160,18 @@ class UserController extends Controller
         }
 
         $oldValues = $user->only(['name', 'email', 'role', 'contact_info']);
-        $updateData = $request->only(['name', 'email', 'role', 'contact_info']);
+        $updateData = $request->only(['name', 'email', 'role']);
+
+        // Build contact_info array from individual fields if any contact fields are provided
+        if ($request->hasAny(['phone', 'company', 'department', 'address'])) {
+            $contactInfo = [];
+            if ($request->has('phone')) $contactInfo['phone'] = $request->phone;
+            if ($request->has('company')) $contactInfo['company'] = $request->company;
+            if ($request->has('department')) $contactInfo['department'] = $request->department;
+            if ($request->has('address')) $contactInfo['address'] = $request->address;
+
+            $updateData['contact_info'] = !empty($contactInfo) ? $contactInfo : null;
+        }
 
         // Hash password if provided
         if ($request->has('password')) {
@@ -182,7 +206,7 @@ class UserController extends Controller
     /**
      * Delete a user.
      */
-    public function destroy(Request $request, int $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
         $user = User::find($id);
 
@@ -202,7 +226,7 @@ class UserController extends Controller
         // Clear user's entitlement cache
         $this->entitlementService->clearUserEntitlementsCache($user);
 
-        // Delete the user (this will also delete related entitlement pivot records)
+        // Delete the user (foreign key constraint with onDelete('set null') will handle audit logs automatically)
         $user->delete();
 
         // Log the admin action
@@ -224,7 +248,7 @@ class UserController extends Controller
     /**
      * Get user's entitlements.
      */
-    public function entitlements(int $id): JsonResponse
+    public function entitlements(string $id): JsonResponse
     {
         $user = User::find($id);
 
@@ -243,7 +267,7 @@ class UserController extends Controller
     /**
      * Assign an entitlement to a user.
      */
-    public function assignEntitlement(Request $request, int $userId, int $entitlementId): JsonResponse
+    public function assignEntitlement(Request $request, string $userId, string $entitlementId): JsonResponse
     {
         $user = User::find($userId);
         if (!$user) {
@@ -289,7 +313,7 @@ class UserController extends Controller
     /**
      * Remove an entitlement from a user.
      */
-    public function removeEntitlement(Request $request, int $userId, int $entitlementId): JsonResponse
+    public function removeEntitlement(Request $request, string $userId, string $entitlementId): JsonResponse
     {
         $user = User::find($userId);
         if (!$user) {

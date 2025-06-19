@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\BuildingController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\DatasetController;
 
 /*
 |--------------------------------------------------------------------------
@@ -101,15 +102,20 @@ Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(functi
     Route::post('/users/{userId}/entitlements/{entitlementId}', [UserController::class, 'assignEntitlement']);
     Route::delete('/users/{userId}/entitlements/{entitlementId}', [UserController::class, 'removeEntitlement']);
 
-    // Entitlement management
-    Route::apiResource('entitlements', EntitlementController::class);
+    // Entitlement management - specific routes first
     Route::get('/entitlements/datasets', [EntitlementController::class, 'datasets']);
     Route::get('/entitlements/stats', [EntitlementController::class, 'stats']);
+    Route::apiResource('entitlements', EntitlementController::class);
 
-    // Audit log management
-    Route::get('/audit-logs', [AuditLogController::class, 'index']);
-    Route::get('/audit-logs/{id}', [AuditLogController::class, 'show']);
+    // Dataset management - specific routes first
+    Route::get('/datasets/stats', [DatasetController::class, 'stats']);
+    Route::get('/datasets/data-types', [DatasetController::class, 'dataTypes']);
+    Route::apiResource('datasets', DatasetController::class);
+
+    // Audit log management - specific routes first
     Route::get('/audit-logs/stats', [AuditLogController::class, 'stats']);
     Route::get('/audit-logs/actions', [AuditLogController::class, 'actions']);
     Route::get('/audit-logs/target-types', [AuditLogController::class, 'targetTypes']);
+    Route::get('/audit-logs', [AuditLogController::class, 'index']);
+    Route::get('/audit-logs/{id}', [AuditLogController::class, 'show']);
 });

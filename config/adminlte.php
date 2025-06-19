@@ -317,141 +317,28 @@ return [
             'icon' => 'fas fa-fw fa-tachometer-alt',
         ],
 
-        ['header' => 'THERMAL DATA MANAGEMENT'],
+        ['header' => 'ADMIN MANAGEMENT'],
         [
-            'text' => 'Users',
+            'text' => 'User Management',
             'icon' => 'fas fa-fw fa-users',
-            'url' => '#',
-            'submenu' => [
-                [
-                    'text' => 'All Users',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-list',
-                ],
-                [
-                    'text' => 'Add User',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-user-plus',
-                ],
-                [
-                    'text' => 'Roles & Permissions',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-user-tag',
-                ],
-            ],
+            'route' => 'admin.users',
         ],
         [
-            'text' => 'Datasets',
+            'text' => 'Dataset Management',
             'icon' => 'fas fa-fw fa-database',
-            'url' => '#',
-            'submenu' => [
-                [
-                    'text' => 'All Datasets',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-list',
-                ],
-                [
-                    'text' => 'Upload Dataset',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-upload',
-                ],
-                [
-                    'text' => 'Data Ingestion',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-cogs',
-                ],
-            ],
+            'route' => 'admin.datasets',
         ],
         [
-            'text' => 'Buildings',
-            'icon' => 'fas fa-fw fa-building',
-            'url' => '#',
-            'submenu' => [
-                [
-                    'text' => 'All Buildings',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-list',
-                ],
-                [
-                    'text' => 'Thermal Analysis',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-thermometer-half',
-                ],
-                [
-                    'text' => 'Building Reports',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-chart-bar',
-                ],
-            ],
-        ],
-        [
-            'text' => 'Access Control',
+            'text' => 'Entitlement Management',
             'icon' => 'fas fa-fw fa-key',
-            'url' => '#',
-            'submenu' => [
-                [
-                    'text' => 'Entitlements',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-shield-alt',
-                ],
-                [
-                    'text' => 'Area of Interest',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-map-marked-alt',
-                ],
-                [
-                    'text' => 'API Tokens',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-code',
-                ],
-            ],
+            'route' => 'admin.entitlements',
         ],
 
-        ['header' => 'SYSTEM ADMINISTRATION'],
+        ['header' => 'SYSTEM'],
         [
             'text' => 'Audit Logs',
             'icon' => 'fas fa-fw fa-history',
-            'url' => '#',
-        ],
-        [
-            'text' => 'System Settings',
-            'icon' => 'fas fa-fw fa-cogs',
-            'url' => '#',
-        ],
-        [
-            'text' => 'Analytics',
-            'icon' => 'fas fa-fw fa-chart-line',
-            'url' => '#',
-            'submenu' => [
-                [
-                    'text' => 'Usage Statistics',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-chart-pie',
-                ],
-                [
-                    'text' => 'Performance Metrics',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-tachometer-alt',
-                ],
-                [
-                    'text' => 'Data Quality',
-                    'url' => '#',
-                    'icon' => 'fas fa-fw fa-check-circle',
-                ],
-            ],
-        ],
-
-        ['header' => 'QUICK LINKS'],
-        [
-            'text' => 'Main Application',
-            'url' => '/',
-            'icon' => 'fas fa-fw fa-external-link-alt',
-            'target' => '_blank',
-        ],
-        [
-            'text' => 'Documentation',
-            'url' => '#',
-            'icon' => 'fas fa-fw fa-book',
+            'route' => 'admin.audit-logs',
         ],
     ],
 
