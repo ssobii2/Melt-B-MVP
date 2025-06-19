@@ -630,13 +630,13 @@
                 error: function(xhr) {
                     const errors = xhr.responseJSON?.errors;
                     if (errors) {
-                        let errorMessage = 'Validation errors:\n';
+                        let errorMessage = 'Please fix the following errors:<br>';
                         Object.keys(errors).forEach(key => {
-                            errorMessage += `- ${errors[key][0]}\n`;
+                            errorMessage += `• ${errors[key][0]}<br>`;
                         });
-                        showAlert('danger', errorMessage);
+                        showModalAlert('createDatasetModal', 'danger', errorMessage);
                     } else {
-                        showAlert('danger', 'Error creating dataset');
+                        showModalAlert('createDatasetModal', 'danger', xhr.responseJSON?.message || 'Error creating dataset');
                     }
                 }
             });
@@ -787,13 +787,13 @@
                 error: function(xhr) {
                     const errors = xhr.responseJSON?.errors;
                     if (errors) {
-                        let errorMessage = 'Validation errors:\n';
+                        let errorMessage = 'Please fix the following errors:<br>';
                         Object.keys(errors).forEach(key => {
-                            errorMessage += `- ${errors[key][0]}\n`;
+                            errorMessage += `• ${errors[key][0]}<br>`;
                         });
-                        showAlert('danger', errorMessage);
+                        showModalAlert('editDatasetModal', 'danger', errorMessage);
                     } else {
-                        showAlert('danger', 'Error updating dataset');
+                        showModalAlert('editDatasetModal', 'danger', xhr.responseJSON?.message || 'Error updating dataset');
                     }
                 }
             });
@@ -814,6 +814,26 @@
             setTimeout(function() {
                 $('.alert').alert('close');
             }, 5000);
+        }
+
+        function showModalAlert(modalId, type, message) {
+            // Remove existing alerts in this modal
+            $(`#${modalId} .modal-alert`).remove();
+
+            const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show modal-alert" role="alert">
+                ${message}
+                <button type="button" class="close" data-dismiss="alert">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        `;
+            $(`#${modalId} .modal-body`).prepend(alertHtml);
+
+            // Auto-dismiss after 8 seconds
+            setTimeout(function() {
+                $(`#${modalId} .modal-alert`).alert('close');
+            }, 8000);
         }
     });
 </script>

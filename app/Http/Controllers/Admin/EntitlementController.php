@@ -149,8 +149,10 @@ class EntitlementController extends Controller
                 $entitlementData['aoi_geom'] = $polygon;
             } catch (\Exception $e) {
                 return response()->json([
-                    'message' => 'Invalid AOI coordinates format',
-                    'error' => $e->getMessage()
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'aoi_coordinates' => ['Invalid AOI coordinates format. Please check your coordinate values.']
+                    ]
                 ], 422);
             }
         }
@@ -236,8 +238,10 @@ class EntitlementController extends Controller
                 $updateData['aoi_geom'] = $polygon;
             } catch (\Exception $e) {
                 return response()->json([
-                    'message' => 'Invalid AOI coordinates format',
-                    'error' => $e->getMessage()
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'aoi_coordinates' => ['Invalid AOI coordinates format. Please check your coordinate values.']
+                    ]
                 ], 422);
             }
         }
@@ -276,12 +280,20 @@ class EntitlementController extends Controller
             return response()->json(['message' => 'Entitlement not found'], 404);
         }
 
+        // Check if entitlement has users assigned
+        $userCount = $entitlement->users()->count();
+        if ($userCount > 0) {
+            return response()->json([
+                'message' => "Cannot delete entitlement. It has {$userCount} user(s) assigned. Please remove all users first."
+            ], 422);
+        }
+
         $entitlementData = $entitlement->only(['type', 'dataset_id', 'expires_at']);
 
         // Clear all entitlements cache since entitlement is being deleted
         $this->entitlementService->clearAllEntitlementsCache();
 
-        // Delete the entitlement (this will also delete related user_entitlement pivot records)
+        // Delete the entitlement (no user assignments to worry about now)
         $entitlement->delete();
 
         // Log the admin action

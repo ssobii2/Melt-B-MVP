@@ -221,12 +221,20 @@ class UserController extends Controller
             ], 422);
         }
 
+        // Check if user has entitlements assigned
+        $entitlementCount = $user->entitlements()->count();
+        if ($entitlementCount > 0) {
+            return response()->json([
+                'message' => "Cannot delete user. They have {$entitlementCount} entitlement(s) assigned. Please remove all entitlements first."
+            ], 422);
+        }
+
         $userData = $user->only(['name', 'email', 'role']);
 
         // Clear user's entitlement cache
         $this->entitlementService->clearUserEntitlementsCache($user);
 
-        // Delete the user (foreign key constraint with onDelete('set null') will handle audit logs automatically)
+        // Delete the user (audit logs with user_id will be set to null automatically)
         $user->delete();
 
         // Log the admin action

@@ -851,7 +851,7 @@
             const entitlementId = $('#availableEntitlements').val();
 
             if (!entitlementId) {
-                showAlert('warning', 'Please select an entitlement to assign.');
+                showModalAlert('userEntitlementsModal', 'warning', 'Please select an entitlement to assign.');
                 return;
             }
 

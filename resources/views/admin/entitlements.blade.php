@@ -718,14 +718,14 @@
                 try {
                     formData.aoi_coordinates = JSON.parse($('#createAoiCoordinates').val());
                 } catch (e) {
-                    showAlert('danger', 'Invalid AOI coordinates format');
+                    showModalAlert('createEntitlementModal', 'danger', 'Invalid AOI coordinates format. Please check your JSON syntax.');
                     return;
                 }
             } else if (formData.type === 'DS-BLD') {
                 try {
                     formData.building_gids = JSON.parse($('#createBuildingGids').val());
                 } catch (e) {
-                    showAlert('danger', 'Invalid building GIDs format');
+                    showModalAlert('createEntitlementModal', 'danger', 'Invalid building GIDs format. Please check your JSON syntax.');
                     return;
                 }
             }
@@ -749,13 +749,13 @@
                 error: function(xhr) {
                     const errors = xhr.responseJSON?.errors;
                     if (errors) {
-                        let errorMessage = 'Validation errors:\n';
+                        let errorMessage = 'Please fix the following errors:<br>';
                         Object.keys(errors).forEach(key => {
-                            errorMessage += `- ${errors[key][0]}\n`;
+                            errorMessage += `• ${errors[key][0]}<br>`;
                         });
-                        showAlert('danger', errorMessage);
+                        showModalAlert('createEntitlementModal', 'danger', errorMessage);
                     } else {
-                        showAlert('danger', xhr.responseJSON?.message || 'Error creating entitlement');
+                        showModalAlert('createEntitlementModal', 'danger', xhr.responseJSON?.message || 'Error creating entitlement');
                     }
                 }
             });
@@ -940,7 +940,7 @@
                     try {
                         formData.aoi_coordinates = JSON.parse(aoiText);
                     } catch (e) {
-                        showAlert('danger', 'Invalid AOI coordinates format');
+                        showModalAlert('editEntitlementModal', 'danger', 'Invalid AOI coordinates format. Please check your JSON syntax.');
                         return;
                     }
                 }
@@ -950,7 +950,7 @@
                     try {
                         formData.building_gids = JSON.parse(buildingText);
                     } catch (e) {
-                        showAlert('danger', 'Invalid building GIDs format');
+                        showModalAlert('editEntitlementModal', 'danger', 'Invalid building GIDs format. Please check your JSON syntax.');
                         return;
                     }
                 }
@@ -973,13 +973,13 @@
                 error: function(xhr) {
                     const errors = xhr.responseJSON?.errors;
                     if (errors) {
-                        let errorMessage = 'Validation errors:\n';
+                        let errorMessage = 'Please fix the following errors:<br>';
                         Object.keys(errors).forEach(key => {
-                            errorMessage += `- ${errors[key][0]}\n`;
+                            errorMessage += `• ${errors[key][0]}<br>`;
                         });
-                        showAlert('danger', errorMessage);
+                        showModalAlert('editEntitlementModal', 'danger', errorMessage);
                     } else {
-                        showAlert('danger', xhr.responseJSON?.message || 'Error updating entitlement');
+                        showModalAlert('editEntitlementModal', 'danger', xhr.responseJSON?.message || 'Error updating entitlement');
                     }
                 }
             });
@@ -999,6 +999,26 @@
             setTimeout(function() {
                 $('.alert').alert('close');
             }, 5000);
+        }
+
+        function showModalAlert(modalId, type, message) {
+            // Remove existing alerts in this modal
+            $(`#${modalId} .modal-alert`).remove();
+
+            const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show modal-alert" role="alert">
+                ${message}
+                <button type="button" class="close" data-dismiss="alert">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        `;
+            $(`#${modalId} .modal-body`).prepend(alertHtml);
+
+            // Auto-dismiss after 8 seconds
+            setTimeout(function() {
+                $(`#${modalId} .modal-alert`).alert('close');
+            }, 8000);
         }
 
         // Entitlement user management functions
@@ -1088,7 +1108,7 @@
             const userId = $('#availableUsers').val();
 
             if (!userId) {
-                showAlert('warning', 'Please select a user to assign.');
+                showModalAlert('entitlementUsersModal', 'warning', 'Please select a user to assign.');
                 return;
             }
 
