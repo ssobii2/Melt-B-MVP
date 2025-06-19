@@ -69,6 +69,8 @@ Route::prefix('admin')->group(function () {
         Route::get('/audit-logs', function () {
             return view('admin.audit-logs');
         })->name('admin.audit-logs');
+
+        Route::get('/buildings', [\App\Http\Controllers\Admin\BuildingController::class, 'index'])->name('admin.buildings');
     });
 });
 

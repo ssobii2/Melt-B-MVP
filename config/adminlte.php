@@ -334,6 +334,13 @@ return [
             'route' => 'admin.entitlements',
         ],
 
+        ['header' => 'DATA'],
+        [
+            'text' => 'Buildings View',
+            'icon' => 'fas fa-fw fa-building',
+            'route' => 'admin.buildings',
+        ],
+
         ['header' => 'SYSTEM'],
         [
             'text' => 'Audit Logs',

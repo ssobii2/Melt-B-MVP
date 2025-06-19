@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BuildingController;
+use App\Http\Controllers\Api\TileController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\AuditLogController;
@@ -84,6 +85,12 @@ Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
     Route::get('/buildings/stats', [BuildingController::class, 'stats']);
 });
 
+// Map tile serving with spatial entitlement checking (separate middleware for TILES type)
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/tiles/{dataset_id}/{z}/{x}/{y}.png', [TileController::class, 'serveTile'])
+        ->where(['z' => '[0-9]+', 'x' => '[0-9]+', 'y' => '[0-9]+']);
+});
+
 // Admin-only routes (same token, but checks user role)
 Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(function () {
     // System statistics
@@ -118,4 +125,9 @@ Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(functi
     Route::get('/audit-logs/target-types', [AuditLogController::class, 'targetTypes']);
     Route::get('/audit-logs', [AuditLogController::class, 'index']);
     Route::get('/audit-logs/{id}', [AuditLogController::class, 'show']);
+
+    // Buildings management (read-only for admin)
+    Route::get('/buildings', [\App\Http\Controllers\Admin\BuildingController::class, 'index']);
+    Route::get('/buildings/{gid}', [\App\Http\Controllers\Admin\BuildingController::class, 'show']);
+    Route::get('/buildings/export', [\App\Http\Controllers\Admin\BuildingController::class, 'export']);
 });

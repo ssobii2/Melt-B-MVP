@@ -62,7 +62,7 @@ class AuditLog extends Model
      * Create an audit log entry.
      */
     public static function createEntry(
-        int $userId,
+        ?int $userId,
         string $action,
         ?string $targetType = null,
         ?int $targetId = null,
