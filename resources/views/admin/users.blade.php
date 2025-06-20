@@ -369,6 +369,42 @@
 
 @section('js')
 <script>
+    // Global timezone handling functions
+    window.formatDateTime = function(dateString, options = {}) {
+        if (!dateString) return 'Never';
+
+        const date = new Date(dateString);
+        const defaultOptions = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZoneName: 'short'
+        };
+
+        return date.toLocaleString(undefined, {
+            ...defaultOptions,
+            ...options
+        });
+    };
+
+    window.formatDate = function(dateString, options = {}) {
+        if (!dateString) return 'Never';
+
+        const date = new Date(dateString);
+        const defaultOptions = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        };
+
+        return date.toLocaleDateString(undefined, {
+            ...defaultOptions,
+            ...options
+        });
+    };
+
     $(document).ready(function() {
         let currentPage = 1;
         let perPage = 15;
@@ -442,7 +478,7 @@
                     <td>${user.email}</td>
                     <td><span class="badge badge-${roleColor}">${user.role.charAt(0).toUpperCase() + user.role.slice(1)}</span></td>
                     <td><span class="badge badge-info">${entitlementsCount}</span></td>
-                    <td><small>${new Date(user.created_at).toLocaleDateString()}</small></td>
+                    <td><small>${formatDate(user.created_at)}</small></td>
                     <td>
                         <div class="btn-group btn-group-sm">
                             <button class="btn btn-info" onclick="viewUser(${user.id})" title="View Details">
@@ -567,7 +603,7 @@
                             <p><strong>Name:</strong> ${user.name}</p>
                             <p><strong>Email:</strong> ${user.email}</p>
                             <p><strong>Role:</strong> <span class="badge badge-${getRoleColor(user.role)}">${user.role}</span></p>
-                            <p><strong>Created:</strong> ${new Date(user.created_at).toLocaleString()}</p>
+                            <p><strong>Created:</strong> ${formatDateTime(user.created_at)}</p>
                             
                             ${user.contact_info ? `
                                 <p><strong>Phone:</strong> ${user.contact_info.phone || 'Not provided'}</p>
@@ -598,7 +634,7 @@
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <strong>${entitlement.type}</strong> - ${entitlement.dataset?.name || 'Unknown Dataset'}
-                                        <br><small>Expires: ${entitlement.expires_at ? new Date(entitlement.expires_at).toLocaleDateString() : 'Never'}</small>
+                                        <br><small>Expires: ${formatDate(entitlement.expires_at)}</small>
                                     </div>
                                     <button class="btn btn-sm btn-danger" onclick="removeUserEntitlement(${user.id}, ${entitlement.id})">
                                         <i class="fas fa-times"></i>
@@ -795,7 +831,7 @@
                                 if (!userEntitlementIds.includes(entitlement.id)) {
                                     html += `<option value="${entitlement.id}">
                                         ${entitlement.type} - ${entitlement.dataset?.name || 'Unknown Dataset'}
-                                        ${entitlement.expires_at ? ` (Expires: ${new Date(entitlement.expires_at).toLocaleDateString()})` : ' (No Expiry)'}
+                                        ${entitlement.expires_at ? ` (Expires: ${formatDate(entitlement.expires_at)})` : ' (No Expiry)'}
                                     </option>`;
                                 }
                             });
@@ -827,7 +863,7 @@
                                     <div>
                                         <strong>${entitlement.type}</strong> - ${entitlement.dataset?.name || 'Unknown Dataset'}
                                         <br><small class="text-muted">
-                                            Expires: ${entitlement.expires_at ? new Date(entitlement.expires_at).toLocaleDateString() : 'Never'}
+                                            Expires: ${formatDate(entitlement.expires_at)}
                                         </small>
                                     </div>
                                     <button class="btn btn-sm btn-danger" onclick="removeUserEntitlementFromModal(${userId}, ${entitlement.id})">

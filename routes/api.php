@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BuildingController;
 use App\Http\Controllers\Api\TileController;
+use App\Http\Controllers\Api\DownloadController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\AuditLogController;
@@ -83,6 +84,10 @@ Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
     Route::get('/buildings/{gid}', [BuildingController::class, 'show']);
     Route::get('/buildings/within/bounds', [BuildingController::class, 'withinBounds']);
     Route::get('/buildings/stats', [BuildingController::class, 'stats']);
+
+    // Data download endpoints
+    Route::get('/downloads/{id}', [DownloadController::class, 'download'])
+        ->where(['id' => '[0-9]+']);
 });
 
 // Map tile serving with spatial entitlement checking (separate middleware for TILES type)

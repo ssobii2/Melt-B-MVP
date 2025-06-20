@@ -366,6 +366,42 @@
 
 @section('js')
 <script>
+    // Global timezone handling functions
+    window.formatDateTime = function(dateString, options = {}) {
+        if (!dateString) return 'Never';
+
+        const date = new Date(dateString);
+        const defaultOptions = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZoneName: 'short'
+        };
+
+        return date.toLocaleString(undefined, {
+            ...defaultOptions,
+            ...options
+        });
+    };
+
+    window.formatDate = function(dateString, options = {}) {
+        if (!dateString) return 'Never';
+
+        const date = new Date(dateString);
+        const defaultOptions = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        };
+
+        return date.toLocaleDateString(undefined, {
+            ...defaultOptions,
+            ...options
+        });
+    };
+
     $(document).ready(function() {
         let currentPage = 1;
         let perPage = 15;
@@ -464,7 +500,7 @@
                     <td><span class="badge badge-${dataTypeColor}">${formatDataType(dataset.data_type)}</span></td>
                     <td class="description-cell" title="${description}">${truncatedDescription}</td>
                     <td><span class="badge badge-info">${entitlementsCount}</span></td>
-                    <td><small>${new Date(dataset.created_at).toLocaleDateString()}</small></td>
+                    <td><small>${formatDate(dataset.created_at)}</small></td>
                     <td>
                         <div class="btn-group btn-group-sm">
                             <button class="btn btn-info" onclick="viewDataset(${dataset.id})" title="View Details">
@@ -517,7 +553,7 @@
                 html += `
                 <div class="list-group-item">
                     <strong>${dataset.name}</strong>
-                    <br><small>${formatDataType(dataset.data_type)} - ${new Date(dataset.created_at).toLocaleDateString()}</small>
+                    <br><small>${formatDataType(dataset.data_type)} - ${formatDate(dataset.created_at)}</small>
                 </div>
             `;
             });
@@ -668,7 +704,7 @@
                             <p><strong>Description:</strong> ${dataset.description || 'None'}</p>
                             <p><strong>Storage Location:</strong> ${dataset.storage_location || 'None'}</p>
                             <p><strong>Version:</strong> ${dataset.version || 'None'}</p>
-                            <p><strong>Created:</strong> ${new Date(dataset.created_at).toLocaleString()}</p>
+                            <p><strong>Created:</strong> ${formatDateTime(dataset.created_at)}</p>
                             <p><strong>Users with Access:</strong> ${response.users_with_access}</p>
                         </div>
                         <div class="col-md-6">
@@ -683,7 +719,7 @@
                         html += `
                         <div class="list-group-item">
                             <strong>${entitlement.type}</strong>
-                            <br><small>Expires: ${entitlement.expires_at ? new Date(entitlement.expires_at).toLocaleDateString() : 'Never'}</small>
+                            <br><small>Expires: ${formatDate(entitlement.expires_at)}</small>
                             <br><small>Users: ${entitlement.users.length}</small>
                         </div>
                     `;

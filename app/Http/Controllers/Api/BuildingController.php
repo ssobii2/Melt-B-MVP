@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\BuildingResource;
 use App\Models\Building;
 use App\Services\UserEntitlementService;
 use Illuminate\Http\Request;
@@ -39,7 +40,7 @@ class BuildingController extends Controller
         ) {
             return response()->json([
                 'message' => 'No data access authorized',
-                'buildings' => [],
+                'data' => [],
                 'meta' => [
                     'total' => 0,
                     'per_page' => $request->input('per_page', 15),
@@ -62,37 +63,39 @@ class BuildingController extends Controller
             $query->forDataset($datasetId);
         }
 
-        $minTli = $request->input('min_tli');
-        $maxTli = $request->input('max_tli');
+        // TLI range filters (tli_min and tli_max as specified in DATA.md)
+        $minTli = $request->input('tli_min');
+        $maxTli = $request->input('tli_max');
         if ($minTli !== null || $maxTli !== null) {
             $query->withTliRange($minTli, $maxTli);
         }
 
+        // Building type filter (as specified in DATA.md)
+        $type = $request->input('type');
+        if ($type) {
+            $query->byType($type);
+        }
+
+        // Search filter
         $search = $request->input('search');
         if ($search) {
             $query->search($search);
         }
 
-        // Apply sorting
+        // Apply sorting (sort_by and sort_order as specified in DATA.md)
         $sortBy = $request->input('sort_by', 'thermal_loss_index_tli');
-        $sortDirection = $request->input('sort_direction', 'desc');
+        $sortOrder = $request->input('sort_order', 'desc');
 
         if (in_array($sortBy, ['thermal_loss_index_tli', 'co2_savings_estimate', 'building_type_classification'])) {
-            $query->orderBy($sortBy, $sortDirection);
+            $query->orderBy($sortBy, $sortOrder);
         }
 
         // Get paginated results
         $perPage = min($request->input('per_page', 15), 100); // Max 100 per page
         $buildings = $query->paginate($perPage);
 
-        // Add calculated attributes
-        $buildings->getCollection()->transform(function ($building) {
-            $building->tli_color = $building->tli_color;
-            $building->improvement_potential = $building->improvement_potential;
-            return $building;
-        });
-
-        return response()->json($buildings);
+        // Transform using BuildingResource for clean JSON format
+        return BuildingResource::collection($buildings)->response();
     }
 
     /**
@@ -124,12 +127,9 @@ class BuildingController extends Controller
             return response()->json(['message' => 'Building not found or access denied'], 404);
         }
 
-        // Add calculated attributes
-        $building->tli_color = $building->tli_color;
-        $building->improvement_potential = $building->improvement_potential;
-
+        // Return using BuildingResource for clean JSON format
         return response()->json([
-            'building' => $building
+            'data' => new BuildingResource($building)
         ]);
     }
 
@@ -178,14 +178,8 @@ class BuildingController extends Controller
         $limit = min($request->input('limit', 1000), 5000);
         $buildings = $query->limit($limit)->get();
 
-        // Add calculated attributes
-        $buildings->transform(function ($building) {
-            $building->tli_color = $building->tli_color;
-            return $building;
-        });
-
         return response()->json([
-            'buildings' => $buildings,
+            'data' => BuildingResource::collection($buildings),
             'count' => $buildings->count(),
             'bbox' => [
                 'north' => $north,

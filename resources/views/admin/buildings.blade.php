@@ -202,6 +202,42 @@
 
 @section('js')
 <script>
+    // Global timezone handling functions
+    window.formatDateTime = function(dateString, options = {}) {
+        if (!dateString) return 'Never';
+
+        const date = new Date(dateString);
+        const defaultOptions = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZoneName: 'short'
+        };
+
+        return date.toLocaleString(undefined, {
+            ...defaultOptions,
+            ...options
+        });
+    };
+
+    window.formatDate = function(dateString, options = {}) {
+        if (!dateString) return 'Never';
+
+        const date = new Date(dateString);
+        const defaultOptions = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        };
+
+        return date.toLocaleDateString(undefined, {
+            ...defaultOptions,
+            ...options
+        });
+    };
+
     $(document).ready(function() {
         // Simple placeholder implementation
         let currentPage = 1;
@@ -295,8 +331,7 @@
             } else {
                 buildings.forEach(function(building) {
                     const tliClass = getTliClass(building.thermal_loss_index_tli);
-                    const analyzedDate = building.last_analyzed_at ?
-                        new Date(building.last_analyzed_at).toLocaleDateString() : 'Never';
+                    const analyzedDate = formatDate(building.last_analyzed_at);
 
                     html += `
                     <tr>
@@ -386,9 +421,8 @@
                     $('#detailDataset').text(building.dataset ? building.dataset.name : 'N/A');
                     $('#detailCadastral').text(building.cadastral_reference || 'N/A');
                     $('#detailOwner').text(building.owner_operator_details || 'N/A');
-                    $('#detailAnalyzed').text(building.last_analyzed_at ?
-                        new Date(building.last_analyzed_at).toLocaleString() : 'Never');
-                    $('#detailCreated').text(new Date(building.created_at).toLocaleString());
+                    $('#detailAnalyzed').text(formatDateTime(building.last_analyzed_at));
+                    $('#detailCreated').text(formatDateTime(building.created_at));
 
                     $('#buildingDetailsModal').modal('show');
                 },

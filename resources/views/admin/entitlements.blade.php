@@ -171,20 +171,12 @@
                                         <label class="form-check-label" for="csv">CSV</label>
                                     </div>
                                     <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="json" value="json" name="download_formats[]">
-                                        <label class="form-check-label" for="json">JSON</label>
-                                    </div>
-                                    <div class="form-check">
                                         <input type="checkbox" class="form-check-input" id="geojson" value="geojson" name="download_formats[]">
                                         <label class="form-check-label" for="geojson">GeoJSON</label>
                                     </div>
                                     <div class="form-check">
                                         <input type="checkbox" class="form-check-input" id="excel" value="excel" name="download_formats[]">
                                         <label class="form-check-label" for="excel">Excel</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="pdf" value="pdf" name="download_formats[]">
-                                        <label class="form-check-label" for="pdf">PDF</label>
                                     </div>
                                 </div>
                             </div>
@@ -275,20 +267,12 @@
                                         <label class="form-check-label" for="editCsv">CSV</label>
                                     </div>
                                     <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="editJson" value="json" name="edit_download_formats[]">
-                                        <label class="form-check-label" for="editJson">JSON</label>
-                                    </div>
-                                    <div class="form-check">
                                         <input type="checkbox" class="form-check-input" id="editGeojson" value="geojson" name="edit_download_formats[]">
                                         <label class="form-check-label" for="editGeojson">GeoJSON</label>
                                     </div>
                                     <div class="form-check">
                                         <input type="checkbox" class="form-check-input" id="editExcel" value="excel" name="edit_download_formats[]">
                                         <label class="form-check-label" for="editExcel">Excel</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="editPdf" value="pdf" name="edit_download_formats[]">
-                                        <label class="form-check-label" for="editPdf">PDF</label>
                                     </div>
                                 </div>
                             </div>
@@ -438,6 +422,60 @@
 
 @section('js')
 <script>
+    // Global timezone handling functions
+    window.formatDateTime = function(dateString, options = {}) {
+        if (!dateString) return 'Never';
+
+        const date = new Date(dateString);
+        const defaultOptions = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZoneName: 'short'
+        };
+
+        return date.toLocaleString(undefined, {
+            ...defaultOptions,
+            ...options
+        });
+    };
+
+    window.formatDate = function(dateString, options = {}) {
+        if (!dateString) return 'Never';
+
+        const date = new Date(dateString);
+        const defaultOptions = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        };
+
+        return date.toLocaleDateString(undefined, {
+            ...defaultOptions,
+            ...options
+        });
+    };
+
+    window.formatDateTimeForInput = function(dateString) {
+        if (!dateString) return '';
+
+        const date = new Date(dateString);
+        // Convert to local time for datetime-local input
+        const offset = date.getTimezoneOffset();
+        const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+        return localDate.toISOString().slice(0, 16);
+    };
+
+    window.parseDateTimeFromInput = function(inputValue) {
+        if (!inputValue) return null;
+
+        // Parse the datetime-local input and convert to UTC for server
+        const localDate = new Date(inputValue);
+        return localDate.toISOString();
+    };
+
     $(document).ready(function() {
         let currentPage = 1;
         let perPage = 15;
@@ -519,7 +557,10 @@
                 method: 'GET',
                 headers: {
                     'Authorization': 'Bearer ' + '{{ session("admin_token") }}',
-                    'Accept': 'application/json'
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
                 },
                 success: function(response) {
                     renderEntitlementsTable(response.data);
@@ -556,7 +597,7 @@
             entitlements.forEach(function(entitlement) {
                 const usersCount = entitlement.users ? entitlement.users.length : 0;
                 const typeColor = getTypeColor(entitlement.type);
-                const expiresAt = entitlement.expires_at ? new Date(entitlement.expires_at).toLocaleDateString() : 'Never';
+                const expiresAt = formatDate(entitlement.expires_at);
                 const isExpired = entitlement.expires_at && new Date(entitlement.expires_at) < new Date();
 
                 let details = '';
@@ -579,7 +620,7 @@
                         ${isExpired ? '<span class="badge badge-danger">Expired</span><br>' : ''}
                         <small>${expiresAt}</small>
                     </td>
-                    <td><small>${new Date(entitlement.created_at).toLocaleDateString()}</small></td>
+                    <td><small>${formatDate(entitlement.created_at)}</small></td>
                     <td>
                         <div class="btn-group btn-group-sm">
                             <button class="btn btn-info" onclick="viewEntitlement(${entitlement.id})" title="View Details">
@@ -701,7 +742,7 @@
             const formData = {
                 type: $('#createType').val(),
                 dataset_id: $('#createDataset').val(),
-                expires_at: $('#createExpiresAt').val() || null
+                expires_at: parseDateTimeFromInput($('#createExpiresAt').val())
             };
 
             // Handle download formats
@@ -743,7 +784,10 @@
                     $('#createEntitlementModal').modal('hide');
                     $('#createEntitlementForm')[0].reset();
                     toggleEntitlementFields('create');
-                    loadEntitlements();
+                    // Force reload by clearing any potential cache
+                    setTimeout(function() {
+                        loadEntitlements();
+                    }, 100);
                     showAlert('success', 'Entitlement created successfully!');
                 },
                 error: function(xhr) {
@@ -783,8 +827,8 @@
                             <h5>Entitlement Information</h5>
                             <p><strong>Type:</strong> <span class="badge badge-${getTypeColor(entitlement.type)}">${entitlement.type}</span></p>
                             <p><strong>Dataset:</strong> ${entitlement.dataset?.name || 'Unknown'}</p>
-                            <p><strong>Created:</strong> ${new Date(entitlement.created_at).toLocaleString()}</p>
-                            <p><strong>Expires:</strong> ${entitlement.expires_at ? new Date(entitlement.expires_at).toLocaleString() : 'Never'}</p>
+                            <p><strong>Created:</strong> ${formatDateTime(entitlement.created_at)}</p>
+                            <p><strong>Expires:</strong> ${formatDateTime(entitlement.expires_at)}</p>
                             <p><strong>Download Formats:</strong> ${entitlement.download_formats ? entitlement.download_formats.join(', ') : 'None'}</p>
                 `;
 
@@ -883,10 +927,7 @@
                         });
                     }
 
-                    if (entitlement.expires_at) {
-                        const date = new Date(entitlement.expires_at);
-                        $('#editExpiresAt').val(date.toISOString().slice(0, 16));
-                    }
+                    $('#editExpiresAt').val(formatDateTimeForInput(entitlement.expires_at));
 
                     $('#editEntitlementModal').modal('show');
                 }
@@ -921,7 +962,7 @@
             const formData = {
                 type: $('#editType').val(),
                 dataset_id: $('#editDataset').val(),
-                expires_at: $('#editExpiresAt').val() || null
+                expires_at: parseDateTimeFromInput($('#editExpiresAt').val())
             };
 
             // Handle download formats
@@ -967,7 +1008,10 @@
                 data: JSON.stringify(formData),
                 success: function(response) {
                     $('#editEntitlementModal').modal('hide');
-                    loadEntitlements();
+                    // Force reload by clearing any potential cache
+                    setTimeout(function() {
+                        loadEntitlements();
+                    }, 100);
                     showAlert('success', 'Entitlement updated successfully!');
                 },
                 error: function(xhr) {

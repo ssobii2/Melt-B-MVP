@@ -103,16 +103,31 @@ class Building extends Model
     /**
      * Apply entitlement filters to the query based on user's access rights.
      */
-    public function scopeApplyEntitlementFilters($query, array $entitlementFilters)
+    public function scopeApplyEntitlementFilters($query, $user)
     {
+        // If user is passed, get the entitlement filters from UserEntitlementService
+        if ($user instanceof \App\Models\User) {
+            $entitlementService = new \App\Services\UserEntitlementService();
+            $userEntitlements = $entitlementService->getUserEntitlements($user);
+            $entitlementFilters = $entitlementService->generateEntitlementFilters($userEntitlements);
+        } else {
+            // Assume it's already an array of filters
+            $entitlementFilters = $user;
+        }
+
+        // Start with a query that will return no results by default
+        $query->where(function ($mainQuery) use ($entitlementFilters) {
+            $hasAnyEntitlement = false;
+
         // If user has DS-ALL access to any dataset, they can see buildings from those datasets
         if (!empty($entitlementFilters['ds_all_datasets'])) {
-            $query->orWhereIn('dataset_id', $entitlementFilters['ds_all_datasets']);
+                $mainQuery->orWhereIn('dataset_id', $entitlementFilters['ds_all_datasets']);
+                $hasAnyEntitlement = true;
         }
 
         // Apply DS-AOI spatial filters
         if (!empty($entitlementFilters['ds_aoi_polygons'])) {
-            $query->orWhere(function ($subQuery) use ($entitlementFilters) {
+                $mainQuery->orWhere(function ($subQuery) use ($entitlementFilters) {
                 foreach ($entitlementFilters['ds_aoi_polygons'] as $aoiFilter) {
                     $subQuery->orWhere(function ($aoiQuery) use ($aoiFilter) {
                         $aoiQuery->where('dataset_id', $aoiFilter['dataset_id'])
@@ -122,12 +137,20 @@ class Building extends Model
                     });
                 }
             });
+                $hasAnyEntitlement = true;
         }
 
         // Apply DS-BLD building-specific filters
         if (!empty($entitlementFilters['ds_building_gids'])) {
-            $query->orWhereIn('gid', $entitlementFilters['ds_building_gids']);
-        }
+                $mainQuery->orWhereIn('gid', $entitlementFilters['ds_building_gids']);
+                $hasAnyEntitlement = true;
+            }
+
+            // If no entitlements, return no results
+            if (!$hasAnyEntitlement) {
+                $mainQuery->whereRaw('1 = 0'); // Always false condition
+            }
+        });
 
         return $query;
     }
@@ -175,5 +198,21 @@ class Building extends Model
             $subQuery->where('address', 'ILIKE', "%{$searchTerm}%")
                 ->orWhere('cadastral_reference', 'ILIKE', "%{$searchTerm}%");
         });
+    }
+
+    /**
+     * Filter buildings by type/classification.
+     */
+    public function scopeByType($query, string $type)
+    {
+        return $query->where('building_type_classification', $type);
+    }
+
+    /**
+     * Filter buildings by TLI range (alias for withTliRange).
+     */
+    public function scopeByTliRange($query, int $minTli = null, int $maxTli = null)
+    {
+        return $this->scopeWithTliRange($query, $minTli, $maxTli);
     }
 }

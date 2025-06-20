@@ -186,6 +186,42 @@
 
 @section('js')
 <script>
+    // Global timezone handling functions
+    window.formatDateTime = function(dateString, options = {}) {
+        if (!dateString) return 'Never';
+
+        const date = new Date(dateString);
+        const defaultOptions = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZoneName: 'short'
+        };
+
+        return date.toLocaleString(undefined, {
+            ...defaultOptions,
+            ...options
+        });
+    };
+
+    window.formatDate = function(dateString, options = {}) {
+        if (!dateString) return 'Never';
+
+        const date = new Date(dateString);
+        const defaultOptions = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        };
+
+        return date.toLocaleDateString(undefined, {
+            ...defaultOptions,
+            ...options
+        });
+    };
+
     $(document).ready(function() {
         let currentPage = 1;
         let perPage = 20;
@@ -339,7 +375,7 @@
                 html += `
                 <tr>
                     <td>
-                        <small>${new Date(log.created_at).toLocaleString()}</small>
+                        <small>${formatDateTime(log.created_at)}</small>
                     </td>
                     <td>
                         <strong>${userName}</strong>
@@ -417,7 +453,7 @@
                 <div class="list-group-item list-group-item-action p-2">
                     <div class="d-flex w-100 justify-content-between">
                         <h6 class="mb-1">${formatAction(log.action)}</h6>
-                        <small>${new Date(log.created_at).toLocaleString()}</small>
+                        <small>${formatDateTime(log.created_at)}</small>
                     </div>
                     <p class="mb-1"><strong>${log.user?.name || 'System'}</strong></p>
                     <small>Target: ${formatTargetType(log.target_type)} ID: ${log.target_id || 'N/A'}</small>
@@ -509,7 +545,7 @@
                             <table class="table table-sm">
                                 <tr>
                                     <th>Timestamp:</th>
-                                    <td>${new Date(log.created_at).toLocaleString()}</td>
+                                    <td>${formatDateTime(log.created_at)}</td>
                                 </tr>
                                 <tr>
                                     <th>User:</th>

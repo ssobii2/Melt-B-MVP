@@ -30,7 +30,7 @@ class EntitlementSeeder extends Seeder
                 'dataset_id' => $datasets->where('name', 'like', '%Debrecen%')->where('data_type', 'thermal-raster')->first()?->id ?? 1,
                 'aoi_geom' => null,
                 'building_gids' => null,
-                'download_formats' => ['csv', 'json', 'geojson'],
+                'download_formats' => ['csv', 'geojson'],
                 'expires_at' => now()->addMonths(6),
             ],
 
@@ -58,7 +58,7 @@ class EntitlementSeeder extends Seeder
                 'dataset_id' => $datasets->where('name', 'like', '%Budapest%')->where('data_type', 'building-data')->first()?->id ?? 4,
                 'aoi_geom' => null,
                 'building_gids' => ['BLDG_001', 'BLDG_002', 'BLDG_003', 'BLDG_004', 'BLDG_005'],
-                'download_formats' => ['csv', 'json'],
+                'download_formats' => ['csv'],
                 'expires_at' => now()->addMonth(),
             ],
 
@@ -76,7 +76,7 @@ class EntitlementSeeder extends Seeder
                     ])
                 ]),
                 'building_gids' => null,
-                'download_formats' => ['json'],
+                'download_formats' => ['csv'],
                 'expires_at' => now()->addMonths(12),
             ],
 
@@ -114,7 +114,7 @@ class EntitlementSeeder extends Seeder
                 'dataset_id' => $datasets->where('name', 'like', '%Budapest%')->where('data_type', 'building-data')->first()?->id ?? 4,
                 'aoi_geom' => null,
                 'building_gids' => null,
-                'download_formats' => ['csv', 'json', 'geojson', 'excel', 'pdf'],
+                'download_formats' => ['csv', 'geojson', 'excel'],
                 'expires_at' => null, // Never expires
             ],
         ];
