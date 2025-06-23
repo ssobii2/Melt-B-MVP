@@ -1,12 +1,18 @@
-import { createInertiaApp } from "@inertiajs/react";
+import React from 'react';
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from "./contexts/AuthContext";
+import Router from "./components/Router";
 
-createInertiaApp({
-    resolve: (name) => {
-        const pages = import.meta.glob("./Pages/**/*.jsx", { eager: true });
-        return pages[`./Pages/${name}.jsx`];
-    },
-    setup({ el, App, props }) {
-        createRoot(el).render(<App {...props} />);
-    },
-});
+// Get the root element
+const el = document.getElementById('app');
+
+if (el) {
+    createRoot(el).render(
+        <BrowserRouter>
+            <AuthProvider>
+                <Router />
+            </AuthProvider>
+        </BrowserRouter>
+    );
+}

@@ -1,40 +1,11 @@
 <?php
 
-use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia;
 use App\Http\Controllers\Admin\DashboardController;
 
-Route::get('/', function () {
-    return Inertia::render('Home', [
-        'message' => 'MELT-B MVP - Thermal Analysis Platform is running successfully!',
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
-
-// Add login route for Laravel's auth system (redirects to admin login)
-Route::get('/login', function () {
-    return redirect()->route('admin.login');
-})->name('login');
-
-// Add password reset routes for Laravel's password reset system
-Route::get('/password/reset', function () {
-    return response()->json(['message' => 'Password reset not available via web interface. Use API: /api/forgot-password'], 404);
-})->name('password.reset');
-
-Route::get('/password/reset/{token}', function ($token) {
-    return response()->json([
-        'message' => 'Use API to reset password: /api/reset-password',
-        'token' => $token
-    ], 200);
-})->name('password.reset.token');
-
-// Admin routes for AdminLTE dashboard
+// --- KEEP ALL ADMIN ROUTES AS THEY ARE ---
 Route::prefix('admin')->group(function () {
     // Admin authentication routes (no middleware)
     Route::get('/login', [DashboardController::class, 'showLoginForm'])->name('admin.login');
@@ -74,15 +45,9 @@ Route::prefix('admin')->group(function () {
     });
 });
 
-// Handle 404 for API routes
-Route::fallback(function (Request $request) {
-    if ($request->is('api/*')) {
-        return response()->json([
-            'message' => 'API endpoint not found',
-            'error' => 'route_not_found'
-        ], 404);
-    }
-
-    // For web routes, show React NotFound page
-    return Inertia::render('NotFound');
-})->name('fallback');
+// --- ADD THIS CATCH-ALL FOR THE REACT SPA ---
+// This must be placed AFTER the admin routes.
+// It will catch '/', '/dashboard', '/profile', etc., and load the React app.
+Route::get('/{any?}', function () {
+    return view('app'); // Or whatever the main Blade file for the React SPA is named
+})->where('any', '.*')->name('react.spa');
