@@ -1,14 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import MapView from '../components/MapView';
 import ContextPanel from '../components/ContextPanel';
 import { useAuth } from '../contexts/AuthContext';
+import { apiClient } from '../utils/api';
 
 export default function Dashboard() {
     const { user } = useAuth();
     const [selectedBuilding, setSelectedBuilding] = useState(null);
     const [highlightedBuilding, setHighlightedBuilding] = useState(null);
+    const [buildingStats, setBuildingStats] = useState({
+        totalBuildings: '--',
+        highTliBuildings: '--',
+        totalCo2Savings: '--'
+    });
+
+    useEffect(() => {
+        const fetchBuildingStats = async () => {
+            try {
+                const response = await apiClient.get('/buildings', {
+                    params: {
+                        per_page: 1000,
+                        include_geometry: 0
+                    }
+                });
+                const buildings = response.data.data || [];
+                
+                // Calculate statistics
+                const totalBuildings = buildings.length;
+                const highTliBuildings = buildings.filter(b => b.thermal_loss_index_tli >= 80).length;
+                const totalCo2Savings = buildings.reduce((sum, b) => sum + (parseFloat(b.co2_savings_estimate) || 0), 0);
+                
+                setBuildingStats({
+                    totalBuildings: totalBuildings.toLocaleString(),
+                    highTliBuildings: highTliBuildings.toLocaleString(),
+                    totalCo2Savings: Math.round(totalCo2Savings || 0).toLocaleString()
+                });
+            } catch (error) {
+                console.error('Failed to fetch building statistics:', error);
+            }
+        };
+
+        fetchBuildingStats();
+    }, []);
 
     const handleBuildingClick = (building) => {
         setSelectedBuilding(building);
@@ -86,9 +121,10 @@ export default function Dashboard() {
             {/* Building Details and Quick Actions */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                    {selectedBuilding ? (
-                        <div className="bg-white overflow-hidden shadow rounded-lg h-full">
-                            <div className="px-4 py-5 sm:p-6 h-full">
+                    {/* Building Details - Shows on top when a building is selected */}
+                    {selectedBuilding && (
+                        <div className="bg-white overflow-hidden shadow rounded-lg mb-6">
+                            <div className="px-4 py-5 sm:p-6">
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-lg leading-6 font-medium text-gray-900">
                                         Building Details
@@ -145,33 +181,37 @@ export default function Dashboard() {
                                         </dl>
                                     </div>
                                 </div>
-                                
-                                <div className="mt-4 text-xs text-gray-500">
-                                    Click on the map to select different buildings
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="bg-white overflow-hidden shadow rounded-lg h-full">
-                            <div className="px-4 py-5 sm:p-6 h-full flex flex-col justify-center">
-                                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                    Building Selection
-                                </h3>
-                                <div className="text-center py-8">
-                                    <div className="text-4xl text-gray-400 mb-4">🏢</div>
-                                    <h4 className="text-lg font-medium text-gray-700 mb-2">Select a Building</h4>
-                                    <p className="text-sm text-gray-500">
-                                        Click on any building on the map or use the Building Explorer panel to view thermal analysis details
-                                    </p>
-                                </div>
                             </div>
                         </div>
                     )}
+
+                    {/* Building Data Overview - Always visible */}
+                    <div className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="px-4 py-5 sm:p-6">
+                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                                Building Data Overview
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-blue-600">{buildingStats.totalBuildings}</div>
+                                    <div className="text-sm text-gray-500">Total Buildings</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-orange-600">{buildingStats.highTliBuildings}</div>
+                                    <div className="text-sm text-gray-500">High TLI Buildings</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-green-600">{buildingStats.totalCo2Savings}</div>
+                                    <div className="text-sm text-gray-500">CO2 Savings Potential (kg)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="lg:col-span-1">
-                    <div className="bg-white overflow-hidden shadow rounded-lg h-full">
-                        <div className="px-4 py-5 sm:p-6 h-full flex flex-col">
+                    <div className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="px-4 py-5 sm:p-6 flex flex-col" style={{ minHeight: '16rem' }}>
                             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                                 Quick Actions
                             </h3>
