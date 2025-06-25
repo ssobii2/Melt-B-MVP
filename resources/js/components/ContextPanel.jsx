@@ -38,7 +38,8 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
                 page,
                 per_page: 10,
                 sort_by: 'thermal_loss_index_tli',
-                sort_order: 'desc'
+                sort_order: 'desc',
+                include_geometry: 1 // Include geometry for zooming functionality
             };
 
             if (searchTerm.trim()) {

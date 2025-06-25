@@ -11,6 +11,8 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
     const [datasets, setDatasets] = useState([]);
     const [selectedDataset, setSelectedDataset] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [allBuildings, setAllBuildings] = useState([]); // Store all accessible buildings
+    const [isZooming, setIsZooming] = useState(false); // Track zooming state
 
     // TLI color helper function
     const getTliColor = (tli) => {
@@ -20,67 +22,230 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
         return '#ef4444'; // red-500
     };
 
+    // Calculate optimal initial view based on building density
+    const calculateOptimalInitialView = (buildings) => {
+        if (!buildings || buildings.length === 0) {
+            return {
+                center: [21.6255, 47.5316], // Fallback
+                zoom: 13
+            };
+        }
+
+        if (buildings.length === 1) {
+            // If only one building, center on it
+            const building = buildings[0];
+            if (building.geometry) {
+                let center;
+                if (building.geometry.type === 'Polygon') {
+                    const coords = building.geometry.coordinates[0];
+                    if (coords && coords.length > 0) {
+                        let lon = 0, lat = 0;
+                        coords.forEach(coord => {
+                            lon += coord[0];
+                            lat += coord[1];
+                        });
+                        center = [lon / coords.length, lat / coords.length];
+                    }
+                } else if (building.geometry.type === 'Point') {
+                    center = building.geometry.coordinates;
+                }
+                if (center) {
+                    return { center, zoom: 15 };
+                }
+            }
+        }
+
+        // Extract coordinates from all buildings
+        const coordinates = [];
+        buildings.forEach(building => {
+            if (building.geometry) {
+                if (building.geometry.type === 'Polygon') {
+                    const coords = building.geometry.coordinates[0];
+                    if (coords && coords.length > 0) {
+                        let lon = 0, lat = 0;
+                        coords.forEach(coord => {
+                            lon += coord[0];
+                            lat += coord[1];
+                        });
+                        coordinates.push([lon / coords.length, lat / coords.length]);
+                    }
+                } else if (building.geometry.type === 'Point') {
+                    coordinates.push(building.geometry.coordinates);
+                }
+            }
+        });
+
+        if (coordinates.length === 0) {
+            return {
+                center: [21.6255, 47.5316], // Fallback
+                zoom: 13
+            };
+        }
+
+        // Find the area with highest building density within ~100m view
+        // Using a grid-based approach to find clusters
+        const gridSize = 0.001; // Roughly 100m at mid-latitudes
+        const clusters = {};
+
+        coordinates.forEach(coord => {
+            const gridX = Math.floor(coord[0] / gridSize);
+            const gridY = Math.floor(coord[1] / gridSize);
+            const key = `${gridX},${gridY}`;
+            
+            if (!clusters[key]) {
+                clusters[key] = {
+                    count: 0,
+                    centerX: gridX * gridSize + gridSize / 2,
+                    centerY: gridY * gridSize + gridSize / 2,
+                    buildings: []
+                };
+            }
+            clusters[key].count++;
+            clusters[key].buildings.push(coord);
+        });
+
+        // Find cluster with most buildings
+        let bestCluster = null;
+        let maxCount = 0;
+
+        Object.values(clusters).forEach(cluster => {
+            if (cluster.count > maxCount) {
+                maxCount = cluster.count;
+                bestCluster = cluster;
+            }
+        });
+
+        if (bestCluster) {
+            return {
+                center: [bestCluster.centerX, bestCluster.centerY],
+                zoom: 15 // Good zoom level for ~100m view
+            };
+        }
+
+        // Fallback to first building
+        return {
+            center: coordinates[0],
+            zoom: 15
+        };
+    };
+
+    // Fit map to bounds of all available buildings
+    const fitMapToBuildings = (buildings) => {
+        if (!map.current || !buildings || buildings.length === 0) return;
+        // Extract all coordinates
+        const coordinates = [];
+        buildings.forEach(building => {
+            if (building.geometry) {
+                if (building.geometry.type === 'Polygon') {
+                    const coords = building.geometry.coordinates[0];
+                    coords.forEach(coord => coordinates.push(coord));
+                } else if (building.geometry.type === 'Point') {
+                    coordinates.push(building.geometry.coordinates);
+                }
+            }
+        });
+        if (coordinates.length === 0) return;
+        // Calculate bounds
+        const lons = coordinates.map(c => c[0]);
+        const lats = coordinates.map(c => c[1]);
+        const sw = [Math.min(...lons), Math.min(...lats)];
+        const ne = [Math.max(...lons), Math.max(...lats)];
+        map.current.fitBounds([sw, ne], { padding: 60, duration: 1200 });
+    };
+
+    // Load all accessible buildings for initial view calculation
+    const loadAllAccessibleBuildings = async () => {
+        try {
+            const response = await apiClient.get('/buildings', {
+                params: {
+                    per_page: 1000, // Get more buildings for better distribution calculation
+                    include_geometry: 1
+                }
+            });
+            const buildings = response.data.data || [];
+            setAllBuildings(buildings);
+            return buildings;
+        } catch (error) {
+            console.error('Failed to load all buildings:', error);
+            return [];
+        }
+    };
+
     // Initialize map
     useEffect(() => {
         if (map.current) return; // Initialize map only once
 
-        map.current = new maplibregl.Map({
-            container: mapContainer.current,
-            style: {
-                version: 8,
-                sources: {
-                    'osm': {
-                        type: 'raster',
-                        tiles: [
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-                        ],
-                        tileSize: 256,
-                        attribution: '© OpenStreetMap contributors'
-                    }
-                },
-                layers: [
-                    {
-                        id: 'background',
-                        type: 'background',
-                        paint: {
-                            'background-color': '#f8f9fa'
+        const initializeMap = async () => {
+            // Load all buildings first to calculate optimal initial view
+            const allBuildings = await loadAllAccessibleBuildings();
+            const initialView = calculateOptimalInitialView(allBuildings);
+
+            map.current = new maplibregl.Map({
+                container: mapContainer.current,
+                style: {
+                    version: 8,
+                    sources: {
+                        'osm': {
+                            type: 'raster',
+                            tiles: [
+                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                            ],
+                            tileSize: 256,
+                            attribution: '© OpenStreetMap contributors'
                         }
                     },
-                    {
-                        id: 'osm',
-                        type: 'raster',
-                        source: 'osm',
-                        minzoom: 0,
-                        maxzoom: 22
-                    }
-                ]
-            },
-            center: [21.6255, 47.5316], // Debrecen, Hungary
-            zoom: 13,
-            maxZoom: 20,
-            attributionControl: false // Remove default attribution control
-        });
+                    layers: [
+                        {
+                            id: 'background',
+                            type: 'background',
+                            paint: {
+                                'background-color': '#f8f9fa'
+                            }
+                        },
+                        {
+                            id: 'osm',
+                            type: 'raster',
+                            source: 'osm',
+                            minzoom: 0,
+                            maxzoom: 22
+                        }
+                    ]
+                },
+                center: initialView.center,
+                zoom: initialView.zoom,
+                maxZoom: 20,
+                attributionControl: false // Remove default attribution control
+            });
 
-        // Add custom attribution control (collapsed by default)
-        map.current.addControl(new maplibregl.AttributionControl({
-            compact: true,
-            customAttribution: 'MapLibre',
-            collapsed: true
-        }));
+            // Add custom attribution control (collapsed by default)
+            map.current.addControl(new maplibregl.AttributionControl({
+                compact: true,
+                customAttribution: 'MapLibre',
+                collapsed: true
+            }));
 
-        // Add navigation control without zoom buttons
-        map.current.addControl(new maplibregl.NavigationControl({
-            showZoom: false,
-            showCompass: false
-        }), 'top-right');
+            // Add navigation control without zoom buttons
+            map.current.addControl(new maplibregl.NavigationControl({
+                showZoom: false,
+                showCompass: false
+            }), 'top-right');
 
-        // Add scale control
-        map.current.addControl(new maplibregl.ScaleControl(), 'bottom-left');
+            // Add scale control
+            map.current.addControl(new maplibregl.ScaleControl(), 'bottom-left');
 
-        map.current.on('load', () => {
-            setIsLoading(false);
-            loadInitialData();
-        });
+            map.current.on('load', () => {
+                setIsLoading(false);
+                loadInitialData();
+
+                // Add moveend handler here after map is loaded
+                const handleMoveEnd = () => {
+                    loadBuildingData();
+                };
+                map.current.on('moveend', handleMoveEnd);
+            });
+        };
+
+        initializeMap();
 
         // Cleanup function
         return () => {
@@ -90,6 +255,13 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
             }
         };
     }, []);
+
+    // Zoom to building when selectedBuilding changes
+    useEffect(() => {
+        if (selectedBuilding && map.current) {
+            zoomToBuilding(selectedBuilding);
+        }
+    }, [selectedBuilding]);
 
     // Load initial data when map is ready
     const loadInitialData = async () => {
@@ -117,7 +289,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
                 addThermalTileLayer(thermalDataset.id);
             }
 
-            // Load building footprint data
+            // Load building footprint data for current view
             loadBuildingData();
         } catch (error) {
             console.error('Failed to load initial map data:', error);
@@ -154,7 +326,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
         });
     };
 
-    // Load building footprint data
+    // Load building footprint data (bounds-based for performance)
     const loadBuildingData = async () => {
         try {
             // Get current map bounds for filtering
@@ -173,6 +345,14 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
 
             const buildings = response.data.data;
             setBuildingsData(buildings);
+            
+            // Update allBuildings with new data (merge to avoid duplicates)
+            setAllBuildings(prevAll => {
+                const existingGids = new Set(prevAll.map(b => b.gid));
+                const newBuildings = buildings.filter(b => !existingGids.has(b.gid));
+                return [...prevAll, ...newBuildings];
+            });
+            
             addBuildingLayer(buildings);
         } catch (error) {
             console.error('Failed to load building data:', error);
@@ -269,23 +449,6 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
         });
     };
 
-    // Reload building data when map moves
-    useEffect(() => {
-        if (!map.current) return;
-
-        const handleMoveEnd = () => {
-            loadBuildingData();
-        };
-
-        map.current.on('moveend', handleMoveEnd);
-
-        return () => {
-            if (map.current) {
-                map.current.off('moveend', handleMoveEnd);
-            }
-        };
-    }, []);
-
     // Highlight selected and hovered buildings
     useEffect(() => {
         if (!map.current) return;
@@ -353,6 +516,48 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
         }
     }, [selectedBuilding, highlightedBuilding, buildingsData]);
 
+    // Zoom to a specific building (slower animation)
+    const zoomToBuilding = (building) => {
+        if (!map.current || !building) return;
+        setIsZooming(true);
+        let center;
+        if (building.geometry) {
+            if (building.geometry.type === 'Polygon') {
+                const coords = building.geometry.coordinates[0];
+                if (coords && coords.length > 0) {
+                    let lon = 0, lat = 0;
+                    coords.forEach(coord => {
+                        lon += coord[0];
+                        lat += coord[1];
+                    });
+                    center = [lon / coords.length, lat / coords.length];
+                }
+            } else if (building.geometry.type === 'Point') {
+                center = building.geometry.coordinates;
+            }
+        } else {
+            const buildingWithGeometry = allBuildings.find(b => b.gid === building.gid) || 
+                                        buildingsData?.find(b => b.gid === building.gid);
+            if (buildingWithGeometry && buildingWithGeometry.geometry) {
+                setIsZooming(false);
+                return zoomToBuilding(buildingWithGeometry);
+            } else {
+                setIsZooming(false);
+                return;
+            }
+        }
+        if (center && center.length === 2 && !isNaN(center[0]) && !isNaN(center[1])) {
+            map.current.flyTo({
+                center: center,
+                zoom: 17,
+                duration: 2500 // Slower animation
+            });
+            setTimeout(() => setIsZooming(false), 2500);
+        } else {
+            setIsZooming(false);
+        }
+    };
+
     return (
         <div className="relative w-full h-full">
             {isLoading && (
@@ -360,6 +565,15 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
                     <div className="text-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
                         <p className="text-sm text-gray-600">Loading map...</p>
+                    </div>
+                </div>
+            )}
+            
+            {isZooming && (
+                <div className="absolute top-4 right-4 bg-blue-100 border border-blue-200 rounded-lg px-3 py-2 z-20">
+                    <div className="flex items-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span className="text-sm text-blue-700">Zooming to building...</span>
                     </div>
                 </div>
             )}
