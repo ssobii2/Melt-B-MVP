@@ -19,7 +19,7 @@ class UserSeeder extends Seeder
             [
                 'name' => 'System Administrator',
                 'email' => 'admin@melt-b.com',
-                'password' => Hash::make('admin123!'),
+                'password' => Hash::make('Abcd1234'),
                 'role' => 'admin',
                 'api_key' => Str::random(64),
                 'contact_info' => [
@@ -31,7 +31,7 @@ class UserSeeder extends Seeder
             [
                 'name' => 'Debrecen Municipality',
                 'email' => 'thermal@debrecen.hu',
-                'password' => Hash::make('municipality123!'),
+                'password' => Hash::make('Abcd1234'),
                 'role' => 'municipality',
                 'api_key' => Str::random(64),
                 'contact_info' => [
@@ -45,7 +45,7 @@ class UserSeeder extends Seeder
             [
                 'name' => 'Research Institute User',
                 'email' => 'researcher@university.hu',
-                'password' => Hash::make('researcher123!'),
+                'password' => Hash::make('Abcd1234'),
                 'role' => 'researcher',
                 'contact_info' => [
                     'organization' => 'University of Debrecen',
@@ -57,7 +57,7 @@ class UserSeeder extends Seeder
             [
                 'name' => 'Energy Contractor',
                 'email' => 'contractor@energytech.hu',
-                'password' => Hash::make('contractor123!'),
+                'password' => Hash::make('Abcd1234'),
                 'role' => 'contractor',
                 'api_key' => Str::random(64),
                 'contact_info' => [
@@ -70,7 +70,7 @@ class UserSeeder extends Seeder
             [
                 'name' => 'Test User',
                 'email' => 'user@test.com',
-                'password' => Hash::make('user123!'),
+                'password' => Hash::make('Abcd1234'),
                 'role' => 'user',
                 'contact_info' => null,
                 'email_verified_at' => now(),

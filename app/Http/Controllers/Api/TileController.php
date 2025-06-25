@@ -36,8 +36,19 @@ class TileController extends Controller
     public function serveTile(Request $request, string $datasetId, int $z, int $x, int $y)
     {
         try {
-            // Get authenticated user
+            // Get authenticated user - try multiple authentication methods
             $user = $request->user();
+            
+            // If no user from Sanctum middleware, try token from query parameter
+            if (!$user && $request->has('token')) {
+                $token = $request->input('token');
+                $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+                
+                if ($personalAccessToken && !$personalAccessToken->expires_at?->isPast()) {
+                    $user = $personalAccessToken->tokenable;
+                }
+            }
+            
             if (!$user) {
                 return response()->json(['message' => 'Unauthenticated'], 401);
             }
