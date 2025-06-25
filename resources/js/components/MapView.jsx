@@ -4,13 +4,21 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { apiClient } from '../utils/api';
 import Cookies from 'js-cookie';
 
-const MapView = ({ onBuildingClick, selectedBuilding }) => {
+const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => {
     const mapContainer = useRef(null);
     const map = useRef(null);
     const [buildingsData, setBuildingsData] = useState(null);
     const [datasets, setDatasets] = useState([]);
     const [selectedDataset, setSelectedDataset] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    // TLI color helper function
+    const getTliColor = (tli) => {
+        if (tli <= 30) return '#10b981'; // green-500
+        if (tli <= 60) return '#f59e0b'; // amber-500
+        if (tli <= 90) return '#f97316'; // orange-500
+        return '#ef4444'; // red-500
+    };
 
     // Initialize map
     useEffect(() => {
@@ -47,13 +55,24 @@ const MapView = ({ onBuildingClick, selectedBuilding }) => {
                     }
                 ]
             },
-            center: [21.6255, 47.5316], // Debrecen, Hungary (where test data is located)
+            center: [21.6255, 47.5316], // Debrecen, Hungary
             zoom: 13,
-            maxZoom: 20
+            maxZoom: 20,
+            attributionControl: false // Remove default attribution control
         });
 
-        // Add navigation controls
-        map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+        // Add custom attribution control (collapsed by default)
+        map.current.addControl(new maplibregl.AttributionControl({
+            compact: true,
+            customAttribution: 'MapLibre',
+            collapsed: true
+        }));
+
+        // Add navigation control without zoom buttons
+        map.current.addControl(new maplibregl.NavigationControl({
+            showZoom: false,
+            showCompass: false
+        }), 'top-right');
 
         // Add scale control
         map.current.addControl(new maplibregl.ScaleControl(), 'bottom-left');
@@ -267,42 +286,72 @@ const MapView = ({ onBuildingClick, selectedBuilding }) => {
         };
     }, []);
 
-    // Highlight selected building
+    // Highlight selected and hovered buildings
     useEffect(() => {
-        if (!map.current || !selectedBuilding) return;
+        if (!map.current) return;
 
-        // Remove existing highlight
-        if (map.current.getLayer('selected-building')) {
-            map.current.removeLayer('selected-building');
-        }
-        if (map.current.getSource('selected-building')) {
-            map.current.removeSource('selected-building');
+        // Remove existing highlights
+        ['selected-building', 'highlighted-building'].forEach(layerId => {
+            if (map.current.getLayer(layerId)) {
+                map.current.removeLayer(layerId);
+            }
+            if (map.current.getSource(layerId)) {
+                map.current.removeSource(layerId);
+            }
+        });
+
+        // Add highlight for selected building (red border)
+        if (selectedBuilding) {
+            const building = buildingsData?.find(b => b.gid === selectedBuilding.gid);
+            if (building && building.geometry) {
+                map.current.addSource('selected-building', {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        geometry: building.geometry,
+                        properties: building
+                    }
+                });
+
+                map.current.addLayer({
+                    id: 'selected-building',
+                    type: 'line',
+                    source: 'selected-building',
+                    paint: {
+                        'line-color': '#ff0000',
+                        'line-width': 3,
+                        'line-opacity': 1
+                    }
+                });
+            }
         }
 
-        // Add highlight for selected building
-        const building = buildingsData?.find(b => b.gid === selectedBuilding.gid);
-        if (building && building.geometry) {
-            map.current.addSource('selected-building', {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    geometry: building.geometry,
-                    properties: building
-                }
-            });
+        // Add highlight for hovered building (blue border)
+        if (highlightedBuilding && highlightedBuilding.gid !== selectedBuilding?.gid) {
+            const building = buildingsData?.find(b => b.gid === highlightedBuilding.gid);
+            if (building && building.geometry) {
+                map.current.addSource('highlighted-building', {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        geometry: building.geometry,
+                        properties: building
+                    }
+                });
 
-            map.current.addLayer({
-                id: 'selected-building',
-                type: 'line',
-                source: 'selected-building',
-                paint: {
-                    'line-color': '#ff0000',
-                    'line-width': 3,
-                    'line-opacity': 1
-                }
-            });
+                map.current.addLayer({
+                    id: 'highlighted-building',
+                    type: 'line',
+                    source: 'highlighted-building',
+                    paint: {
+                        'line-color': '#3b82f6',
+                        'line-width': 2,
+                        'line-opacity': 0.8
+                    }
+                });
+            }
         }
-    }, [selectedBuilding, buildingsData]);
+    }, [selectedBuilding, highlightedBuilding, buildingsData]);
 
     return (
         <div className="relative w-full h-full">
@@ -322,20 +371,24 @@ const MapView = ({ onBuildingClick, selectedBuilding }) => {
                 <h4 className="font-semibold mb-2">Thermal Loss Index (TLI)</h4>
                 <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 bg-green-500 rounded"></div>
-                        <span>Low (0-30)</span>
+                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#00ff00' }}></div>
+                        <span>Low (0-20)</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 bg-yellow-500 rounded"></div>
-                        <span>Medium (30-60)</span>
+                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#80ff00' }}></div>
+                        <span>Medium Low (20-40)</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 bg-orange-500 rounded"></div>
-                        <span>High (60-90)</span>
+                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#ffff00' }}></div>
+                        <span>Medium (40-60)</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 bg-red-500 rounded"></div>
-                        <span>Very High (90+)</span>
+                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#ff8000' }}></div>
+                        <span>Medium High (60-80)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#ff0000' }}></div>
+                        <span>High (80+)</span>
                     </div>
                 </div>
                 {selectedDataset && (
