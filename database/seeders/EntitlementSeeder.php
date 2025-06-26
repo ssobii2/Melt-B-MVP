@@ -3,126 +3,78 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\Entitlement;
 use App\Models\Dataset;
+use App\Models\Entitlement;
 use MatanYadaev\EloquentSpatial\Objects\Polygon;
-use MatanYadaev\EloquentSpatial\Objects\Point;
 use MatanYadaev\EloquentSpatial\Objects\LineString;
+use MatanYadaev\EloquentSpatial\Objects\Point;
 
 class EntitlementSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Entitlement Matrix – covers EVERY ABAC branch
+     * ----------------------------------------------------
+     *  City × Dataset × Entitlement type
+     *  – DS-ALL   : Full dataset (buildings)
+     *  – DS-AOI   : Polygon-restricted dataset access (buildings)
+     *  – DS-BLD   : Hand-picked building GIDs (buildings)
+     *  – TILES(A) : Polygon-restricted tile access (thermal_raster)
+     *  – TILES(G) : Global tile access (thermal_raster)
      */
     public function run(): void
     {
-        $datasets = Dataset::all();
+        Entitlement::truncate();
+        $datasets = Dataset::all()->keyBy('name');
 
-        if ($datasets->isEmpty()) {
-            $this->command->warn('No datasets found. Please run DatasetSeeder first.');
-            return;
-        }
+        $out = [];
 
-        $entitlements = [
-            // DS-ALL: Full access to Debrecen thermal raster dataset
-            [
-                'type' => 'DS-ALL',
-                'dataset_id' => $datasets->where('name', 'like', '%Debrecen%')->where('data_type', 'thermal-raster')->first()?->id ?? 1,
-                'aoi_geom' => null,
-                'building_gids' => null,
-                'download_formats' => ['csv', 'geojson'],
-                'expires_at' => now()->addMonths(6),
-            ],
+        // Helper closures ---------------------------------------------------
+        $squareAOI = function(float $lat, float $lon, float $size) {
+            $half = $size/2;
+            $sw = new Point($lat-$half, $lon-$half);
+            $se = new Point($lat-$half, $lon+$half);
+            $ne = new Point($lat+$half, $lon+$half);
+            $nw = new Point($lat+$half, $lon-$half);
+            return new Polygon([ new LineString([$sw,$se,$ne,$nw,$sw]) ]);
+        };
 
-            // DS-AOI: Area of Interest for Debrecen city center
-            [
-                'type' => 'DS-AOI',
-                'dataset_id' => $datasets->where('name', 'like', '%Debrecen%')->where('data_type', 'building-data')->first()?->id ?? 2,
-                'aoi_geom' => new Polygon([
-                    new LineString([
-                        new Point(47.5316, 21.6273), // Debrecen city center polygon
-                        new Point(47.5316, 21.6373),
-                        new Point(47.5416, 21.6373),
-                        new Point(47.5416, 21.6273),
-                        new Point(47.5316, 21.6273), // Close the polygon
-                    ])
-                ]),
-                'building_gids' => null,
-                'download_formats' => ['csv', 'geojson'],
-                'expires_at' => now()->addMonths(3),
-            ],
+        // ───── Debrecen ───────────────────────────────────────────────────
+        $debBld = $datasets['Building Data 2024-Q4 Debrecen']->id;
+        $debTil = $datasets['Thermal Raster 2024-Q4 Debrecen']->id;
 
-            // DS-BLD: Specific buildings access
-            [
-                'type' => 'DS-BLD',
-                'dataset_id' => $datasets->where('name', 'like', '%Budapest%')->where('data_type', 'building-data')->first()?->id ?? 4,
-                'aoi_geom' => null,
-                'building_gids' => ['BLDG_001', 'BLDG_002', 'BLDG_003', 'BLDG_004', 'BLDG_005'],
-                'download_formats' => ['csv'],
-                'expires_at' => now()->addMonth(),
-            ],
+        // DS-ALL – full building dataset
+        $out[] = [ 'type'=>'DS-ALL', 'dataset_id'=>$debBld, 'aoi_geom'=>null, 'building_gids'=>null, 'download_formats'=>['csv','geojson'], 'expires_at'=>now()->addYear() ];
 
-            // TILES: Map tiles access for Budapest
-            [
-                'type' => 'TILES',
-                'dataset_id' => $datasets->where('name', 'like', '%Budapest%')->where('data_type', 'thermal-raster')->first()?->id ?? 3,
-                'aoi_geom' => new Polygon([
-                    new LineString([
-                        new Point(47.4979, 19.0402), // Budapest District V area
-                        new Point(47.4979, 19.0502),
-                        new Point(47.5079, 19.0502),
-                        new Point(47.5079, 19.0402),
-                        new Point(47.4979, 19.0402), // Close the polygon
-                    ])
-                ]),
-                'building_gids' => null,
-                'download_formats' => ['csv'],
-                'expires_at' => now()->addMonths(12),
-            ],
+        // DS-AOI – small downtown polygon
+        $out[] = [ 'type'=>'DS-AOI', 'dataset_id'=>$debBld, 'aoi_geom'=>$squareAOI(47.5335,21.6295,0.002), 'building_gids'=>null,'download_formats'=>['csv'], 'expires_at'=>now()->addMonths(6) ];
 
-            // DS-AOI: Larger area for testing
-            [
-                'type' => 'DS-AOI',
-                'dataset_id' => $datasets->where('name', 'like', '%Debrecen%')->where('data_type', 'building-data')->first()?->id ?? 2,
-                'aoi_geom' => new Polygon([
-                    new LineString([
-                        new Point(47.5200, 21.6200), // Larger Debrecen area
-                        new Point(47.5200, 21.6500),
-                        new Point(47.5500, 21.6500),
-                        new Point(47.5500, 21.6200),
-                        new Point(47.5200, 21.6200), // Close the polygon
-                    ])
-                ]),
-                'building_gids' => null,
-                'download_formats' => ['csv', 'geojson', 'excel'],
-                'expires_at' => now()->addYears(2),
-            ],
+        // DS-BLD – two specific buildings (Low + High TLI)
+        $out[] = [ 'type'=>'DS-BLD', 'dataset_id'=>$debBld, 'aoi_geom'=>null, 'building_gids'=>['DEB_001','DEB_004'], 'download_formats'=>['csv'], 'expires_at'=>now()->addMonths(3) ];
 
-            // Expired entitlement for testing
-            [
-                'type' => 'DS-BLD',
-                'dataset_id' => $datasets->first()->id,
-                'aoi_geom' => null,
-                'building_gids' => ['EXPIRED_001', 'EXPIRED_002'],
-                'download_formats' => ['csv'],
-                'expires_at' => now()->subDays(30), // Expired 30 days ago
-            ],
+        // TILES(A) – AOI-restricted tiles – matches DS-AOI polygon
+        $out[] = [ 'type'=>'TILES', 'dataset_id'=>$debTil, 'aoi_geom'=>$squareAOI(47.5335,21.6295,0.01), 'building_gids'=>null,'download_formats'=>null,'expires_at'=>now()->addYear() ];
 
-            // Another DS-ALL for testing overlapping entitlements
-            [
-                'type' => 'DS-ALL',
-                'dataset_id' => $datasets->where('name', 'like', '%Budapest%')->where('data_type', 'building-data')->first()?->id ?? 4,
-                'aoi_geom' => null,
-                'building_gids' => null,
-                'download_formats' => ['csv', 'geojson', 'excel'],
-                'expires_at' => null, // Never expires
-            ],
-        ];
+        // TILES(G) – global full-coverage tiles for demo
+        $out[] = [ 'type'=>'TILES', 'dataset_id'=>$debTil, 'aoi_geom'=>null, 'building_gids'=>null,'download_formats'=>null,'expires_at'=>now()->addYear() ];
 
-        foreach ($entitlements as $entitlementData) {
-            Entitlement::create($entitlementData);
-        }
+        // ───── Budapest ──────────────────────────────────────────────────
+        $budBld = $datasets['Building Data 2024-Q3 Budapest District V']->id;
+        $budTil = $datasets['Thermal Raster 2024-Q3 Budapest District V']->id;
 
-        $this->command->info('✅ Created ' . count($entitlements) . ' entitlements with various types and spatial data');
+        $out[] = [ 'type'=>'DS-ALL', 'dataset_id'=>$budBld, 'aoi_geom'=>null, 'building_gids'=>null, 'download_formats'=>['csv','geojson'], 'expires_at'=>null ]; // never expires
+        $out[] = [ 'type'=>'DS-AOI', 'dataset_id'=>$budBld, 'aoi_geom'=>$squareAOI(47.4980,19.0410,0.002), 'building_gids'=>null, 'download_formats'=>['csv'], 'expires_at'=>now()->addMonths(4) ];
+        $out[] = [ 'type'=>'DS-BLD', 'dataset_id'=>$budBld, 'aoi_geom'=>null, 'building_gids'=>['BUD_002','BUD_003'], 'download_formats'=>['csv'], 'expires_at'=>now()->addMonth() ];
+        $out[] = [ 'type'=>'TILES', 'dataset_id'=>$budTil, 'aoi_geom'=>null, 'building_gids'=>null, 'download_formats'=>null, 'expires_at'=>now()->addYear() ];
+
+        // ───── Copenhagen – ONLY AOI + TILES(A) to test denial elsewhere ──
+        $cphBld = $datasets['Building Data 2023-Q4 Copenhagen']->id;
+        $cphTil = $datasets['Thermal Raster 2023-Q4 Copenhagen']->id;
+
+        $out[] = [ 'type'=>'DS-AOI', 'dataset_id'=>$cphBld, 'aoi_geom'=>$squareAOI(55.6765,12.5680,0.003), 'building_gids'=>null, 'download_formats'=>['csv'], 'expires_at'=>now()->addMonths(2) ];
+        $out[] = [ 'type'=>'TILES', 'dataset_id'=>$cphTil, 'aoi_geom'=>$squareAOI(55.6765,12.5680,0.02), 'building_gids'=>null, 'download_formats'=>null, 'expires_at'=>now()->addMonths(2) ];
+
+        foreach ($out as $row) { Entitlement::create($row); }
+
+        $this->command->info('🔑 Seeded '.count($out).' entitlement scenarios covering all ABAC branches');
     }
 }

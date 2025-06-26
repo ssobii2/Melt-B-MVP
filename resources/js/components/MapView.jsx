@@ -277,9 +277,11 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
                     dataset && self.findIndex(d => d.id === dataset.id) === index
                 );
             
+            // Sort by id to ensure consistent order (older datasets first)
+            availableDatasets.sort((a,b) => a.id - b.id);
             setDatasets(availableDatasets);
 
-            // Find a thermal raster dataset for tile layer
+            // Find a thermal raster dataset for tile layer (pick first)
             const thermalDataset = availableDatasets.find(d => 
                 d.data_type === 'thermal_raster' || d.data_type === 'thermal_rasters'
             );
@@ -287,6 +289,12 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
             if (thermalDataset) {
                 setSelectedDataset(thermalDataset);
                 addThermalTileLayer(thermalDataset.id);
+            }
+
+            // If user has no building access, but dataset has bbox metadata, fit map to that
+            if (allBuildings.length === 0 && thermalDataset?.metadata?.bbox) {
+                const [minLon, minLat, maxLon, maxLat] = thermalDataset.metadata.bbox;
+                map.current.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 60, duration: 1000 });
             }
 
             // Load building footprint data for current view

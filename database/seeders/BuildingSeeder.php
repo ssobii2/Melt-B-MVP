@@ -6,215 +6,219 @@ use Illuminate\Database\Seeder;
 use App\Models\Building;
 use App\Models\Dataset;
 use MatanYadaev\EloquentSpatial\Objects\Polygon;
-use MatanYadaev\EloquentSpatial\Objects\Point;
 use MatanYadaev\EloquentSpatial\Objects\LineString;
+use MatanYadaev\EloquentSpatial\Objects\Point;
 
 class BuildingSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * The goal is **not** to flood the DB with thousands of rows – we only need
+     * a handful of footprints that let us verify every ABAC variant.
+     *
+     *  • 3 × cities × 4 buildings  = 12 rows total.
+     *  • Building GIDs are unique across datasets so DS-BLD can target them.
+     *  • TLI values cover low-to-very-high ranges (green→red legend).
      */
     public function run(): void
     {
-        $datasets = Dataset::all();
+        Building::truncate();
 
-        if ($datasets->isEmpty()) {
-            $this->command->warn('No datasets found. Please run DatasetSeeder first.');
-            return;
-        }
+        $datasets = Dataset::all()->keyBy('name');
 
-        $buildingData = [
-            // Buildings in Debrecen city center (within DS-AOI polygon)
+        $records = [
+            // ───────────────── Debrecen (approx 47.533 N, 21.63 E) ─────────────────
             [
-                'gid' => 'DEB_CTR_001',
-                'geometry' => new Polygon([
-                    new LineString([
-                        new Point(47.5320, 21.6280),
-                        new Point(47.5320, 21.6285),
-                        new Point(47.5325, 21.6285),
-                        new Point(47.5325, 21.6280),
-                        new Point(47.5320, 21.6280),
-                    ])
-                ]),
-                'thermal_loss_index_tli' => 85,
+                'gid' => 'DEB_001',
+                'thermal_loss_index_tli' => 15, // Low
                 'building_type_classification' => 'residential',
-                'co2_savings_estimate' => 2500.50,
-                'address' => 'Debrecen City Center, Building 1',
-                'owner_operator_details' => 'Municipal Housing Authority',
-                'cadastral_reference' => 'DEB-001-2024',
-                'dataset_id' => $datasets->where('name', 'like', '%Debrecen%')->where('data_type', 'building-data')->first()?->id ?? 2,
-                'last_analyzed_at' => now()->subDays(5),
-                'before_renovation_tli' => 85,
-                'after_renovation_tli' => 35,
+                'geometry' => $this->rect(47.5330, 21.6290, 0.0005),
+                'dataset_id' => $datasets['Building Data 2024-Q4 Debrecen']->id,
+                'last_analyzed_at' => now(),
+                'address' => '123 Main St, Debrecen',
+                'co2_savings_estimate' => 100,
+                'cadastral_reference' => '123456789',
+                'owner_operator_details' => 'John Doe',
+                'renovation_tli' => 10,
             ],
             [
-                'gid' => 'DEB_CTR_002',
-                'geometry' => new Polygon([
-                    new LineString([
-                        new Point(47.5330, 21.6290),
-                        new Point(47.5330, 21.6295),
-                        new Point(47.5335, 21.6295),
-                        new Point(47.5335, 21.6290),
-                        new Point(47.5330, 21.6290),
-                    ])
-                ]),
-                'thermal_loss_index_tli' => 72,
+                'gid' => 'DEB_002',
+                'thermal_loss_index_tli' => 45, // Medium
                 'building_type_classification' => 'commercial',
-                'co2_savings_estimate' => 1800.75,
-                'address' => 'Debrecen City Center, Building 2',
-                'owner_operator_details' => 'Local Business District',
-                'cadastral_reference' => 'DEB-002-2024',
-                'dataset_id' => $datasets->where('name', 'like', '%Debrecen%')->where('data_type', 'building-data')->first()?->id ?? 2,
-                'last_analyzed_at' => now()->subDays(3),
-                'before_renovation_tli' => 72,
-                'after_renovation_tli' => 28,
+                'geometry' => $this->rect(47.5335, 21.6295, 0.0005),
+                'dataset_id' => $datasets['Building Data 2024-Q4 Debrecen']->id,
+                'last_analyzed_at' => now(),
+                'address' => '456 Elm St, Debrecen',
+                'co2_savings_estimate' => 200,
+                'cadastral_reference' => '987654321',
+                'owner_operator_details' => 'Jane Smith',
+                'renovation_tli' => 20,
+            ],
+            [
+                'gid' => 'DEB_003',
+                'thermal_loss_index_tli' => 70, // Medium-High
+                'building_type_classification' => 'public',
+                'geometry' => $this->rect(47.5340, 21.6300, 0.0005),
+                'dataset_id' => $datasets['Building Data 2024-Q4 Debrecen']->id,
+                'last_analyzed_at' => now(),
+                'address' => '789 Oak St, Debrecen',
+                'co2_savings_estimate' => 300,
+                'cadastral_reference' => '567890123',
+                'owner_operator_details' => 'Bob Johnson',
+                'renovation_tli' => 30,
+            ],
+            [
+                'gid' => 'DEB_004',
+                'thermal_loss_index_tli' => 92, // Very High
+                'building_type_classification' => 'public',
+                'geometry' => $this->rect(47.5345, 21.6305, 0.0005),
+                'dataset_id' => $datasets['Building Data 2024-Q4 Debrecen']->id,
+                'last_analyzed_at' => now(),
+                'address' => '101 Pine St, Debrecen',
+                'co2_savings_estimate' => 400,
+                'cadastral_reference' => '345678901',
+                'owner_operator_details' => 'Alice Brown',
+                'renovation_tli' => 40,
             ],
 
-            // Buildings outside Debrecen city center (not in DS-AOI)
+            // ───────────────── Budapest district V (47.4979 N, 19.0402 E) ─────────────────
             [
-                'gid' => 'DEB_OUT_001',
-                'geometry' => new Polygon([
-                    new LineString([
-                        new Point(47.5600, 21.6600),
-                        new Point(47.5600, 21.6605),
-                        new Point(47.5605, 21.6605),
-                        new Point(47.5605, 21.6600),
-                        new Point(47.5600, 21.6600),
-                    ])
-                ]),
-                'thermal_loss_index_tli' => 45,
-                'building_type_classification' => 'industrial',
-                'co2_savings_estimate' => 5200.25,
-                'address' => 'Debrecen Outskirts, Industrial Building',
-                'owner_operator_details' => 'Manufacturing Corp',
-                'cadastral_reference' => 'DEB-OUT-001-2024',
-                'dataset_id' => $datasets->where('name', 'like', '%Debrecen%')->where('data_type', 'building-data')->first()?->id ?? 2,
-                'last_analyzed_at' => now()->subDays(7),
-                'before_renovation_tli' => 45,
-                'after_renovation_tli' => 15,
-            ],
-
-            // Specific buildings for DS-BLD testing (Budapest)
-            [
-                'gid' => 'BLDG_001',
-                'geometry' => new Polygon([
-                    new LineString([
-                        new Point(47.5000, 19.0450),
-                        new Point(47.5000, 19.0455),
-                        new Point(47.5005, 19.0455),
-                        new Point(47.5005, 19.0450),
-                        new Point(47.5000, 19.0450),
-                    ])
-                ]),
-                'thermal_loss_index_tli' => 90,
-                'building_type_classification' => 'residential',
-                'co2_savings_estimate' => 3200.00,
-                'address' => 'Budapest District V, Historic Building 1',
-                'owner_operator_details' => 'Heritage Foundation',
-                'cadastral_reference' => 'BUD-V-001-2024',
-                'dataset_id' => $datasets->where('name', 'like', '%Budapest%')->where('data_type', 'building-data')->first()?->id ?? 4,
-                'last_analyzed_at' => now()->subDays(2),
-                'before_renovation_tli' => 90,
-                'after_renovation_tli' => 40,
-            ],
-            [
-                'gid' => 'BLDG_002',
-                'geometry' => new Polygon([
-                    new LineString([
-                        new Point(47.5010, 19.0460),
-                        new Point(47.5010, 19.0465),
-                        new Point(47.5015, 19.0465),
-                        new Point(47.5015, 19.0460),
-                        new Point(47.5010, 19.0460),
-                    ])
-                ]),
-                'thermal_loss_index_tli' => 78,
+                'gid' => 'BUD_001',
+                'thermal_loss_index_tli' => 22,
                 'building_type_classification' => 'commercial',
-                'co2_savings_estimate' => 2100.50,
-                'address' => 'Budapest District V, Historic Building 2',
-                'owner_operator_details' => 'Commercial District Management',
-                'cadastral_reference' => 'BUD-V-002-2024',
-                'dataset_id' => $datasets->where('name', 'like', '%Budapest%')->where('data_type', 'building-data')->first()?->id ?? 4,
-                'last_analyzed_at' => now()->subDays(4),
-                'before_renovation_tli' => 78,
-                'after_renovation_tli' => 30,
+                'geometry' => $this->rect(47.4975, 19.0400, 0.0004),
+                'dataset_id' => $datasets['Building Data 2024-Q3 Budapest District V']->id,
+                'last_analyzed_at' => now(),
+                'address' => '123 Main St, Budapest',
+                'co2_savings_estimate' => 500,
+                'cadastral_reference' => '123456789',
+                'owner_operator_details' => 'John Doe',
+                'renovation_tli' => 50,
             ],
             [
-                'gid' => 'BLDG_003',
-                'geometry' => new Polygon([
-                    new LineString([
-                        new Point(47.5020, 19.0470),
-                        new Point(47.5020, 19.0475),
-                        new Point(47.5025, 19.0475),
-                        new Point(47.5025, 19.0470),
-                        new Point(47.5020, 19.0470),
-                    ])
-                ]),
-                'thermal_loss_index_tli' => 65,
-                'building_type_classification' => 'residential',
-                'co2_savings_estimate' => 1900.25,
-                'address' => 'Budapest District V, Historic Building 3',
-                'owner_operator_details' => 'Residential Housing Co-op',
-                'cadastral_reference' => 'BUD-V-003-2024',
-                'dataset_id' => $datasets->where('name', 'like', '%Budapest%')->where('data_type', 'building-data')->first()?->id ?? 4,
-                'last_analyzed_at' => now()->subDays(1),
-                'before_renovation_tli' => 65,
-                'after_renovation_tli' => 25,
-            ],
-
-            // Buildings not in any specific entitlement
-            [
-                'gid' => 'NO_ACCESS_001',
-                'geometry' => new Polygon([
-                    new LineString([
-                        new Point(47.4000, 19.0000),
-                        new Point(47.4000, 19.0005),
-                        new Point(47.4005, 19.0005),
-                        new Point(47.4005, 19.0000),
-                        new Point(47.4000, 19.0000),
-                    ])
-                ]),
+                'gid' => 'BUD_002',
                 'thermal_loss_index_tli' => 55,
+                'building_type_classification' => 'public',
+                'geometry' => $this->rect(47.4980, 19.0410, 0.0004),
+                'dataset_id' => $datasets['Building Data 2024-Q3 Budapest District V']->id,
+                'last_analyzed_at' => now(),
+                'address' => '456 Elm St, Budapest',
+                'co2_savings_estimate' => 600,
+                'cadastral_reference' => '987654321',
+                'owner_operator_details' => 'Jane Smith',
+                'renovation_tli' => 60,
+            ],
+            [
+                'gid' => 'BUD_003',
+                'thermal_loss_index_tli' => 78,
+                'building_type_classification' => 'public',
+                'geometry' => $this->rect(47.4985, 19.0415, 0.0004),
+                'dataset_id' => $datasets['Building Data 2024-Q3 Budapest District V']->id,
+                'last_analyzed_at' => now(),
+                'address' => '789 Oak St, Budapest',
+                'co2_savings_estimate' => 700,
+                'cadastral_reference' => '567890123',
+                'owner_operator_details' => 'Bob Johnson',
+                'renovation_tli' => 70,
+            ],
+            [
+                'gid' => 'BUD_004',
+                'thermal_loss_index_tli' => 95,
                 'building_type_classification' => 'industrial',
-                'co2_savings_estimate' => 4500.00,
-                'address' => 'Remote Location, No Access Building',
-                'owner_operator_details' => 'Private Company',
-                'cadastral_reference' => 'REMOTE-001-2024',
-                'dataset_id' => $datasets->where('name', 'like', '%Budapest%')->where('data_type', 'building-data')->first()?->id ?? 4,
-                'last_analyzed_at' => now()->subDays(10),
-                'before_renovation_tli' => 55,
-                'after_renovation_tli' => 20,
+                'geometry' => $this->rect(47.4990, 19.0420, 0.0004),
+                'dataset_id' => $datasets['Building Data 2024-Q3 Budapest District V']->id,
+                'last_analyzed_at' => now(),
+                'address' => '101 Pine St, Budapest',
+                'co2_savings_estimate' => 800,
+                'cadastral_reference' => '345678901',
+                'owner_operator_details' => 'Alice Brown',
+                'renovation_tli' => 80,
             ],
 
-            // Buildings in larger Debrecen area (for testing larger DS-AOI)
+            // ───────────────── Copenhagen (55.676 N, 12.568 E) ─────────────────
             [
-                'gid' => 'DEB_LARGE_001',
-                'geometry' => new Polygon([
-                    new LineString([
-                        new Point(47.5300, 21.6300),
-                        new Point(47.5300, 21.6305),
-                        new Point(47.5305, 21.6305),
-                        new Point(47.5305, 21.6300),
-                        new Point(47.5300, 21.6300),
-                    ])
-                ]),
-                'thermal_loss_index_tli' => 38,
+                'gid' => 'CPH_001',
+                'thermal_loss_index_tli' => 28,
                 'building_type_classification' => 'residential',
-                'co2_savings_estimate' => 1200.00,
-                'address' => 'Debrecen Extended Area, Building 1',
-                'owner_operator_details' => 'Suburban Development',
-                'cadastral_reference' => 'DEB-EXT-001-2024',
-                'dataset_id' => $datasets->where('name', 'like', '%Debrecen%')->where('data_type', 'building-data')->first()?->id ?? 2,
-                'last_analyzed_at' => now()->subDays(6),
-                'before_renovation_tli' => 38,
-                'after_renovation_tli' => 12,
+                'geometry' => $this->rect(55.6760, 12.5675, 0.0006),
+                'dataset_id' => $datasets['Building Data 2023-Q4 Copenhagen']->id,
+                'last_analyzed_at' => now(),
+                'address' => '123 Main St, Copenhagen',
+                'co2_savings_estimate' => 900,
+                'cadastral_reference' => '123456789',
+                'owner_operator_details' => 'John Doe',
+                'renovation_tli' => 90,
+            ],
+            [
+                'gid' => 'CPH_002',
+                'thermal_loss_index_tli' => 48,
+                'building_type_classification' => 'residential',
+                'geometry' => $this->rect(55.6765, 12.5680, 0.0006),
+                'dataset_id' => $datasets['Building Data 2023-Q4 Copenhagen']->id,
+                'last_analyzed_at' => now(),
+                'address' => '456 Elm St, Copenhagen',
+                'co2_savings_estimate' => 1000,
+                'cadastral_reference' => '987654321',
+                'owner_operator_details' => 'Jane Smith',
+                'renovation_tli' => 100,
+            ],
+            [
+                'gid' => 'CPH_003',
+                'thermal_loss_index_tli' => 66,
+                'building_type_classification' => 'commercial',
+                'geometry' => $this->rect(55.6770, 12.5685, 0.0006),
+                'dataset_id' => $datasets['Building Data 2023-Q4 Copenhagen']->id,
+                'last_analyzed_at' => now(),
+                'address' => '789 Oak St, Copenhagen',
+                'co2_savings_estimate' => 1100,
+                'cadastral_reference' => '567890123',
+                'owner_operator_details' => 'Bob Johnson',
+                'renovation_tli' => 110,
+            ],
+            [
+                'gid' => 'CPH_004',
+                'thermal_loss_index_tli' => 88,
+                'building_type_classification' => 'public',
+                'geometry' => $this->rect(55.6775, 12.5690, 0.0006),
+                'dataset_id' => $datasets['Building Data 2023-Q4 Copenhagen']->id,
+                'last_analyzed_at' => now(),
+                'address' => '101 Pine St, Copenhagen',
+                'co2_savings_estimate' => 1200,
+                'cadastral_reference' => '345678901',
+                'owner_operator_details' => 'Alice Brown',
+                'renovation_tli' => 120,
             ],
         ];
 
-        foreach ($buildingData as $building) {
-            Building::create($building);
+        foreach ($records as &$r) {
+            $r['co2_savings_estimate'] = $r['co2_savings_estimate'] ?? rand(100,1200);
+            $r['address'] = $r['address'] ?? 'Sample address';
+            $r['cadastral_reference'] = $r['cadastral_reference'] ?? $r['gid'].'-CAD';
+            $r['owner_operator_details'] = $r['owner_operator_details'] ?? 'Synthetic owner';
+            $baseTli = $r['thermal_loss_index_tli'];
+            $r['before_renovation_tli'] = $baseTli + rand(5,25);
+            $r['after_renovation_tli']  = max(0, $baseTli - rand(5,25));
+            // Remove deprecated key that no longer exists in the schema
+            unset($r['renovation_tli']);
         }
 
-        $this->command->info('✅ Created ' . count($buildingData) . ' buildings with spatial geometries for ABAC testing');
+        foreach ($records as $rec) {
+            Building::create($rec);
+        }
+
+        $this->command->info('🏢 Seeded '.count($records).' synthetic building records');
+    }
+
+    private function rect(float $lat, float $lon, float $size): Polygon
+    {
+        // Helper returns a square Polygon centred at (lat,lon)
+        $half = $size / 2;
+        $sw = new Point($lat - $half, $lon - $half);
+        $se = new Point($lat - $half, $lon + $half);
+        $ne = new Point($lat + $half, $lon + $half);
+        $nw = new Point($lat + $half, $lon - $half);
+
+        return new Polygon([
+            new LineString([$sw, $se, $ne, $nw, $sw])
+        ]);
     }
 }

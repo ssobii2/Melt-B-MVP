@@ -36,17 +36,30 @@ class TileController extends Controller
     public function serveTile(Request $request, string $datasetId, int $z, int $x, int $y)
     {
         try {
-            // Get authenticated user - try multiple authentication methods
-            $user = $request->user();
-            
-            // If no user from Sanctum middleware, try token from query parameter
+            // Manually authenticate user – bearer token or ?token query param
+            $user = null;
+
+            // 1. Bearer token header
+            $bearerToken = $request->bearerToken();
+            if ($bearerToken) {
+                $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($bearerToken);
+                if ($personalAccessToken && (!$personalAccessToken->expires_at || !$personalAccessToken->expires_at->isPast())) {
+                    $user = $personalAccessToken->tokenable;
+                }
+            }
+
+            // 2. Query-string token (?token=...)
             if (!$user && $request->has('token')) {
                 $token = $request->input('token');
                 $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
-                
-                if ($personalAccessToken && !$personalAccessToken->expires_at?->isPast()) {
+                if ($personalAccessToken && (!$personalAccessToken->expires_at || !$personalAccessToken->expires_at->isPast())) {
                     $user = $personalAccessToken->tokenable;
                 }
+            }
+
+            // 3. If request originated from authenticated session (unlikely for SPA) fallback
+            if (!$user) {
+                $user = $request->user();
             }
             
             if (!$user) {
@@ -132,13 +145,13 @@ class TileController extends Controller
         $latMax = rad2deg($latRadMax);
 
         // Create polygon representing tile bounding box (counter-clockwise)
-        // Note: Point constructor expects (longitude, latitude) order
+        // The Point constructor expects (latitude, longitude) order.
         $points = [
-            new Point($lonMin, $latMin), // SW
-            new Point($lonMax, $latMin), // SE  
-            new Point($lonMax, $latMax), // NE
-            new Point($lonMin, $latMax), // NW
-            new Point($lonMin, $latMin)  // Close polygon
+            new Point($latMin, $lonMin), // SW
+            new Point($latMin, $lonMax), // SE  
+            new Point($latMax, $lonMax), // NE
+            new Point($latMax, $lonMin), // NW
+            new Point($latMin, $lonMin)  // Close polygon
         ];
 
         return new Polygon([new LineString($points)]);
@@ -154,31 +167,47 @@ class TileController extends Controller
      */
     protected function checkTileAccess($user, string $datasetId, Polygon $tileBbox): bool
     {
-        // Get user's active TILES entitlements
-        $tilesEntitlements = $user->entitlements()
-            ->where('type', 'TILES')
-            ->where('dataset_id', $datasetId)
+        // Retrieve all active entitlements for this dataset relevant to tiles
+        $entitlements = $user->entitlements()
+            ->where(function ($query) use ($datasetId) {
+                $query->where(function ($q) use ($datasetId) {
+                    $q->where('type', 'TILES')
+                      ->where('dataset_id', $datasetId);
+                })
+                ->orWhere(function ($q) use ($datasetId) {
+                    // DS-ALL also gives full dataset access including tiles
+                    $q->where('type', 'DS-ALL')
+                      ->where('dataset_id', $datasetId);
+                });
+            })
             ->where(function ($query) {
                 $query->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now());
             })
             ->get();
 
-        // If no TILES entitlements, deny access
-        if ($tilesEntitlements->isEmpty()) {
-            return false;
+        if ($entitlements->isEmpty()) {
+            return false; // No relevant entitlements at all
         }
 
-        // Check if any TILES entitlement AOI intersects with tile bounding box
-        foreach ($tilesEntitlements as $entitlement) {
+        foreach ($entitlements as $entitlement) {
+            // DS-ALL has no AOI restriction -> automatic access
+            if ($entitlement->type === 'DS-ALL') {
+                return true;
+            }
+
+            // TILES with null aoi_geom means full dataset coverage
+            if ($entitlement->type === 'TILES' && is_null($entitlement->aoi_geom)) {
+                return true;
+            }
+
+            // Otherwise need spatial intersection check
             if ($entitlement->aoi_geom) {
-                // Use PostGIS spatial intersection check
                 $intersects = Entitlement::where('id', $entitlement->id)
                     ->whereRaw('ST_Intersects(aoi_geom, ST_GeomFromText(?, 4326))', [$tileBbox->toWkt()])
                     ->exists();
 
                 if ($intersects) {
-                    Log::info("Tile access granted via entitlement {$entitlement->id} for user {$user->id}");
                     return true;
                 }
             }
@@ -221,46 +250,35 @@ class TileController extends Controller
      */
     protected function generateMockTile(Dataset $dataset, int $z, int $x, int $y): ?string
     {
-        // Only generate mock tiles for reasonable zoom levels and our test area (Copenhagen)
+        // Only generate mock tiles for reasonable zoom levels
         if ($z < 10 || $z > 18) {
             return null;
         }
 
-        // Calculate tile center to check if it's in our test area (Copenhagen: ~55.7°N, 12.55°E)
-        $tileBbox = $this->calculateTileBoundingBox($z, $x, $y);
+        // If dataset metadata has a bounding box (bbox) limit mock tiles to that area
+        $bbox = $dataset->metadata['bbox'] ?? null; // [minLon, minLat, maxLon, maxLat]
 
-        // Extract bounds from WKT 
-        // Note: The WKT output format appears to be (lat lon) but we need (lon lat)
-        $wkt = $tileBbox->toWkt();
-        preg_match('/POLYGON\(\(([^)]+)\)\)/', $wkt, $matches);
-        $coords = explode(',', $matches[1]);
-        $point1 = explode(' ', trim($coords[0]));
-        $point3 = explode(' ', trim($coords[2]));
+        if ($bbox && count($bbox) === 4) {
+            [$minLon, $minLat, $maxLon, $maxLat] = $bbox;
 
-        // Check if this is (lat, lon) format and swap if needed
-        $coord1_1 = floatval($point1[0]);
-        $coord1_2 = floatval($point1[1]);
-        $coord3_1 = floatval($point3[0]);
-        $coord3_2 = floatval($point3[1]);
+            // Calculate tile geographic bounding box (same logic as calculateTileBoundingBox)
+            $n = pow(2, $z);
+            $tileLonMin = ($x / $n) * 360.0 - 180.0;
+            $tileLonMax = (($x + 1) / $n) * 360.0 - 180.0;
 
-        // If first coordinate is > 180 or < -180, it's likely latitude, so swap
-        if (
-            abs($coord1_1) > 180 || abs($coord3_1) > 180 ||
-            ($coord1_1 > 40 && $coord1_1 < 50 && $coord1_2 > 15 && $coord1_2 < 30)
-        ) {
-            // Coordinates appear to be (lat, lon), so swap them
-            $centerLon = ($coord1_2 + $coord3_2) / 2;
-            $centerLat = ($coord1_1 + $coord3_1) / 2;
-        } else {
-            // Coordinates are (lon, lat)
-            $centerLon = ($coord1_1 + $coord3_1) / 2;
-            $centerLat = ($coord1_2 + $coord3_2) / 2;
-        }
+            $latRadMin = atan(sinh(pi() * (1 - 2 * ($y + 1) / $n)));
+            $latRadMax = atan(sinh(pi() * (1 - 2 * $y / $n)));
 
-        // Check if tile center is near Copenhagen (our test data area) 
-        // Copenhagen coordinates: ~55.7°N, 12.55°E
-        if ($centerLat < 55.5 || $centerLat > 55.9 || $centerLon < 12.0 || $centerLon > 13.0) {
-            return null; // Outside our test area
+            $tileLatMin = rad2deg($latRadMin);
+            $tileLatMax = rad2deg($latRadMax);
+
+            // Check for bbox intersection – if tile bbox is completely outside dataset bbox, skip
+            $noLonOverlap = $tileLonMax < $minLon || $tileLonMin > $maxLon;
+            $noLatOverlap = $tileLatMax < $minLat || $tileLatMin > $maxLat;
+
+            if ($noLonOverlap || $noLatOverlap) {
+                return null;
+            }
         }
 
         // Create a simple thermal-colored tile (256x256 PNG)
@@ -275,23 +293,29 @@ class TileController extends Controller
         // Make background transparent
         imagecolortransparent($image, $bgColor);
 
-        // Add some thermal patterns based on tile coordinates (pseudo-random thermal data)
+        // Deterministic pseudo-thermal pattern based on tile + pixel location
         for ($i = 0; $i < 256; $i += 16) {
             for ($j = 0; $j < 256; $j += 16) {
-                $thermal = (sin($i / 32) + cos($j / 32) + sin(($x + $y) / 4)) / 3;
+                // Hash the tile + cell coordinates to a repeatable 0-1 value
+                $hash = crc32("{$z}-{$x}-{$y}-{$i}-{$j}");
+                $norm = ($hash % 1000) / 1000; // 0-0.999
 
-                if ($thermal > 0.3) {
-                    $color = $hotColor;
-                } elseif ($thermal > -0.3) {
-                    $color = $warmColor;
+                // Map 0-1 to thermal loss index 0-100
+                $tli = intval($norm * 100);
+
+                if ($tli > 80) {
+                    $color = $hotColor;       // High loss
+                } elseif ($tli > 60) {
+                    $color = $warmColor;      // Medium-high
+                } elseif ($tli > 40) {
+                    $color = $warmColor;      // Medium
+                } elseif ($tli > 20) {
+                    $color = $coldColor;      // Medium-low
                 } else {
-                    $color = $coldColor;
+                    $color = $coldColor;      // Low
                 }
 
-                // Add some randomness
-                if (rand(0, 100) < 30) {
-                    imagefilledrectangle($image, $i, $j, $i + 15, $j + 15, $color);
-                }
+                imagefilledrectangle($image, $i, $j, $i + 15, $j + 15, $color);
             }
         }
 

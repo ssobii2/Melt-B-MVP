@@ -16,6 +16,7 @@ class UserEntitlementSeeder extends Seeder
     {
         $users = User::all();
         $entitlements = Entitlement::all();
+        $datasets = \App\Models\Dataset::all()->keyBy('name');
 
         if ($users->isEmpty()) {
             $this->command->warn('No users found. Please run UserSeeder first.');
@@ -32,16 +33,16 @@ class UserEntitlementSeeder extends Seeder
             // Admin gets all entitlements (full access)
             'admin@melt-b.com' => ['all'],
 
-            // Municipality user gets DS-ALL and DS-AOI for their city
+            // Debrecen municipality – full building dataset + full raster tiles (Debrecen only)
             'thermal@debrecen.hu' => [
-                'DS-ALL',
-                'DS-AOI', // Both AOI entitlements
+                ['type' => 'DS-ALL',  'dataset' => 'Building Data 2024-Q4 Debrecen'],
+                ['type' => 'TILES',   'dataset' => 'Thermal Raster 2024-Q4 Debrecen'],
             ],
 
-            // Researcher gets specific building access and some AOI
+            // Researcher – specific Budapest buildings + Copenhagen AOI only (no Debrecen access)
             'researcher@university.hu' => [
-                'DS-BLD', // Specific buildings in Budapest
-                'DS-AOI', // One AOI for comparison
+                ['type' => 'DS-BLD', 'dataset' => 'Building Data 2024-Q3 Budapest District V'],
+                ['type' => 'DS-AOI', 'dataset' => 'Building Data 2023-Q4 Copenhagen'],
             ],
 
             // Contractor gets limited building access
@@ -80,11 +81,27 @@ class UserEntitlementSeeder extends Seeder
                 $this->command->info("✅ Assigned ALL entitlements to {$user->name}");
             } else {
                 // Assign specific entitlement types
-                foreach ($entitlementTypes as $type) {
-                    $typeEntitlements = $entitlements->where('type', $type)
-                        ->where(function ($entitlement) {
-                            return $entitlement->expires_at === null || $entitlement->expires_at > now();
-                        });
+                foreach ($entitlementTypes as $spec) {
+                    // Allow two formats: simple string ('DS-BLD') or array(['type'=>'DS-BLD','dataset'=>'Name'])
+                    if (is_array($spec)) {
+                        $type  = $spec['type'];
+                        $dsName = $spec['dataset'] ?? null;
+                        $datasetId = $dsName && isset($datasets[$dsName]) ? $datasets[$dsName]->id : null;
+
+                        $typeEntitlements = $entitlements->where('type', $type)
+                            ->when($datasetId, function ($collection) use ($datasetId) {
+                                return $collection->where('dataset_id', $datasetId);
+                            })
+                            ->where(function ($entitlement) {
+                                return $entitlement->expires_at === null || $entitlement->expires_at > now();
+                            });
+                    } else {
+                        $type = $spec;
+                        $typeEntitlements = $entitlements->where('type', $type)
+                            ->where(function ($entitlement) {
+                                return $entitlement->expires_at === null || $entitlement->expires_at > now();
+                            });
+                    }
 
                     foreach ($typeEntitlements as $entitlement) {
                         // Check if already assigned to avoid duplicates
@@ -107,7 +124,7 @@ class UserEntitlementSeeder extends Seeder
                     ->where('user_id', $user->id)
                     ->count();
 
-                $this->command->info("✅ Assigned {$assignedCount} entitlements to {$user->name} (" . implode(', ', $entitlementTypes) . ")");
+                $this->command->info("✅ Assigned {$assignedCount} entitlements to {$user->name}");
             }
         }
 

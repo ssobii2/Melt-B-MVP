@@ -90,11 +90,9 @@ Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
         ->where(['id' => '[0-9]+']);
 });
 
-// Map tile serving with spatial entitlement checking (separate middleware for TILES type)
-Route::middleware(['auth:sanctum'])->group(function () {
-    Route::get('/tiles/{dataset_id}/{z}/{x}/{y}.png', [TileController::class, 'serveTile'])
+// Map tile serving route handles its own token authentication inside the controller.
+Route::get('/tiles/{dataset_id}/{z}/{x}/{y}.png', [TileController::class, 'serveTile'])
         ->where(['z' => '[0-9]+', 'x' => '[0-9]+', 'y' => '[0-9]+']);
-});
 
 // Admin-only routes (same token, but checks user role)
 Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(function () {
