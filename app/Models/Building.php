@@ -81,6 +81,7 @@ class Building extends Model
     {
         $tli = $this->thermal_loss_index_tli;
 
+        if ($tli === null) return '#808080'; // Gray - No thermal data
         if ($tli >= 80) return '#ff0000'; // Red - High loss
         if ($tli >= 60) return '#ff8000'; // Orange
         if ($tli >= 40) return '#ffff00'; // Yellow

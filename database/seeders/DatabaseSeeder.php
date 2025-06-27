@@ -15,8 +15,8 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             DatasetSeeder::class,
             EntitlementSeeder::class,
-            BuildingSeeder::class,
             UserEntitlementSeeder::class,
+            // BuildingSeeder::class, // Commented out - using real data instead
         ]);
     }
 }

@@ -26,7 +26,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
     const calculateOptimalInitialView = (buildings) => {
         if (!buildings || buildings.length === 0) {
             return {
-                center: [21.6255, 47.5316], // Fallback
+                center: [2.3522, 48.8566], // Paris, France
                 zoom: 13
             };
         }
@@ -77,7 +77,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
 
         if (coordinates.length === 0) {
             return {
-                center: [21.6255, 47.5316], // Fallback
+                center: [2.3522, 48.8566], // Paris, France
                 zoom: 13
             };
         }

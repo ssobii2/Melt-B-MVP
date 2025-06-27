@@ -24,57 +24,121 @@ class EntitlementSeeder extends Seeder
     public function run(): void
     {
         Entitlement::truncate();
-        $datasets = Dataset::all()->keyBy('name');
 
-        $out = [];
+        // Get the real Paris datasets
+        $buildingDataset = Dataset::where('name', 'Paris Building Footprints BDTOPO 2025-Q1')->first();
+        $thermalDataset = Dataset::where('name', 'Paris Thermal Imagery BOA 2023-Q4')->first();
 
-        // Helper closures ---------------------------------------------------
-        $squareAOI = function(float $lat, float $lon, float $size) {
-            $half = $size/2;
-            $sw = new Point($lat-$half, $lon-$half);
-            $se = new Point($lat-$half, $lon+$half);
-            $ne = new Point($lat+$half, $lon+$half);
-            $nw = new Point($lat+$half, $lon-$half);
-            return new Polygon([ new LineString([$sw,$se,$ne,$nw,$sw]) ]);
-        };
+        if (!$buildingDataset || !$thermalDataset) {
+            $this->command->error('❌ Paris datasets not found! Run DatasetSeeder first.');
+            return;
+        }
 
-        // ───── Debrecen ───────────────────────────────────────────────────
-        $debBld = $datasets['Building Data 2024-Q4 Debrecen']->id;
-        $debTil = $datasets['Thermal Raster 2024-Q4 Debrecen']->id;
+        $entitlements = [
+            // ──────────── Full Paris Access ────────────
+            [
+                'type' => 'DS-ALL',
+                'dataset_id' => $buildingDataset->id,
+                'aoi_geom' => null,
+                'building_gids' => null,
+                'download_formats' => ['csv', 'geojson', 'excel'],
+                'expires_at' => now()->addYear(),
+            ],
+            [
+                'type' => 'TILES',
+                'dataset_id' => $thermalDataset->id,
+                'aoi_geom' => $this->parisMetropolitanArea(),
+                'building_gids' => null,
+                'download_formats' => ['csv'],
+                'expires_at' => now()->addYear(),
+            ],
 
-        // DS-ALL – full building dataset
-        $out[] = [ 'type'=>'DS-ALL', 'dataset_id'=>$debBld, 'aoi_geom'=>null, 'building_gids'=>null, 'download_formats'=>['csv','geojson'], 'expires_at'=>now()->addYear() ];
+            // ──────────── Paris Central Districts (AOI) ────────────
+            [
+                'type' => 'DS-AOI',
+                'dataset_id' => $buildingDataset->id,
+                'aoi_geom' => $this->parisCentralDistricts(),
+                'building_gids' => null,
+                'download_formats' => ['csv', 'geojson'],
+                'expires_at' => now()->addMonths(6),
+            ],
 
-        // DS-AOI – small downtown polygon
-        $out[] = [ 'type'=>'DS-AOI', 'dataset_id'=>$debBld, 'aoi_geom'=>$squareAOI(47.5335,21.6295,0.002), 'building_gids'=>null,'download_formats'=>['csv'], 'expires_at'=>now()->addMonths(6) ];
+            // ──────────── Paris Research Zone (Smaller AOI) ────────────
+            [
+                'type' => 'DS-AOI',
+                'dataset_id' => $buildingDataset->id,
+                'aoi_geom' => $this->parisResearchZone(),
+                'building_gids' => null,
+                'download_formats' => ['csv'],
+                'expires_at' => now()->addMonths(3),
+            ],
 
-        // DS-BLD – two specific buildings (Low + High TLI)
-        $out[] = [ 'type'=>'DS-BLD', 'dataset_id'=>$debBld, 'aoi_geom'=>null, 'building_gids'=>['DEB_001','DEB_004'], 'download_formats'=>['csv'], 'expires_at'=>now()->addMonths(3) ];
+            // ──────────── Specific Building Access (Sample) ────────────
+            [
+                'type' => 'DS-BLD',
+                'dataset_id' => $buildingDataset->id,
+                'aoi_geom' => null,
+                'building_gids' => ['BATIMENT_0001', 'BATIMENT_0002', 'BATIMENT_0003'], // Will be updated when real data is imported
+                'download_formats' => ['csv'],
+                'expires_at' => now()->addMonths(1),
+            ],
+        ];
 
-        // TILES(A) – AOI-restricted tiles – matches DS-AOI polygon
-        $out[] = [ 'type'=>'TILES', 'dataset_id'=>$debTil, 'aoi_geom'=>$squareAOI(47.5335,21.6295,0.01), 'building_gids'=>null,'download_formats'=>null,'expires_at'=>now()->addYear() ];
+        foreach ($entitlements as $entitlementData) {
+            Entitlement::create($entitlementData);
+        }
 
-        // TILES(G) – global full-coverage tiles for demo
-        $out[] = [ 'type'=>'TILES', 'dataset_id'=>$debTil, 'aoi_geom'=>null, 'building_gids'=>null,'download_formats'=>null,'expires_at'=>now()->addYear() ];
+        $this->command->info('✅ Created ' . count($entitlements) . ' Paris-based entitlements');
+    }
 
-        // ───── Budapest ──────────────────────────────────────────────────
-        $budBld = $datasets['Building Data 2024-Q3 Budapest District V']->id;
-        $budTil = $datasets['Thermal Raster 2024-Q3 Budapest District V']->id;
+    /**
+     * Create Paris metropolitan area polygon (approximate boundaries)
+     */
+    private function parisMetropolitanArea(): Polygon
+    {
+        // Approximate boundaries of Greater Paris (Île-de-France inner area)
+        return new Polygon([
+            new LineString([
+                new Point(2.224, 48.815), // Southwest
+                new Point(2.469, 48.815), // Southeast  
+                new Point(2.469, 48.902), // Northeast
+                new Point(2.224, 48.902), // Northwest
+                new Point(2.224, 48.815), // Close polygon
+            ])
+        ]);
+    }
 
-        $out[] = [ 'type'=>'DS-ALL', 'dataset_id'=>$budBld, 'aoi_geom'=>null, 'building_gids'=>null, 'download_formats'=>['csv','geojson'], 'expires_at'=>null ]; // never expires
-        $out[] = [ 'type'=>'DS-AOI', 'dataset_id'=>$budBld, 'aoi_geom'=>$squareAOI(47.4980,19.0410,0.002), 'building_gids'=>null, 'download_formats'=>['csv'], 'expires_at'=>now()->addMonths(4) ];
-        $out[] = [ 'type'=>'DS-BLD', 'dataset_id'=>$budBld, 'aoi_geom'=>null, 'building_gids'=>['BUD_002','BUD_003'], 'download_formats'=>['csv'], 'expires_at'=>now()->addMonth() ];
-        $out[] = [ 'type'=>'TILES', 'dataset_id'=>$budTil, 'aoi_geom'=>null, 'building_gids'=>null, 'download_formats'=>null, 'expires_at'=>now()->addYear() ];
+    /**
+     * Create Paris central districts polygon (1st-4th arrondissements)
+     */
+    private function parisCentralDistricts(): Polygon
+    {
+        // Central Paris area including Louvre, Châtelet, Marais
+        return new Polygon([
+            new LineString([
+                new Point(2.325, 48.855), // Southwest
+                new Point(2.365, 48.855), // Southeast
+                new Point(2.365, 48.870), // Northeast  
+                new Point(2.325, 48.870), // Northwest
+                new Point(2.325, 48.855), // Close polygon
+            ])
+        ]);
+    }
 
-        // ───── Copenhagen – ONLY AOI + TILES(A) to test denial elsewhere ──
-        $cphBld = $datasets['Building Data 2023-Q4 Copenhagen']->id;
-        $cphTil = $datasets['Thermal Raster 2023-Q4 Copenhagen']->id;
-
-        $out[] = [ 'type'=>'DS-AOI', 'dataset_id'=>$cphBld, 'aoi_geom'=>$squareAOI(55.6765,12.5680,0.003), 'building_gids'=>null, 'download_formats'=>['csv'], 'expires_at'=>now()->addMonths(2) ];
-        $out[] = [ 'type'=>'TILES', 'dataset_id'=>$cphTil, 'aoi_geom'=>$squareAOI(55.6765,12.5680,0.02), 'building_gids'=>null, 'download_formats'=>null, 'expires_at'=>now()->addMonths(2) ];
-
-        foreach ($out as $row) { Entitlement::create($row); }
-
-        $this->command->info('🔑 Seeded '.count($out).' entitlement scenarios covering all ABAC branches');
+    /**
+     * Create Paris research zone (smaller area for testing)
+     */
+    private function parisResearchZone(): Polygon
+    {
+        // Smaller research area around Notre-Dame/Île de la Cité
+        return new Polygon([
+            new LineString([
+                new Point(2.340, 48.850), // Southwest
+                new Point(2.355, 48.850), // Southeast
+                new Point(2.355, 48.860), // Northeast
+                new Point(2.340, 48.860), // Northwest
+                new Point(2.340, 48.850), // Close polygon
+            ])
+        ]);
     }
 }

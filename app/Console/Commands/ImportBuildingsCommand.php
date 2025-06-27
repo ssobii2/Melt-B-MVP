@@ -167,8 +167,8 @@ class ImportBuildingsCommand extends Command
 
         $this->info("📋 CSV columns: " . implode(', ', $header));
 
-        // Validate required columns
-        $requiredColumns = ['gid', 'geometry', 'thermal_loss_index_tli', 'building_type_classification'];
+        // Validate required columns (TLI is now optional)
+        $requiredColumns = ['gid', 'geometry', 'building_type_classification'];
         $missingColumns = array_diff($requiredColumns, $header);
         if (!empty($missingColumns)) {
             throw new Exception("Missing required columns: " . implode(', ', $missingColumns));
@@ -272,10 +272,10 @@ class ImportBuildingsCommand extends Command
     private function validateAndProcessRow(array $data, int $rowNumber): ?array
     {
         try {
-            // Basic validation
+            // Basic validation (TLI is now optional)
             $validator = Validator::make($data, [
                 'gid' => 'required|string|max:255',
-                'thermal_loss_index_tli' => 'required|numeric|min:0|max:100',
+                'thermal_loss_index_tli' => 'nullable|numeric|min:0|max:100',
                 'building_type_classification' => 'required|string|max:100',
                 'geometry' => 'required|string',
             ]);
@@ -296,7 +296,7 @@ class ImportBuildingsCommand extends Command
             return [
                 'gid' => trim($data['gid']),
                 'geometry' => $geometry,
-                'thermal_loss_index_tli' => (int) $data['thermal_loss_index_tli'],
+                'thermal_loss_index_tli' => isset($data['thermal_loss_index_tli']) && $data['thermal_loss_index_tli'] !== '' ? (int) $data['thermal_loss_index_tli'] : null,
                 'building_type_classification' => trim($data['building_type_classification']),
                 'co2_savings_estimate' => isset($data['co2_savings_estimate']) ? (float) $data['co2_savings_estimate'] : null,
                 'address' => isset($data['address']) ? trim($data['address']) : null,
@@ -304,7 +304,7 @@ class ImportBuildingsCommand extends Command
                 'cadastral_reference' => isset($data['cadastral_reference']) ? trim($data['cadastral_reference']) : null,
                 'before_renovation_tli' => isset($data['before_renovation_tli']) ? (int) $data['before_renovation_tli'] : null,
                 'after_renovation_tli' => isset($data['after_renovation_tli']) ? (int) $data['after_renovation_tli'] : null,
-                'last_analyzed_at' => now(),
+                'last_analyzed_at' => isset($data['thermal_loss_index_tli']) && $data['thermal_loss_index_tli'] !== '' ? now() : null,
             ];
         } catch (Exception $e) {
             $this->validationErrors[] = "Row {$rowNumber}: " . $e->getMessage();
@@ -335,10 +335,10 @@ class ImportBuildingsCommand extends Command
             $properties = $feature['properties'];
             $geometry = $feature['geometry'];
 
-            // Validate required properties
+            // Validate required properties (TLI is now optional)
             $validator = Validator::make($properties, [
                 'gid' => 'required|string|max:255',
-                'thermal_loss_index_tli' => 'required|numeric|min:0|max:100',
+                'thermal_loss_index_tli' => 'nullable|numeric|min:0|max:100',
                 'building_type_classification' => 'required|string|max:100',
             ]);
 
@@ -358,7 +358,7 @@ class ImportBuildingsCommand extends Command
             return [
                 'gid' => trim($properties['gid']),
                 'geometry' => $spatialGeometry,
-                'thermal_loss_index_tli' => (int) $properties['thermal_loss_index_tli'],
+                'thermal_loss_index_tli' => isset($properties['thermal_loss_index_tli']) && $properties['thermal_loss_index_tli'] !== '' ? (int) $properties['thermal_loss_index_tli'] : null,
                 'building_type_classification' => trim($properties['building_type_classification']),
                 'co2_savings_estimate' => isset($properties['co2_savings_estimate']) ? (float) $properties['co2_savings_estimate'] : null,
                 'address' => isset($properties['address']) ? trim($properties['address']) : null,
@@ -366,7 +366,7 @@ class ImportBuildingsCommand extends Command
                 'cadastral_reference' => isset($properties['cadastral_reference']) ? trim($properties['cadastral_reference']) : null,
                 'before_renovation_tli' => isset($properties['before_renovation_tli']) ? (int) $properties['before_renovation_tli'] : null,
                 'after_renovation_tli' => isset($properties['after_renovation_tli']) ? (int) $properties['after_renovation_tli'] : null,
-                'last_analyzed_at' => now(),
+                'last_analyzed_at' => isset($properties['thermal_loss_index_tli']) && $properties['thermal_loss_index_tli'] !== '' ? now() : null,
             ];
         } catch (Exception $e) {
             $this->validationErrors[] = "Feature {$featureIndex}: " . $e->getMessage();
@@ -387,6 +387,14 @@ class ImportBuildingsCommand extends Command
                 return $this->parseGeoJsonGeometry($decoded, $rowNumber);
             }
 
+            // Handle MULTIPOLYGON Z format - convert to simple POLYGON
+            if (str_starts_with(strtoupper(trim($geometryString)), 'MULTIPOLYGON')) {
+                $geometryString = $this->convertMultiPolygonToPolygon($geometryString, $rowNumber);
+                if (!$geometryString) {
+                    return null;
+                }
+            }
+
             // Try to parse as WKT
             if (str_starts_with(strtoupper(trim($geometryString)), 'POLYGON')) {
                 return Factory::parse($geometryString);
@@ -395,6 +403,33 @@ class ImportBuildingsCommand extends Command
             throw new Exception("Unknown geometry format");
         } catch (Exception $e) {
             $this->validationErrors[] = "Row {$rowNumber}: Invalid geometry - " . $e->getMessage();
+            $this->stats['errors']++;
+            return null;
+        }
+    }
+
+    /**
+     * Convert MULTIPOLYGON Z to simple POLYGON by taking the first polygon and removing Z coordinates
+     */
+    private function convertMultiPolygonToPolygon(string $multiPolygonString, int $rowNumber): ?string
+    {
+        try {
+            // Remove "MULTIPOLYGON Z " and extract the first polygon
+            $cleaned = trim($multiPolygonString);
+            
+            // Remove MULTIPOLYGON Z prefix
+            if (preg_match('/^MULTIPOLYGON\s*Z?\s*\(\(\((.*?)\)\)\)/i', $cleaned, $matches)) {
+                $coordinates = $matches[1];
+                
+                // Remove Z coordinates (third number in each coordinate triplet)
+                $coordinates = preg_replace('/(\d+\.?\d*)\s+(\d+\.?\d*)\s+\d+\.?\d*/', '$1 $2', $coordinates);
+                
+                return "POLYGON(({$coordinates}))";
+            }
+            
+            throw new Exception("Could not parse MULTIPOLYGON format");
+        } catch (Exception $e) {
+            $this->validationErrors[] = "Row {$rowNumber}: MULTIPOLYGON conversion failed - " . $e->getMessage();
             $this->stats['errors']++;
             return null;
         }

@@ -209,7 +209,8 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1 min-w-0">
                                                     <h3 className="text-sm font-medium text-gray-900 truncate">
-                                                        {building.address || 'Unnamed Building'}
+                                                        {building.address || 
+                                                         `${building.building_type_classification || 'Building'} ${building.gid?.slice(-6) || ''}`}
                                                     </h3>
                                                     <p className="text-xs text-gray-500 mt-1">
                                                         {building.building_type_classification || 'Unknown Type'}

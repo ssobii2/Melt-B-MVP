@@ -217,7 +217,7 @@ class TileController extends Controller
     }
 
     /**
-     * Retrieve tile from object storage or generate mock tile
+     * Retrieve tile from object storage - no mock tile generation
      * 
      * @param Dataset $dataset
      * @param int $z
@@ -235,99 +235,8 @@ class TileController extends Controller
             return Storage::get($tilePath);
         }
 
-        // For testing purposes, generate a mock thermal tile if within our test area
-        return $this->generateMockTile($dataset, $z, $x, $y);
-    }
-
-    /**
-     * Generate a mock thermal tile for testing purposes
-     * 
-     * @param Dataset $dataset
-     * @param int $z
-     * @param int $x
-     * @param int $y
-     * @return string|null
-     */
-    protected function generateMockTile(Dataset $dataset, int $z, int $x, int $y): ?string
-    {
-        // Only generate mock tiles for reasonable zoom levels
-        if ($z < 10 || $z > 18) {
-            return null;
-        }
-
-        // If dataset metadata has a bounding box (bbox) limit mock tiles to that area
-        $bbox = $dataset->metadata['bbox'] ?? null; // [minLon, minLat, maxLon, maxLat]
-
-        if ($bbox && count($bbox) === 4) {
-            [$minLon, $minLat, $maxLon, $maxLat] = $bbox;
-
-            // Calculate tile geographic bounding box (same logic as calculateTileBoundingBox)
-            $n = pow(2, $z);
-            $tileLonMin = ($x / $n) * 360.0 - 180.0;
-            $tileLonMax = (($x + 1) / $n) * 360.0 - 180.0;
-
-            $latRadMin = atan(sinh(pi() * (1 - 2 * ($y + 1) / $n)));
-            $latRadMax = atan(sinh(pi() * (1 - 2 * $y / $n)));
-
-            $tileLatMin = rad2deg($latRadMin);
-            $tileLatMax = rad2deg($latRadMax);
-
-            // Check for bbox intersection – if tile bbox is completely outside dataset bbox, skip
-            $noLonOverlap = $tileLonMax < $minLon || $tileLonMin > $maxLon;
-            $noLatOverlap = $tileLatMax < $minLat || $tileLatMin > $maxLat;
-
-            if ($noLonOverlap || $noLatOverlap) {
-                return null;
-            }
-        }
-
-        // Create a simple thermal-colored tile (256x256 PNG)
-        $image = imagecreate(256, 256);
-
-        // Create thermal color palette
-        $bgColor = imagecolorallocate($image, 0, 0, 0); // Black background (transparent will be made later)
-        $coldColor = imagecolorallocate($image, 0, 0, 255);    // Blue (cold)
-        $warmColor = imagecolorallocate($image, 255, 255, 0);  // Yellow (warm)
-        $hotColor = imagecolorallocate($image, 255, 0, 0);     // Red (hot)
-
-        // Make background transparent
-        imagecolortransparent($image, $bgColor);
-
-        // Deterministic pseudo-thermal pattern based on tile + pixel location
-        for ($i = 0; $i < 256; $i += 16) {
-            for ($j = 0; $j < 256; $j += 16) {
-                // Hash the tile + cell coordinates to a repeatable 0-1 value
-                $hash = crc32("{$z}-{$x}-{$y}-{$i}-{$j}");
-                $norm = ($hash % 1000) / 1000; // 0-0.999
-
-                // Map 0-1 to thermal loss index 0-100
-                $tli = intval($norm * 100);
-
-                if ($tli > 80) {
-                    $color = $hotColor;       // High loss
-                } elseif ($tli > 60) {
-                    $color = $warmColor;      // Medium-high
-                } elseif ($tli > 40) {
-                    $color = $warmColor;      // Medium
-                } elseif ($tli > 20) {
-                    $color = $coldColor;      // Medium-low
-                } else {
-                    $color = $coldColor;      // Low
-                }
-
-                imagefilledrectangle($image, $i, $j, $i + 15, $j + 15, $color);
-            }
-        }
-
-        // Generate PNG content
-        ob_start();
-        imagepng($image);
-        $content = ob_get_contents();
-        ob_end_clean();
-
-        imagedestroy($image);
-
-        return $content;
+        // No mock tiles - return null for missing tiles
+        return null;
     }
 
     /**

@@ -25,95 +25,45 @@ class DatasetSeeder extends Seeder
         Dataset::truncate();
 
         $datasets = [
-            // ───────────────── Debrecen ─────────────────
             [
-                'name' => 'Thermal Raster 2024-Q4 Debrecen',
-                'description' => 'Synthetic raster tiles coloured by TLI for Debrecen city',
-                'data_type' => 'thermal_raster',
-                'storage_location' => 'local://thermal_rasters/debrecen',
-                'version' => '2024.4.0',
+                'name' => 'Paris Building Footprints BDTOPO 2025-Q1',
+                'data_type' => 'building_footprints',
+                'version' => '2025.1.0',
+                'description' => 'Official French IGN building footprints for Paris (Department 075) from BDTOPO database',
+                'storage_location' => storage_path('data/BDTOPO/1_DONNEES_LIVRAISON_2025-03-00288/BDT_3-4_SHP_LAMB93_D075_ED2025-03-15/BATI'),
                 'metadata' => [
-                    'coverage_area' => 'Debrecen City Center',
-                    'resolution' => '0.5m',
-                    'capture_date' => '2024-01-15',
-                    'bbox' => [21.6270, 47.5310, 21.6330, 47.5360],
+                    'source' => 'IGN France - Institut Géographique National',
+                    'format' => 'Shapefile (converted to PostGIS)',
+                    'projection' => 'RGF93 Lambert 93 (EPSG:2154) converted to WGS84 (EPSG:4326)',
+                    'spatial_resolution' => 'Building-level precision',
+                    'temporal_coverage' => '2025-03-15',
+                    'geographic_extent' => 'Paris Department 075',
+                    'size_mb' => 188,
                 ],
             ],
             [
-                'name' => 'Building Data 2024-Q4 Debrecen',
-                'description' => 'Synthetic building footprints + TLI for Debrecen',
-                'data_type' => 'building_data',
-                'storage_location' => 'local://building_data/debrecen',
-                'version' => '2024.4.0',
-                'metadata' => [
-                    'total_buildings' => 1500,
-                    'last_updated' => '2024-01-15',
-                    'data_source' => 'Synthetic Generation',
-                    'bbox' => [21.6270, 47.5310, 21.6330, 47.5360],
-                ],
-            ],
-
-            // ───────────────── Budapest ─────────────────
-            [
-                'name' => 'Thermal Raster 2024-Q3 Budapest District V',
-                'description' => 'Synthetic raster tiles for the historical city centre',
-                'data_type' => 'thermal_raster',
-                'storage_location' => 'local://thermal_rasters/budapest_v',
-                'version' => '2024.3.0',
-                'metadata' => [
-                    'coverage_area' => 'Budapest District V',
-                    'resolution' => '0.5m',
-                    'capture_date' => '2024-09-15',
-                    'bbox' => [19.0390, 47.4970, 19.0440, 47.5000],
-                ],
-            ],
-            [
-                'name' => 'Building Data 2024-Q3 Budapest District V',
-                'description' => 'Synthetic building dataset for Budapest district V',
-                'data_type' => 'building_data',
-                'storage_location' => 'local://building_data/budapest_v',
-                'version' => '2024.3.0',
-                'metadata' => [
-                    'total_buildings' => 800,
-                    'last_updated' => '2024-09-15',
-                    'data_source' => 'Synthetic Generation',
-                    'bbox' => [19.0390, 47.4970, 19.0440, 47.5000],
-                ],
-            ],
-
-            // ───────────────── Copenhagen ─────────────────
-            [
-                'name' => 'Thermal Raster 2023-Q4 Copenhagen',
-                'description' => 'Synthetic raster tiles for Frederiksberg + Nørrebro',
-                'data_type' => 'thermal_raster',
-                'storage_location' => 'local://thermal_rasters/copenhagen',
+                'name' => 'Paris Thermal Imagery BOA 2023-Q4',
+                'data_type' => 'thermal_rasters',
                 'version' => '2023.4.0',
+                'description' => 'Satellite thermal brightness temperature imagery for Paris from BOA (Bottom of Atmosphere) products',
+                'storage_location' => storage_path('data/Paris - BOA Products'),
                 'metadata' => [
-                    'coverage_area' => 'Frederiksberg and Nørrebro',
-                    'resolution' => '0.5m',
-                    'capture_date' => '2023-12-15',
-                    'bbox' => [12.5660, 55.6755, 12.5700, 55.6780],
-                ],
-            ],
-            [
-                'name' => 'Building Data 2023-Q4 Copenhagen',
-                'description' => 'Synthetic building dataset for central Copenhagen',
-                'data_type' => 'building_data',
-                'storage_location' => 'local://building_data/copenhagen',
-                'version' => '2023.4.0',
-                'metadata' => [
-                    'total_buildings' => 1200,
-                    'last_updated' => '2023-12-15',
-                    'data_source' => 'Synthetic Generation',
-                    'bbox' => [12.5660, 55.6755, 12.5700, 55.6780],
+                    'source' => 'AI Team / Data Science Team - BOA Products',
+                    'format' => 'GeoTIFF thermal imagery',
+                    'dates' => ['2023-10-09', '2023-10-23'],
+                    'products' => ['thermal_radiance', 'brightness_temperature'],
+                    'spatial_resolution' => '30m pixel resolution',
+                    'temporal_coverage' => 'October 2023',
+                    'geographic_extent' => 'Paris metropolitan area',
+                    'size_mb' => 12,
                 ],
             ],
         ];
 
-        foreach ($datasets as $data) {
-            Dataset::create($data);
+        foreach ($datasets as $dataset) {
+            Dataset::create($dataset);
         }
 
-        $this->command->info('✅ Seeded '.count($datasets).' datasets for three cities');
+        $this->command->info('✅ Created ' . count($datasets) . ' real Paris datasets');
     }
 }
