@@ -99,16 +99,16 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
             // Check if the building is already on the current page
             const buildingOnCurrentPage = buildings.find(b => b.gid === selectedBuildingGid);
             if (buildingOnCurrentPage) {
-                return; // Building is already visible, no need to change page
+                // Building is already visible, scroll to it
+                scrollToBuildingInList(selectedBuildingGid);
+                return;
             }
 
-            // Search for the building across all pages
+            // Use the new efficient findPage endpoint
             const params = {
                 per_page: 10,
                 sort_by: 'is_anomaly',
-                sort_order: 'desc',
-                include_geometry: 1,
-                search_building_gid: selectedBuildingGid // Add a special search parameter
+                sort_order: 'desc'
             };
 
             if (searchTerm.trim()) {
@@ -128,22 +128,53 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
                 }
             }
 
-            // Try to find the building by searching through pages
-            for (let page = 1; page <= totalPages; page++) {
-                const response = await apiClient.get(isAdmin ? '/admin/buildings' : '/buildings', { 
-                    params: { ...params, page } 
-                });
-                
-                const foundBuilding = response.data.data.find(b => b.gid === selectedBuildingGid);
-                if (foundBuilding) {
-                    setCurrentPage(page);
-                    return;
-                }
+            // Call the efficient findPage endpoint
+            const endpoint = isAdmin ? `/admin/buildings/${selectedBuildingGid}/find-page` : `/buildings/${selectedBuildingGid}/find-page`;
+            const response = await apiClient.get(endpoint, { params });
+            
+            if (response.data.page) {
+                setCurrentPage(response.data.page);
+                // Store the building GID to scroll to it after the page loads
+                setPendingScrollToBuildingGid(selectedBuildingGid);
             }
         } catch (error) {
             console.error('Failed to find building page:', error);
+            // If the efficient method fails, building might not be in current filter set
+            // This is expected behavior when filters are applied
         }
     };
+
+    // State to track pending scroll operations
+    const [pendingScrollToBuildingGid, setPendingScrollToBuildingGid] = useState(null);
+
+    // Function to scroll to a specific building in the list
+    const scrollToBuildingInList = (buildingGid) => {
+        setTimeout(() => {
+            const buildingElement = document.querySelector(`[data-building-gid="${buildingGid}"]`);
+            if (buildingElement) {
+                buildingElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+                // Add a brief highlight effect
+                buildingElement.style.backgroundColor = '#dbeafe';
+                setTimeout(() => {
+                    buildingElement.style.backgroundColor = '';
+                }, 2000);
+            }
+        }, 100); // Small delay to ensure DOM is updated
+    };
+
+    // Effect to handle pending scroll operations after page changes
+    useEffect(() => {
+        if (pendingScrollToBuildingGid && buildings.length > 0) {
+            const buildingExists = buildings.find(b => b.gid === pendingScrollToBuildingGid);
+            if (buildingExists) {
+                scrollToBuildingInList(pendingScrollToBuildingGid);
+                setPendingScrollToBuildingGid(null);
+            }
+        }
+    }, [buildings, pendingScrollToBuildingGid]);
 
     // Watch for selectedBuilding changes from map clicks
     useEffect(() => {
@@ -253,6 +284,7 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
                                     buildings.map(building => (
                                         <div
                                             key={building.gid}
+                                            data-building-gid={building.gid}
                                             className={`p-3 rounded-lg border transition-colors cursor-pointer relative group ${
                                                 selectedBuilding?.gid === building.gid
                                                     ? 'bg-blue-50 border-blue-200'

@@ -83,6 +83,7 @@ Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
     // Building data endpoints - specific routes first
     Route::get('/buildings/stats', [BuildingController::class, 'stats']);
     Route::get('/buildings/within/bounds', [BuildingController::class, 'withinBounds']);
+    Route::get('/buildings/{gid}/find-page', [BuildingController::class, 'findPage']);
     Route::get('/buildings', [BuildingController::class, 'index']);
     Route::get('/buildings/{gid}', [BuildingController::class, 'show']);
 
@@ -127,6 +128,7 @@ Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(functi
     Route::get('/audit-logs/{id}', [AuditLogController::class, 'show']);
 
     // Buildings management (read-only for admin)
+    Route::get('/buildings/{gid}/find-page', [\App\Http\Controllers\Admin\BuildingController::class, 'findPage']);
     Route::get('/buildings', [\App\Http\Controllers\Admin\BuildingController::class, 'index']);
     Route::get('/buildings/{gid}', [\App\Http\Controllers\Admin\BuildingController::class, 'show']);
     Route::get('/buildings/export', [\App\Http\Controllers\Admin\BuildingController::class, 'export']);

@@ -7,6 +7,7 @@ use App\Models\Building;
 use App\Models\Dataset;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class BuildingController extends Controller
 {
@@ -75,6 +76,61 @@ class BuildingController extends Controller
         }
 
         return response()->json($building);
+    }
+
+    /**
+     * Find the page number where a specific building appears in the filtered results.
+     */
+    public function findPage(Request $request, string $gid): JsonResponse
+    {
+        $query = Building::query();
+
+        // Apply search filter
+        if ($search = $request->input('search')) {
+            $query->search($search);
+        }
+
+        // Apply dataset filter
+        if ($datasetId = $request->input('dataset_id')) {
+            $query->forDataset($datasetId);
+        }
+
+        // Apply anomaly filter
+        if ($anomalyFilter = $request->input('anomaly_filter')) {
+            $query->withAnomalyFilter($anomalyFilter);
+        }
+
+        // Apply same sorting as main listing
+        $sortBy = $request->input('sort_by', 'is_anomaly');
+        $sortOrder = $request->input('sort_order', 'desc');
+
+        if (in_array($sortBy, ['is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
+            $query->orderBy($sortBy, $sortOrder);
+        }
+
+        $perPage = min($request->input('per_page', 15), 50);
+        
+        // Create a subquery to get the position of the building
+        $positionQuery = clone $query;
+        $positionQuery->selectRaw('ROW_NUMBER() OVER (ORDER BY ' . $sortBy . ' ' . $sortOrder . ', gid) as position, gid');
+        
+        // Find the position of our target building
+        $result = DB::table(DB::raw('(' . $positionQuery->toSql() . ') as ranked_buildings'))
+            ->mergeBindings($positionQuery->getQuery())
+            ->where('gid', $gid)
+            ->first();
+
+        if (!$result) {
+            return response()->json(['message' => 'Building not found in current filter set'], 404);
+        }
+
+        $page = ceil($result->position / $perPage);
+
+        return response()->json([
+            'page' => $page,
+            'position' => $result->position,
+            'per_page' => $perPage
+        ]);
     }
 
     /**
