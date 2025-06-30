@@ -5,10 +5,12 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BuildingController;
 use App\Http\Controllers\Api\DownloadController;
+use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DatasetController;
+use App\Http\Controllers\Admin\AnalysisJobController;
 
 /*
 |--------------------------------------------------------------------------
@@ -128,4 +130,15 @@ Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(functi
     Route::get('/buildings', [\App\Http\Controllers\Admin\BuildingController::class, 'index']);
     Route::get('/buildings/{gid}', [\App\Http\Controllers\Admin\BuildingController::class, 'show']);
     Route::get('/buildings/export', [\App\Http\Controllers\Admin\BuildingController::class, 'export']);
+
+    // Admin Analysis Jobs Management  
+    Route::get('/analysis-jobs/stats', [AnalysisJobController::class, 'stats']);
+    Route::apiResource('analysis-jobs', AnalysisJobController::class);
+});
+
+// Public webhook endpoints (no authentication required)
+Route::prefix('webhooks')->group(function () {
+    Route::post('/analysis-complete', [WebhookController::class, 'analysisComplete']);
+    Route::get('/health', [WebhookController::class, 'healthCheck']);
+    Route::post('/test', [WebhookController::class, 'test']);
 });

@@ -282,17 +282,26 @@ class ImportBuildingsCommand extends Command
     }
 
     /**
-     * Validate and process a single CSV row
+     * Validate and process a row of data for insertion
      */
     private function validateAndProcessRow(array $data, int $rowNumber): ?array
     {
         try {
-            // Basic validation (TLI is now optional)
+            // Basic validation (TLI is now optional for backward compatibility)
             $validator = Validator::make($data, [
                 'gid' => 'required|string|max:255',
                 'thermal_loss_index_tli' => 'nullable|numeric|min:0|max:100',
                 'building_type_classification' => 'required|string|max:100',
                 'geometry' => 'required|string',
+                // New anomaly detection fields (all optional)
+                'average_heatloss' => 'nullable|numeric',
+                'reference_heatloss' => 'nullable|numeric',
+                'heatloss_difference' => 'nullable|numeric',
+                'abs_heatloss_difference' => 'nullable|numeric',
+                'threshold' => 'nullable|numeric',
+                'is_anomaly' => 'nullable|boolean',
+                'confidence' => 'nullable|numeric|min:0|max:1',
+                'building_id' => 'nullable|string|max:255', // For anomaly CSV imports
             ]);
 
             if ($validator->fails()) {
@@ -307,9 +316,12 @@ class ImportBuildingsCommand extends Command
                 return null;
             }
 
+            // Use building_id if provided, otherwise use gid
+            $gid = isset($data['building_id']) && !empty($data['building_id']) ? $data['building_id'] : $data['gid'];
+
             // Prepare data for insertion
             return [
-                'gid' => trim($data['gid']),
+                'gid' => trim($gid),
                 'geometry' => $geometry,
                 'thermal_loss_index_tli' => isset($data['thermal_loss_index_tli']) && $data['thermal_loss_index_tli'] !== '' ? (int) $data['thermal_loss_index_tli'] : null,
                 'building_type_classification' => trim($data['building_type_classification']),
@@ -320,6 +332,14 @@ class ImportBuildingsCommand extends Command
                 'before_renovation_tli' => isset($data['before_renovation_tli']) ? (int) $data['before_renovation_tli'] : null,
                 'after_renovation_tli' => isset($data['after_renovation_tli']) ? (int) $data['after_renovation_tli'] : null,
                 'last_analyzed_at' => isset($data['thermal_loss_index_tli']) && $data['thermal_loss_index_tli'] !== '' ? now() : null,
+                // New anomaly detection fields
+                'average_heatloss' => isset($data['average_heatloss']) && $data['average_heatloss'] !== '' ? (float) $data['average_heatloss'] : null,
+                'reference_heatloss' => isset($data['reference_heatloss']) && $data['reference_heatloss'] !== '' ? (float) $data['reference_heatloss'] : null,
+                'heatloss_difference' => isset($data['heatloss_difference']) && $data['heatloss_difference'] !== '' ? (float) $data['heatloss_difference'] : null,
+                'abs_heatloss_difference' => isset($data['abs_heatloss_difference']) && $data['abs_heatloss_difference'] !== '' ? (float) $data['abs_heatloss_difference'] : null,
+                'threshold' => isset($data['threshold']) && $data['threshold'] !== '' ? (float) $data['threshold'] : null,
+                'is_anomaly' => isset($data['is_anomaly']) && $data['is_anomaly'] !== '' ? filter_var($data['is_anomaly'], FILTER_VALIDATE_BOOLEAN) : false,
+                'confidence' => isset($data['confidence']) && $data['confidence'] !== '' ? (float) $data['confidence'] : null,
             ];
         } catch (Exception $e) {
             $this->validationErrors[] = "Row {$rowNumber}: " . $e->getMessage();
@@ -355,6 +375,15 @@ class ImportBuildingsCommand extends Command
                 'gid' => 'required|string|max:255',
                 'thermal_loss_index_tli' => 'nullable|numeric|min:0|max:100',
                 'building_type_classification' => 'required|string|max:100',
+                // New anomaly detection fields (all optional)
+                'average_heatloss' => 'nullable|numeric',
+                'reference_heatloss' => 'nullable|numeric',
+                'heatloss_difference' => 'nullable|numeric',
+                'abs_heatloss_difference' => 'nullable|numeric',
+                'threshold' => 'nullable|numeric',
+                'is_anomaly' => 'nullable|boolean',
+                'confidence' => 'nullable|numeric|min:0|max:1',
+                'building_id' => 'nullable|string|max:255', // For anomaly CSV imports
             ]);
 
             if ($validator->fails()) {
@@ -369,9 +398,12 @@ class ImportBuildingsCommand extends Command
                 return null;
             }
 
+            // Use building_id if provided, otherwise use gid
+            $gid = isset($properties['building_id']) && !empty($properties['building_id']) ? $properties['building_id'] : $properties['gid'];
+
             // Prepare data for insertion
             return [
-                'gid' => trim($properties['gid']),
+                'gid' => trim($gid),
                 'geometry' => $spatialGeometry,
                 'thermal_loss_index_tli' => isset($properties['thermal_loss_index_tli']) && $properties['thermal_loss_index_tli'] !== '' ? (int) $properties['thermal_loss_index_tli'] : null,
                 'building_type_classification' => trim($properties['building_type_classification']),
@@ -382,6 +414,14 @@ class ImportBuildingsCommand extends Command
                 'before_renovation_tli' => isset($properties['before_renovation_tli']) ? (int) $properties['before_renovation_tli'] : null,
                 'after_renovation_tli' => isset($properties['after_renovation_tli']) ? (int) $properties['after_renovation_tli'] : null,
                 'last_analyzed_at' => isset($properties['thermal_loss_index_tli']) && $properties['thermal_loss_index_tli'] !== '' ? now() : null,
+                // New anomaly detection fields
+                'average_heatloss' => isset($properties['average_heatloss']) && $properties['average_heatloss'] !== '' ? (float) $properties['average_heatloss'] : null,
+                'reference_heatloss' => isset($properties['reference_heatloss']) && $properties['reference_heatloss'] !== '' ? (float) $properties['reference_heatloss'] : null,
+                'heatloss_difference' => isset($properties['heatloss_difference']) && $properties['heatloss_difference'] !== '' ? (float) $properties['heatloss_difference'] : null,
+                'abs_heatloss_difference' => isset($properties['abs_heatloss_difference']) && $properties['abs_heatloss_difference'] !== '' ? (float) $properties['abs_heatloss_difference'] : null,
+                'threshold' => isset($properties['threshold']) && $properties['threshold'] !== '' ? (float) $properties['threshold'] : null,
+                'is_anomaly' => isset($properties['is_anomaly']) && $properties['is_anomaly'] !== '' ? filter_var($properties['is_anomaly'], FILTER_VALIDATE_BOOLEAN) : false,
+                'confidence' => isset($properties['confidence']) && $properties['confidence'] !== '' ? (float) $properties['confidence'] : null,
             ];
         } catch (Exception $e) {
             $this->validationErrors[] = "Feature {$featureIndex}: " . $e->getMessage();

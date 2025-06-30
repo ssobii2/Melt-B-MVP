@@ -52,7 +52,7 @@
             <div class="icon">
                 <i class="fas fa-building"></i>
             </div>
-            <a href="#" class="small-box-footer">
+            <a href="{{ route('admin.buildings') }}" class="small-box-footer">
                 View Buildings <i class="fas fa-arrow-circle-right"></i>
             </a>
         </div>

@@ -16,7 +16,20 @@ class BuildingResource extends JsonResource
     {
         return [
             'gid' => $this->gid,
+            
+            // Legacy TLI field (for backward compatibility)
             'thermal_loss_index_tli' => $this->thermal_loss_index_tli,
+            
+            // New anomaly detection fields
+            'average_heatloss' => $this->average_heatloss,
+            'reference_heatloss' => $this->reference_heatloss,
+            'heatloss_difference' => $this->heatloss_difference,
+            'abs_heatloss_difference' => $this->abs_heatloss_difference,
+            'threshold' => $this->threshold,
+            'is_anomaly' => $this->is_anomaly,
+            'confidence' => $this->confidence,
+            
+            // Common building attributes
             'building_type_classification' => $this->building_type_classification,
             'co2_savings_estimate' => $this->co2_savings_estimate,
             'address' => $this->address,
@@ -28,8 +41,11 @@ class BuildingResource extends JsonResource
             'after_renovation_tli' => $this->after_renovation_tli,
 
             // Calculated attributes
-            'tli_color' => $this->tli_color,
+            'tli_color' => $this->tli_color, // Now supports both TLI and anomaly coloring
+            'anomaly_color' => $this->anomaly_color,
+            'anomaly_severity' => $this->anomaly_severity,
             'improvement_potential' => $this->improvement_potential,
+            'is_high_confidence_anomaly' => $this->isHighConfidenceAnomaly(),
 
             // Dataset information when loaded
             'dataset' => $this->whenLoaded('dataset', function () {

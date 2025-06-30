@@ -12,51 +12,40 @@ use MatanYadaev\EloquentSpatial\Objects\Point;
 class EntitlementSeeder extends Seeder
 {
     /**
-     * Entitlement Matrix – covers EVERY ABAC branch
+     * Entitlement Matrix – Updated for Anomaly Detection
      * ----------------------------------------------------
-     *  City × Dataset × Entitlement type
-     *  – DS-ALL   : Full dataset (buildings)
-     *  – DS-AOI   : Polygon-restricted dataset access (buildings)
-     *  – DS-BLD   : Hand-picked building GIDs (buildings)
-     *  – TILES(A) : Polygon-restricted tile access (thermal_raster)
-     *  – TILES(G) : Global tile access (thermal_raster)
+     *  Dataset × Entitlement type (TILES removed per REFACTOR.md)
+     *  – DS-ALL   : Full dataset access (building anomalies)
+     *  – DS-AOI   : Polygon-restricted dataset access (building anomalies)
+     *  – DS-BLD   : Hand-picked building GIDs (building anomalies)
      */
     public function run(): void
     {
         Entitlement::truncate();
 
-        // Get the real Paris datasets
-        $buildingDataset = Dataset::where('name', 'Paris Building Footprints BDTOPO 2025-Q1')->first();
-        $thermalDataset = Dataset::where('name', 'Paris Thermal Imagery BOA 2023-Q4')->first();
+        // Get the anomaly detection datasets
+        $parisDataset = Dataset::where('name', 'Paris Building Anomalies Analysis 2025-Q1')->first();
 
-        if (!$buildingDataset || !$thermalDataset) {
-            $this->command->error('❌ Paris datasets not found! Run DatasetSeeder first.');
+        if (!$parisDataset) {
+            $this->command->error('❌ Anomaly detection datasets not found! Run DatasetSeeder first.');
             return;
         }
 
         $entitlements = [
-            // ──────────── Full Paris Access ────────────
+            // ──────────── Full Paris Anomaly Access ────────────
             [
                 'type' => 'DS-ALL',
-                'dataset_id' => $buildingDataset->id,
+                'dataset_id' => $parisDataset->id,
                 'aoi_geom' => null,
                 'building_gids' => null,
                 'download_formats' => ['csv', 'geojson', 'excel'],
-                'expires_at' => now()->addYear(),
-            ],
-            [
-                'type' => 'TILES',
-                'dataset_id' => $thermalDataset->id,
-                'aoi_geom' => $this->parisMetropolitanArea(),
-                'building_gids' => null,
-                'download_formats' => ['csv'],
                 'expires_at' => now()->addYear(),
             ],
 
             // ──────────── Paris Central Districts (AOI) ────────────
             [
                 'type' => 'DS-AOI',
-                'dataset_id' => $buildingDataset->id,
+                'dataset_id' => $parisDataset->id,
                 'aoi_geom' => $this->parisCentralDistricts(),
                 'building_gids' => null,
                 'download_formats' => ['csv', 'geojson'],
@@ -66,7 +55,7 @@ class EntitlementSeeder extends Seeder
             // ──────────── Paris Research Zone (Smaller AOI) ────────────
             [
                 'type' => 'DS-AOI',
-                'dataset_id' => $buildingDataset->id,
+                'dataset_id' => $parisDataset->id,
                 'aoi_geom' => $this->parisResearchZone(),
                 'building_gids' => null,
                 'download_formats' => ['csv'],
@@ -76,9 +65,9 @@ class EntitlementSeeder extends Seeder
             // ──────────── Specific Building Access (Sample) ────────────
             [
                 'type' => 'DS-BLD',
-                'dataset_id' => $buildingDataset->id,
+                'dataset_id' => $parisDataset->id,
                 'aoi_geom' => null,
-                'building_gids' => ['BATIMENT_0001', 'BATIMENT_0002', 'BATIMENT_0003'], // Will be updated when real data is imported
+                'building_gids' => ['BATIMENT0000000000157984', 'BATIMENT0000000000157989', 'BATIMENT0000000000157995'],
                 'download_formats' => ['csv'],
                 'expires_at' => now()->addMonths(1),
             ],
@@ -88,24 +77,7 @@ class EntitlementSeeder extends Seeder
             Entitlement::create($entitlementData);
         }
 
-        $this->command->info('✅ Created ' . count($entitlements) . ' Paris-based entitlements');
-    }
-
-    /**
-     * Create Paris metropolitan area polygon (approximate boundaries)
-     */
-    private function parisMetropolitanArea(): Polygon
-    {
-        // Approximate boundaries of Greater Paris (Île-de-France inner area)
-        return new Polygon([
-            new LineString([
-                new Point(2.224, 48.815), // Southwest
-                new Point(2.469, 48.815), // Southeast  
-                new Point(2.469, 48.902), // Northeast
-                new Point(2.224, 48.902), // Northwest
-                new Point(2.224, 48.815), // Close polygon
-            ])
-        ]);
+        $this->command->info('✅ Created ' . count($entitlements) . ' anomaly detection entitlements (TILES removed)');
     }
 
     /**

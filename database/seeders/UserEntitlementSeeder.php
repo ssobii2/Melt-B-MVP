@@ -33,26 +33,24 @@ class UserEntitlementSeeder extends Seeder
             // Admin gets all entitlements (full access)
             'admin@melt-b.com' => ['all'],
 
-            // Debrecen municipality – full building dataset + full raster tiles (Debrecen only)
-            'thermal@debrecen.hu' => [
-                ['type' => 'DS-ALL',  'dataset' => 'Building Data 2024-Q4 Debrecen'],
-                ['type' => 'TILES',   'dataset' => 'Thermal Raster 2024-Q4 Debrecen'],
+            // Paris municipality – full building dataset access (Paris only)
+            'thermal@paris.fr' => [
+                ['type' => 'DS-ALL',  'dataset' => 'Paris Building Anomalies Analysis 2025-Q1'],
             ],
 
-            // Researcher – specific Budapest buildings + Copenhagen AOI only (no Debrecen access)
-            'researcher@university.hu' => [
-                ['type' => 'DS-BLD', 'dataset' => 'Building Data 2024-Q3 Budapest District V'],
-                ['type' => 'DS-AOI', 'dataset' => 'Building Data 2023-Q4 Copenhagen'],
+            // Researcher – specific Paris buildings access
+            'researcher@sorbonne.fr' => [
+                ['type' => 'DS-BLD', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1'],
             ],
 
             // Contractor gets limited building access
-            'contractor@energytech.hu' => [
+            'contractor@energieparis.fr' => [
                 'DS-BLD', // Specific buildings only
             ],
 
-            // Test user gets TILES access only
+            // Test user gets basic access
             'user@test.com' => [
-                'TILES', // Map tiles access
+                'DS-BLD', // Building data access
             ],
         ];
 

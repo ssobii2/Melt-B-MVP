@@ -81,6 +81,10 @@ class DashboardController extends Controller
             // Regenerate session for security
             $request->session()->regenerate();
 
+            // Create a Sanctum token for API calls from admin interface
+            $token = $user->createToken('admin-dashboard')->plainTextToken;
+            $request->session()->put('admin_token', $token);
+
             // Log the admin login
             AuditLog::createEntry(
                 userId: $user->id,
@@ -116,6 +120,13 @@ class DashboardController extends Controller
                 ipAddress: $request->ip(),
                 userAgent: $request->userAgent()
             );
+        }
+
+        // Revoke the admin token if it exists
+        if ($user && $request->session()->has('admin_token')) {
+            // Find and revoke the admin-dashboard token
+            $user->tokens()->where('name', 'admin-dashboard')->delete();
+            $request->session()->forget('admin_token');
         }
 
         // Log out using Laravel's built-in authentication

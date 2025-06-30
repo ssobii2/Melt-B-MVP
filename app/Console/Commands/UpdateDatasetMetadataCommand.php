@@ -152,9 +152,11 @@ class UpdateDatasetMetadataCommand extends Command
                 ->where('dataset_id', $dataset->id)
                 ->selectRaw('
                     COUNT(*) as total_buildings,
-                    AVG(thermal_loss_index_tli) as avg_tli,
-                    MIN(thermal_loss_index_tli) as min_tli,
-                    MAX(thermal_loss_index_tli) as max_tli,
+                    SUM(CASE WHEN is_anomaly = true THEN 1 ELSE 0 END) as total_anomalies,
+                    AVG(average_heatloss) as avg_heatloss,
+                    AVG(heatloss_difference) as avg_heatloss_difference,
+                    MIN(heatloss_difference) as min_heatloss_difference,
+                    MAX(heatloss_difference) as max_heatloss_difference,
                     SUM(co2_savings_estimate) as total_co2_savings,
                     AVG(co2_savings_estimate) as avg_co2_savings
                 ')
@@ -169,15 +171,7 @@ class UpdateDatasetMetadataCommand extends Command
                 ->pluck('count', 'building_type_classification')
                 ->toArray();
 
-            // TLI distribution (low, medium, high)
-            $tliDistribution = DB::table('buildings')
-                ->where('dataset_id', $dataset->id)
-                ->selectRaw('
-                    SUM(CASE WHEN thermal_loss_index_tli <= 30 THEN 1 ELSE 0 END) as low_tli,
-                    SUM(CASE WHEN thermal_loss_index_tli > 30 AND thermal_loss_index_tli <= 70 THEN 1 ELSE 0 END) as medium_tli,
-                    SUM(CASE WHEN thermal_loss_index_tli > 70 THEN 1 ELSE 0 END) as high_tli
-                ')
-                ->first();
+
 
             // Spatial coverage (bounding box)
             $spatialCoverage = DB::select('
@@ -204,16 +198,21 @@ class UpdateDatasetMetadataCommand extends Command
             return [
                 'calculated_at' => now()->toISOString(),
                 'total_buildings' => (int) $stats->total_buildings,
-                'tli_statistics' => [
-                    'average' => round((float) $stats->avg_tli, 2),
-                    'minimum' => (int) $stats->min_tli,
-                    'maximum' => (int) $stats->max_tli,
+                
+                // NEW: Anomaly Statistics
+                'anomaly_statistics' => [
+                    'total_anomalies' => (int) $stats->total_anomalies,
+                    'anomaly_percentage' => round(((int) $stats->total_anomalies / (int) $stats->total_buildings) * 100, 2),
                 ],
-                'tli_distribution' => [
-                    'low' => (int) $tliDistribution->low_tli,
-                    'medium' => (int) $tliDistribution->medium_tli,
-                    'high' => (int) $tliDistribution->high_tli,
+
+                // NEW: Heat Loss Statistics
+                'heatloss_statistics' => [
+                    'average' => round((float) $stats->avg_heatloss, 2),
+                    'average_difference' => round((float) $stats->avg_heatloss_difference, 2),
+                    'min_difference' => round((float) $stats->min_heatloss_difference, 2),
+                    'max_difference' => round((float) $stats->max_heatloss_difference, 2),
                 ],
+
                 'co2_statistics' => [
                     'total_savings_estimate' => round((float) $stats->total_co2_savings, 2),
                     'average_savings_estimate' => round((float) $stats->avg_co2_savings, 2),
@@ -227,9 +226,8 @@ class UpdateDatasetMetadataCommand extends Command
                     'has_address_data' => Building::where('dataset_id', $dataset->id)
                         ->whereNotNull('address')
                         ->count(),
-                    'has_renovation_data' => Building::where('dataset_id', $dataset->id)
-                        ->whereNotNull('before_renovation_tli')
-                        ->whereNotNull('after_renovation_tli')
+                    'has_anomaly_data' => Building::where('dataset_id', $dataset->id)
+                        ->whereNotNull('is_anomaly')
                         ->count(),
                 ],
             ];
@@ -250,17 +248,17 @@ class UpdateDatasetMetadataCommand extends Command
 
         $this->info("🏢 Total Buildings: " . number_format($stats['total_buildings']));
 
-        if (isset($stats['tli_statistics'])) {
-            $this->info("🌡️ TLI Statistics:");
-            $this->info("   • Average: " . $stats['tli_statistics']['average']);
-            $this->info("   • Range: " . $stats['tli_statistics']['minimum'] . " - " . $stats['tli_statistics']['maximum']);
+        if (isset($stats['anomaly_statistics'])) {
+            $this->info("🚨 Anomaly Statistics:");
+            $this->info("   • Total Anomalies: " . number_format($stats['anomaly_statistics']['total_anomalies']));
+            $this->info("   • Anomaly Percentage: " . $stats['anomaly_statistics']['anomaly_percentage'] . "%");
         }
 
-        if (isset($stats['tli_distribution'])) {
-            $this->info("📈 TLI Distribution:");
-            $this->info("   • Low (≤30): " . number_format($stats['tli_distribution']['low']));
-            $this->info("   • Medium (31-70): " . number_format($stats['tli_distribution']['medium']));
-            $this->info("   • High (>70): " . number_format($stats['tli_distribution']['high']));
+        if (isset($stats['heatloss_statistics'])) {
+            $this->info("🌡️ Heat Loss Statistics:");
+            $this->info("   • Average Heat Loss: " . $stats['heatloss_statistics']['average']);
+            $this->info("   • Average Difference: " . $stats['heatloss_statistics']['average_difference']);
+            $this->info("   • Difference Range: " . $stats['heatloss_statistics']['min_difference'] . " - " . $stats['heatloss_statistics']['max_difference']);
         }
 
         if (isset($stats['co2_statistics'])) {
@@ -289,7 +287,7 @@ class UpdateDatasetMetadataCommand extends Command
             $this->info("📋 Data Completeness:");
             $this->info("   • CO2 Data: " . number_format($coverage['has_co2_data']) . " / " . number_format($total) . " (" . round(($coverage['has_co2_data'] / $total) * 100, 1) . "%)");
             $this->info("   • Address Data: " . number_format($coverage['has_address_data']) . " / " . number_format($total) . " (" . round(($coverage['has_address_data'] / $total) * 100, 1) . "%)");
-            $this->info("   • Renovation Data: " . number_format($coverage['has_renovation_data']) . " / " . number_format($total) . " (" . round(($coverage['has_renovation_data'] / $total) * 100, 1) . "%)");
+            $this->info("   • Anomaly Data: " . number_format($coverage['has_anomaly_data']) . " / " . number_format($total) . " (" . round(($coverage['has_anomaly_data'] / $total) * 100, 1) . "%)");
         }
 
         $this->info("🕐 Calculated at: " . $stats['calculated_at']);

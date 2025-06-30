@@ -340,6 +340,11 @@ return [
             'icon' => 'fas fa-fw fa-building',
             'route' => 'admin.buildings',
         ],
+        [
+            'text' => 'Analysis Jobs',
+            'icon' => 'fas fa-fw fa-tasks',
+            'route' => 'admin.analysis-jobs',
+        ],
 
         ['header' => 'SYSTEM'],
         [

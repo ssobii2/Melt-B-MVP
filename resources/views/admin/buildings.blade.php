@@ -44,13 +44,10 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <select id="tliRangeFilter" class="form-control">
-                            <option value="">All TLI Ranges</option>
-                            <option value="0-20">Low (0-20)</option>
-                            <option value="21-40">Medium-Low (21-40)</option>
-                            <option value="41-60">Medium (41-60)</option>
-                            <option value="61-80">Medium-High (61-80)</option>
-                            <option value="81-100">High (81-100)</option>
+                        <select id="anomalyFilter" class="form-control">
+                            <option value="">All Buildings</option>
+                            <option value="true">Anomalies Only</option>
+                            <option value="false">Normal Buildings</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -72,9 +69,10 @@
                             <tr>
                                 <th>GID</th>
                                 <th>Address</th>
-                                <th>TLI</th>
                                 <th>Classification</th>
                                 <th>CO2 Savings</th>
+                                <th>Heat Loss</th>
+                                <th>Anomaly Status</th>
                                 <th>Dataset</th>
                                 <th>Analyzed</th>
                                 <th>Actions</th>
@@ -122,10 +120,16 @@
                                 <td id="detailAddress">-</td>
                             </tr>
                             <tr>
-                                <td><strong>TLI:</strong></td>
-                                <td>
-                                    <span id="detailTli" class="badge">-</span>
-                                </td>
+                                <td><strong>Heat Loss:</strong></td>
+                                <td id="detailHeatLoss">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Anomaly Status:</strong></td>
+                                <td id="detailAnomalyStatus">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Confidence:</strong></td>
+                                <td id="detailConfidence">-</td>
                             </tr>
                             <tr>
                                 <td><strong>Classification:</strong></td>
@@ -173,29 +177,16 @@
 
 @section('css')
 <style>
-    .tli-badge-0-20 {
-        background-color: #00ff00 !important;
-        color: #000;
+    .table td {
+        vertical-align: middle;
     }
 
-    .tli-badge-21-40 {
-        background-color: #80ff00 !important;
-        color: #000;
+    .pagination {
+        justify-content: center;
     }
 
-    .tli-badge-41-60 {
-        background-color: #ffff00 !important;
-        color: #000;
-    }
-
-    .tli-badge-61-80 {
-        background-color: #ff8000 !important;
-        color: #fff;
-    }
-
-    .tli-badge-81-100 {
-        background-color: #ff0000 !important;
-        color: #fff;
+    .badge {
+        font-size: 0.8em;
     }
 </style>
 @stop
@@ -253,7 +244,7 @@
             loadBuildings();
         }, 500));
 
-        $('#datasetFilter, #tliRangeFilter, #perPage').on('change', function() {
+        $('#datasetFilter, #anomalyFilter, #perPage').on('change', function() {
             currentPage = 1;
             loadBuildings();
         });
@@ -272,14 +263,14 @@
                 per_page: $('#perPage').val(),
                 search: $('#searchBuildings').val(),
                 dataset_id: $('#datasetFilter').val(),
-                tli_range: $('#tliRangeFilter').val()
+                is_anomaly: $('#anomalyFilter').val()
             };
 
             lastSearchParams = {
                 ...params
             };
 
-            $('#buildingsTableBody').html('<tr><td colspan="8" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading buildings...</td></tr>');
+            $('#buildingsTableBody').html('<tr><td colspan="9" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading buildings...</td></tr>');
 
             $.ajax({
                 url: '/api/admin/buildings',
@@ -295,7 +286,7 @@
                     $('#buildingCount').text(`${response.total} buildings`);
                 },
                 error: function(xhr) {
-                    $('#buildingsTableBody').html('<tr><td colspan="8" class="text-center text-danger">Error loading buildings: ' +
+                    $('#buildingsTableBody').html('<tr><td colspan="9" class="text-center text-danger">Error loading buildings: ' +
                         (xhr.responseJSON?.message || 'Unknown error') + '</td></tr>');
                 }
             });
@@ -327,21 +318,23 @@
             let html = '';
 
             if (buildings.length === 0) {
-                html = '<tr><td colspan="8" class="text-center text-muted">No buildings found</td></tr>';
+                html = '<tr><td colspan="9" class="text-center text-muted">No buildings found</td></tr>';
             } else {
                 buildings.forEach(function(building) {
-                    const tliClass = getTliClass(building.thermal_loss_index_tli);
                     const analyzedDate = formatDate(building.last_analyzed_at);
+                    const heatLoss = building.average_heatloss ? building.average_heatloss.toFixed(2) : 'N/A';
+                    const anomalyStatus = building.is_anomaly ? 
+                        '<span class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i> Anomaly</span>' : 
+                        '<span class="badge badge-success"><i class="fas fa-check"></i> Normal</span>';
 
                     html += `
                     <tr>
                         <td><code>${building.gid}</code></td>
                         <td>${building.address || 'N/A'}</td>
-                        <td>
-                            <span class="badge ${tliClass}">${building.thermal_loss_index_tli || 'N/A'}</span>
-                        </td>
                         <td>${building.building_type_classification || 'N/A'}</td>
                         <td>${building.co2_savings_estimate ? building.co2_savings_estimate + ' kg' : 'N/A'}</td>
+                        <td>${heatLoss}</td>
+                        <td>${anomalyStatus}</td>
                         <td>${building.dataset ? building.dataset.name : 'N/A'}</td>
                         <td>${analyzedDate}</td>
                         <td>
@@ -357,14 +350,7 @@
             $('#buildingsTableBody').html(html);
         }
 
-        function getTliClass(tli) {
-            if (!tli) return 'badge-secondary';
-            if (tli >= 81) return 'tli-badge-81-100';
-            if (tli >= 61) return 'tli-badge-61-80';
-            if (tli >= 41) return 'tli-badge-41-60';
-            if (tli >= 21) return 'tli-badge-21-40';
-            return 'tli-badge-0-20';
-        }
+
 
         function updatePagination(response) {
             const pagination = $('#buildingsPagination');
@@ -414,8 +400,14 @@
                     // Populate modal with building data
                     $('#detailGid').text(building.gid);
                     $('#detailAddress').text(building.address || 'N/A');
-                    $('#detailTli').removeClass().addClass('badge ' + getTliClass(building.thermal_loss_index_tli))
-                        .text(building.thermal_loss_index_tli || 'N/A');
+                    $('#detailHeatLoss').text(building.average_heatloss ? building.average_heatloss.toFixed(2) : 'N/A');
+                    
+                    const anomalyStatus = building.is_anomaly ? 
+                        '<span class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i> Anomaly</span>' : 
+                        '<span class="badge badge-success"><i class="fas fa-check"></i> Normal</span>';
+                    $('#detailAnomalyStatus').html(anomalyStatus);
+                    
+                    $('#detailConfidence').text(building.confidence ? (building.confidence * 100).toFixed(1) + '%' : 'N/A');
                     $('#detailClassification').text(building.building_type_classification || 'N/A');
                     $('#detailCo2').text(building.co2_savings_estimate ? building.co2_savings_estimate + ' kg' : 'N/A');
                     $('#detailDataset').text(building.dataset ? building.dataset.name : 'N/A');
