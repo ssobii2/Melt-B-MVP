@@ -28,7 +28,8 @@ class ImportBuildingsCommand extends Command
                             {--format=auto : File format (csv, geojson, or auto)}
                             {--batch-size=100 : Number of records to process in each batch}
                             {--update : Update existing buildings instead of creating new ones}
-                            {--dry-run : Validate data without actually importing}';
+                            {--dry-run : Validate data without actually importing}
+                            {--limit=0 : Maximum number of records to import (0 for no limit)}';
 
     /**
      * The console command description.
@@ -61,6 +62,7 @@ class ImportBuildingsCommand extends Command
         $batchSize = (int) $this->option('batch-size');
         $updateMode = $this->option('update');
         $dryRun = $this->option('dry-run');
+        $limit = (int) $this->option('limit');
 
         $this->info("🚀 Starting building data import process...");
 
@@ -89,6 +91,9 @@ class ImportBuildingsCommand extends Command
         $this->info("📁 File format: " . strtoupper($detectedFormat));
         $this->info("📏 Batch size: {$batchSize}");
         $this->info("🔄 Mode: " . ($updateMode ? 'Update' : 'Create'));
+        if ($limit > 0) {
+            $this->info("🔢 Import limit: {$limit} records");
+        }
 
         if ($dryRun) {
             $this->warn("🧪 DRY RUN MODE - No data will be actually imported");
@@ -176,8 +181,13 @@ class ImportBuildingsCommand extends Command
 
         $batch = [];
         $rowNumber = 1; // Header is row 0
+        $limit = (int) $this->option('limit');
 
         while (($row = fgetcsv($handle)) !== false) {
+            if ($limit > 0 && $this->stats['processed'] >= $limit) {
+                $this->info("Reached import limit of {$limit} records. Stopping CSV processing.");
+                break;
+            }
             $rowNumber++;
             $this->stats['processed']++;
 
@@ -236,8 +246,13 @@ class ImportBuildingsCommand extends Command
 
         $batch = [];
         $featureIndex = 0;
+        $limit = (int) $this->option('limit');
 
         foreach ($geoJson['features'] as $feature) {
+            if ($limit > 0 && $this->stats['processed'] >= $limit) {
+                $this->info("Reached import limit of {$limit} records. Stopping GeoJSON processing.");
+                break;
+            }
             $featureIndex++;
             $this->stats['processed']++;
 
