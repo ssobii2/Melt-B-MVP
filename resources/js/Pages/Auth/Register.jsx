@@ -168,7 +168,7 @@ export default function Register() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                             {loading ? 'Creating Account...' : 'Create Account'}
                         </button>
@@ -177,7 +177,7 @@ export default function Register() {
                     <div className="mt-6 text-center">
                         <p className="text-sm text-gray-600">
                             Already have an account?{' '}
-                            <Link to="/login" className="text-blue-600 hover:text-blue-500 font-medium">
+                            <Link to="/login" className="text-blue-600 hover:text-blue-500 font-medium cursor-pointer">
                                 Sign in
                             </Link>
                         </p>
@@ -186,4 +186,4 @@ export default function Register() {
             </div>
         </div>
     );
-} 
+}

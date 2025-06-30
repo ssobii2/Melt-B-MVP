@@ -60,7 +60,7 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
                             <div className="relative">
                                 <button
                                     onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                                    className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer"
                                 >
                                     <div className="flex items-center space-x-3">
                                         <div className="flex flex-col items-end">
@@ -84,14 +84,14 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
                                         <div className="py-1">
                                             <Link
                                                 to="/profile"
-                                                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
                                                 onClick={() => setProfileMenuOpen(false)}
                                             >
                                                 Your Profile
                                             </Link>
                                             <Link
                                                 to="/settings"
-                                                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
                                                 onClick={() => setProfileMenuOpen(false)}
                                             >
                                                 Settings
@@ -99,7 +99,7 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
                                             {user?.role === 'admin' && (
                                                 <a
                                                     href="/admin"
-                                                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
                                                     onClick={() => setProfileMenuOpen(false)}
                                                 >
                                                     Admin Panel
@@ -108,7 +108,7 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
                                             <hr className="my-1" />
                                             <button
                                                 onClick={handleLogout}
-                                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
                                             >
                                                 Sign out
                                             </button>
@@ -136,4 +136,4 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
             </main>
         </div>
     );
-} 
+}

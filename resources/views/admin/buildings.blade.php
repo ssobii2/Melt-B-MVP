@@ -282,8 +282,8 @@
                 },
                 success: function(response) {
                     displayBuildings(response.data);
-                    updatePagination(response);
-                    $('#buildingCount').text(`${response.total} buildings`);
+                    updatePagination(response.meta);
+                    $('#buildingCount').text(`${response.meta.total} buildings`);
                 },
                 error: function(xhr) {
                     $('#buildingsTableBody').html('<tr><td colspan="9" class="text-center text-danger">Error loading buildings: ' +
@@ -352,30 +352,30 @@
 
 
 
-        function updatePagination(response) {
+        function updatePagination(meta) {
             const pagination = $('#buildingsPagination');
             pagination.empty();
 
-            if (response.last_page > 1) {
+            if (meta.last_page > 1) {
                 let paginationHtml = '<nav><ul class="pagination pagination-sm">';
 
                 // Previous page
-                if (response.current_page > 1) {
-                    paginationHtml += `<li class="page-item"><a class="page-link" href="#" onclick="goToPage(${response.current_page - 1})">Previous</a></li>`;
+                if (meta.current_page > 1) {
+                    paginationHtml += `<li class="page-item"><a class="page-link" href="#" onclick="goToPage(${meta.current_page - 1})">Previous</a></li>`;
                 }
 
                 // Page numbers
-                const start = Math.max(1, response.current_page - 2);
-                const end = Math.min(response.last_page, response.current_page + 2);
+                const start = Math.max(1, meta.current_page - 2);
+                const end = Math.min(meta.last_page, meta.current_page + 2);
 
                 for (let i = start; i <= end; i++) {
-                    const active = i === response.current_page ? 'active' : '';
+                    const active = i === meta.current_page ? 'active' : '';
                     paginationHtml += `<li class="page-item ${active}"><a class="page-link" href="#" onclick="goToPage(${i})">${i}</a></li>`;
                 }
 
                 // Next page
-                if (response.current_page < response.last_page) {
-                    paginationHtml += `<li class="page-item"><a class="page-link" href="#" onclick="goToPage(${response.current_page + 1})">Next</a></li>`;
+                if (meta.current_page < meta.last_page) {
+                    paginationHtml += `<li class="page-item"><a class="page-link" href="#" onclick="goToPage(${meta.current_page + 1})">Next</a></li>`;
                 }
 
                 paginationHtml += '</ul></nav>';

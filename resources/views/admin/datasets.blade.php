@@ -41,10 +41,7 @@
                     <div class="col-md-3">
                         <select id="dataTypeFilter" class="form-control">
                             <option value="">All Data Types</option>
-                            <option value="thermal_raster">Thermal Raster</option>
-                            <option value="building_data">Building Data</option>
-                            <option value="thermal_analysis">Thermal Analysis</option>
-                            <option value="heat_map">Heat Map</option>
+                            <!-- Options loaded dynamically -->
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -119,12 +116,9 @@
                             <div class="form-group">
                                 <label for="createDataType">Data Type <span class="text-danger">*</span></label>
                                 <select class="form-control" id="createDataType" name="data_type" required>
-                                    <option value="">Select Data Type</option>
-                                    <option value="thermal_raster">Thermal Raster</option>
-                                    <option value="building_data">Building Data</option>
-                                    <option value="thermal_analysis">Thermal Analysis</option>
-                                    <option value="heat_map">Heat Map</option>
-                                </select>
+                    <option value="">Select Data Type</option>
+                    <!-- Options loaded dynamically -->
+                </select>
                             </div>
                         </div>
                     </div>
@@ -223,11 +217,8 @@
                             <div class="form-group">
                                 <label for="editDataType">Data Type <span class="text-danger">*</span></label>
                                 <select class="form-control" id="editDataType" name="data_type" required>
-                                    <option value="thermal_raster">Thermal Raster</option>
-                                    <option value="building_data">Building Data</option>
-                                    <option value="thermal_analysis">Thermal Analysis</option>
-                                    <option value="heat_map">Heat Map</option>
-                                </select>
+                    <!-- Options loaded dynamically -->
+                </select>
                             </div>
                         </div>
                     </div>
@@ -408,8 +399,9 @@
         let searchTerm = '';
         let dataTypeFilter = '';
 
-        // Load datasets on page load
+        // Load datasets and data types on page load
         loadDatasets();
+        loadDataTypes();
 
         // Search functionality
         let searchTimeout;
@@ -439,6 +431,53 @@
         $('#viewStats').on('click', function() {
             loadStats();
         });
+
+        // Load data types function
+        function loadDataTypes() {
+            $.ajax({
+                url: '/api/admin/datasets/data-types',
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + localStorage.getItem('auth_token'),
+                    'Accept': 'application/json'
+                },
+                success: function(response) {
+                    populateDataTypeDropdowns(response.data_types);
+                },
+                error: function(xhr) {
+                    console.error('Error loading data types:', xhr);
+                    // Fallback to default options if API fails
+                    const fallbackTypes = {
+                        'thermal_raster': 'Thermal Raster',
+                        'building_data': 'Building Data',
+                        'thermal_analysis': 'Thermal Analysis',
+                        'heat_map': 'Heat Map',
+                        'building_anomalies': 'Building Anomalies'
+                    };
+                    populateDataTypeDropdowns(fallbackTypes);
+                }
+            });
+        }
+
+        // Populate data type dropdowns
+        function populateDataTypeDropdowns(dataTypes) {
+            const filterSelect = $('#dataTypeFilter');
+            const createSelect = $('#createDataType');
+            const editSelect = $('#editDataType');
+
+            // Clear existing options (except "All Data Types" for filter)
+            filterSelect.find('option:not(:first)').remove();
+            createSelect.find('option:not(:first)').remove();
+            editSelect.empty();
+
+            // Populate dropdowns
+            Object.keys(dataTypes).forEach(function(key) {
+                const option = `<option value="${key}">${dataTypes[key]}</option>`;
+                filterSelect.append(option);
+                createSelect.append(option);
+                editSelect.append(option);
+            });
+        }
 
         // Load datasets function
         function loadDatasets() {

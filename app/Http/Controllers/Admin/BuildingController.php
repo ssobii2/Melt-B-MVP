@@ -41,10 +41,9 @@ class BuildingController extends Controller
             $query->forDataset($datasetId);
         }
 
-        // Apply TLI range filter
-        if ($tliRange = $request->input('tli_range')) {
-            [$min, $max] = explode('-', $tliRange);
-            $query->withTliRange((int)$min, (int)$max);
+        // Apply anomaly filter
+        if ($anomalyFilter = $request->input('anomaly_filter')) {
+            $query->withAnomalyFilter($anomalyFilter);
         }
 
         // Pagination
@@ -53,10 +52,12 @@ class BuildingController extends Controller
 
         return response()->json([
             'data' => $buildings->items(),
-            'current_page' => $buildings->currentPage(),
-            'last_page' => $buildings->lastPage(),
-            'per_page' => $buildings->perPage(),
-            'total' => $buildings->total(),
+            'meta' => [
+                'current_page' => $buildings->currentPage(),
+                'last_page' => $buildings->lastPage(),
+                'per_page' => $buildings->perPage(),
+                'total' => $buildings->total(),
+            ]
         ]);
     }
 

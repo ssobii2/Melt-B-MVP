@@ -62,12 +62,32 @@ class EntitlementSeeder extends Seeder
                 'expires_at' => now()->addMonths(3),
             ],
 
-            // ──────────── Specific Building Access (Sample) ────────────
+            // ──────────── Researcher Building Access (200 buildings) ────────────
             [
                 'type' => 'DS-BLD',
                 'dataset_id' => $parisDataset->id,
                 'aoi_geom' => null,
-                'building_gids' => ['BATIMENT0000000000157984', 'BATIMENT0000000000157989', 'BATIMENT0000000000157995'],
+                'building_gids' => $this->getResearcherBuildingGids(),
+                'download_formats' => ['csv', 'geojson'],
+                'expires_at' => now()->addMonths(6),
+            ],
+
+            // ──────────── Contractor Building Access (150 buildings) ────────────
+            [
+                'type' => 'DS-BLD',
+                'dataset_id' => $parisDataset->id,
+                'aoi_geom' => null,
+                'building_gids' => $this->getContractorBuildingGids(),
+                'download_formats' => ['csv'],
+                'expires_at' => now()->addMonths(3),
+            ],
+
+            // ──────────── Test User Building Access (50 buildings) ────────────
+            [
+                'type' => 'DS-BLD',
+                'dataset_id' => $parisDataset->id,
+                'aoi_geom' => null,
+                'building_gids' => $this->getTestUserBuildingGids(),
                 'download_formats' => ['csv'],
                 'expires_at' => now()->addMonths(1),
             ],
@@ -112,5 +132,29 @@ class EntitlementSeeder extends Seeder
                 new Point(2.340, 48.850), // Close polygon
             ])
         ]);
+    }
+
+    /**
+     * Get building GIDs for researcher access (200 buildings)
+     */
+    private function getResearcherBuildingGids(): array
+    {
+        return \App\Models\Building::limit(200)->pluck('gid')->toArray();
+    }
+
+    /**
+     * Get building GIDs for contractor access (150 buildings)
+     */
+    private function getContractorBuildingGids(): array
+    {
+        return \App\Models\Building::skip(200)->limit(150)->pluck('gid')->toArray();
+    }
+
+    /**
+     * Get building GIDs for test user access (50 buildings)
+     */
+    private function getTestUserBuildingGids(): array
+    {
+        return \App\Models\Building::skip(350)->limit(50)->pluck('gid')->toArray();
     }
 }

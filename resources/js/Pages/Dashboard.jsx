@@ -12,30 +12,25 @@ export default function Dashboard() {
     const [highlightedBuilding, setHighlightedBuilding] = useState(null);
     const [buildingStats, setBuildingStats] = useState({
         totalBuildings: '--',
-        highTliBuildings: '--',
-        totalCo2Savings: '--'
+        anomalyBuildings: '--',
+        normalBuildings: '--',
+        totalCo2Savings: '--',
+        avgConfidence: '--'
     });
 
     useEffect(() => {
         const fetchBuildingStats = async () => {
             try {
-                const response = await apiClient.get('/buildings', {
-                    params: {
-                        per_page: 1000,
-                        include_geometry: 0
-                    }
-                });
-                const buildings = response.data.data || [];
-                
-                // Calculate statistics
-                const totalBuildings = buildings.length;
-                const highTliBuildings = buildings.filter(b => b.thermal_loss_index_tli >= 80).length;
-                const totalCo2Savings = buildings.reduce((sum, b) => sum + (parseFloat(b.co2_savings_estimate) || 0), 0);
+                // Fetch building statistics using the dedicated stats endpoint
+                const statsResponse = await apiClient.get('/buildings/stats');
+                const statsData = statsResponse.data;
                 
                 setBuildingStats({
-                    totalBuildings: totalBuildings.toLocaleString(),
-                    highTliBuildings: highTliBuildings.toLocaleString(),
-                    totalCo2Savings: Math.round(totalCo2Savings || 0).toLocaleString()
+                    totalBuildings: (statsData.total_buildings || 0).toLocaleString(),
+                    anomalyBuildings: (statsData.anomaly_buildings || 0).toLocaleString(),
+                    normalBuildings: (statsData.normal_buildings || 0).toLocaleString(),
+                    totalCo2Savings: Math.round(statsData.avg_co2_savings || 0).toLocaleString(),
+                    avgConfidence: ((statsData.avg_confidence || 0) * 100).toFixed(1) + '%'
                 });
             } catch (error) {
                 console.error('Failed to fetch building statistics:', error);
@@ -131,7 +126,7 @@ export default function Dashboard() {
                                     </h3>
                                     <button
                                         onClick={() => setSelectedBuilding(null)}
-                                        className="text-gray-400 hover:text-gray-600"
+                                        className="text-gray-400 hover:text-gray-600 cursor-pointer"
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -159,20 +154,35 @@ export default function Dashboard() {
                                     </div>
                                     
                                     <div>
-                                        <h4 className="text-sm font-medium text-gray-900 mb-3">Thermal Analysis</h4>
+                                        <h4 className="text-sm font-medium text-gray-900 mb-3">Anomaly Analysis</h4>
                                         <dl className="space-y-2">
                                             <div>
-                                                <dt className="text-xs text-gray-500">Thermal Loss Index (TLI)</dt>
+                                                <dt className="text-xs text-gray-500">Anomaly Status</dt>
                                                 <dd className="text-sm">
                                                     <span 
-                                                        className="inline-flex px-2 py-1 text-xs font-medium rounded-full text-white"
-                                                        style={{
-                                                            backgroundColor: selectedBuilding.tli_color,
-                                                        }}
+                                                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-white ${
+                                                            selectedBuilding.is_anomaly ? 'bg-red-500' : 'bg-blue-500'
+                                                        }`}
                                                     >
-                                                        {selectedBuilding.thermal_loss_index_tli}
+                                                        {selectedBuilding.is_anomaly ? 'Anomaly' : 'Normal'}
                                                     </span>
                                                 </dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-xs text-gray-500">Average Heat Loss</dt>
+                                                <dd className="text-sm text-gray-900">{selectedBuilding.average_heatloss ? selectedBuilding.average_heatloss.toFixed(2) : 'N/A'}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-xs text-gray-500">Reference Heat Loss</dt>
+                                                <dd className="text-sm text-gray-900">{selectedBuilding.reference_heatloss ? selectedBuilding.reference_heatloss.toFixed(2) : 'N/A'}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-xs text-gray-500">Heat Loss Difference</dt>
+                                                <dd className="text-sm text-gray-900">{selectedBuilding.heatloss_difference ? selectedBuilding.heatloss_difference.toFixed(2) : 'N/A'}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-xs text-gray-500">Confidence Score</dt>
+                                                <dd className="text-sm text-gray-900">{selectedBuilding.confidence ? `${(selectedBuilding.confidence * 100).toFixed(1)}%` : 'N/A'}</dd>
                                             </div>
                                             <div>
                                                 <dt className="text-xs text-gray-500">CO2 Savings Estimate</dt>
@@ -191,18 +201,26 @@ export default function Dashboard() {
                             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                                 Building Data Overview
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                                 <div className="text-center">
                                     <div className="text-2xl font-bold text-blue-600">{buildingStats.totalBuildings}</div>
                                     <div className="text-sm text-gray-500">Total Buildings</div>
                                 </div>
                                 <div className="text-center">
-                                    <div className="text-2xl font-bold text-orange-600">{buildingStats.highTliBuildings}</div>
-                                    <div className="text-sm text-gray-500">High TLI Buildings</div>
+                                    <div className="text-2xl font-bold text-red-600">{buildingStats.anomalyBuildings}</div>
+                                    <div className="text-sm text-gray-500">Anomaly Buildings</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-blue-600">{buildingStats.normalBuildings}</div>
+                                    <div className="text-sm text-gray-500">Normal Buildings</div>
                                 </div>
                                 <div className="text-center">
                                     <div className="text-2xl font-bold text-green-600">{buildingStats.totalCo2Savings}</div>
                                     <div className="text-sm text-gray-500">CO2 Savings Potential (kg)</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-purple-600">{buildingStats.avgConfidence}</div>
+                                    <div className="text-sm text-gray-500">Average Confidence</div>
                                 </div>
                             </div>
                         </div>
@@ -218,20 +236,20 @@ export default function Dashboard() {
                             <div className="space-y-3 flex-grow flex flex-col justify-center">
                                 <Link
                                     to="/downloads"
-                                    className="block w-full bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-3 rounded-md text-sm font-medium text-center transition-colors"
+                                    className="block w-full bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-3 rounded-md text-sm font-medium text-center transition-colors cursor-pointer"
                                 >
                                     📥 Download Center
                                 </Link>
                                 <Link
                                     to="/profile"
-                                    className="block w-full bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-3 rounded-md text-sm font-medium text-center transition-colors"
+                                    className="block w-full bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-3 rounded-md text-sm font-medium text-center transition-colors cursor-pointer"
                                 >
                                     👤 Your Profile
                                 </Link>
                                 {user?.role === 'admin' && (
                                     <a
                                         href="/admin"
-                                        className="block w-full bg-purple-50 hover:bg-purple-100 text-purple-700 px-4 py-3 rounded-md text-sm font-medium text-center transition-colors"
+                                        className="block w-full bg-purple-50 hover:bg-purple-100 text-purple-700 px-4 py-3 rounded-md text-sm font-medium text-center transition-colors cursor-pointer"
                                     >
                                         ⚙️ Admin Panel
                                     </a>

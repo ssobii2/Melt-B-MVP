@@ -80,11 +80,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Protected data access routes with entitlement filtering
 Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
-    // Building data endpoints
+    // Building data endpoints - specific routes first
+    Route::get('/buildings/stats', [BuildingController::class, 'stats']);
+    Route::get('/buildings/within/bounds', [BuildingController::class, 'withinBounds']);
     Route::get('/buildings', [BuildingController::class, 'index']);
     Route::get('/buildings/{gid}', [BuildingController::class, 'show']);
-    Route::get('/buildings/within/bounds', [BuildingController::class, 'withinBounds']);
-    Route::get('/buildings/stats', [BuildingController::class, 'stats']);
 
     // Data download endpoints
     Route::get('/downloads/{id}', [DownloadController::class, 'download'])

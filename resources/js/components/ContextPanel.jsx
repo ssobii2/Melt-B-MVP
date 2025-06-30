@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight }) => {
+    const { isAdmin } = useAuth();
     const [isOpen, setIsOpen] = useState(true);
     const [buildings, setBuildings] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [buildingTypeFilter, setBuildingTypeFilter] = useState('');
-    const [tliRangeFilter, setTliRangeFilter] = useState('');
+    const [anomalyFilter, setAnomalyFilter] = useState('all'); // 'all', 'anomaly', 'normal'
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
 
@@ -20,14 +22,11 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
         { value: 'public', label: 'Public' }
     ];
 
-    // TLI range options
-    const tliRanges = [
-        { value: '', label: 'All TLI Ranges' },
-        { value: '0-20', label: 'Low (0-20)' },
-        { value: '20-40', label: 'Medium Low (20-40)' },
-        { value: '40-60', label: 'Medium (40-60)' },
-        { value: '60-80', label: 'Medium High (60-80)' },
-        { value: '80-100', label: 'High (80+)' }
+    // Anomaly filter options
+    const anomalyOptions = [
+        { value: '', label: 'All Buildings' },
+        { value: 'true', label: 'Anomalies Only' },
+        { value: 'false', label: 'Normal Only' }
     ];
 
     // Load buildings with filters
@@ -37,7 +36,7 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
             const params = {
                 page,
                 per_page: 10,
-                sort_by: 'thermal_loss_index_tli',
+                sort_by: 'is_anomaly',
                 sort_order: 'desc',
                 include_geometry: 1 // Include geometry for zooming functionality
             };
@@ -50,15 +49,18 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
                 params.type = buildingTypeFilter;
             }
 
-            if (tliRangeFilter) {
-                const [min, max] = tliRangeFilter.split('-');
-                params.tli_min = parseInt(min);
-                if (max !== '100') {
-                    params.tli_max = parseInt(max);
+            if (anomalyFilter !== 'all') {
+                // Convert frontend values to backend expected values
+                if (anomalyFilter === 'anomaly') {
+                    params.anomaly_filter = 'true';
+                } else if (anomalyFilter === 'normal') {
+                    params.anomaly_filter = 'false';
                 }
             }
 
-            const response = await apiClient.get('/buildings', { params });
+            // Use admin endpoint for admin users to bypass entitlement restrictions
+            const endpoint = isAdmin ? '/admin/buildings' : '/buildings';
+            const response = await apiClient.get(endpoint, { params });
             setBuildings(response.data.data);
             setCurrentPage(response.data.meta.current_page);
             setTotalPages(response.data.meta.last_page || Math.ceil(response.data.meta.total / response.data.meta.per_page));
@@ -78,7 +80,7 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
         }, 300); // Debounce search
 
         return () => clearTimeout(timeoutId);
-    }, [searchTerm, buildingTypeFilter, tliRangeFilter]);
+    }, [searchTerm, buildingTypeFilter, anomalyFilter]);
 
     // Load buildings when page changes
     useEffect(() => {
@@ -89,31 +91,87 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
         onBuildingSelect(building);
     };
 
+    // Find and navigate to the page containing the selected building
+    const findBuildingPage = async (selectedBuildingGid) => {
+        if (!selectedBuildingGid) return;
+        
+        try {
+            // Check if the building is already on the current page
+            const buildingOnCurrentPage = buildings.find(b => b.gid === selectedBuildingGid);
+            if (buildingOnCurrentPage) {
+                return; // Building is already visible, no need to change page
+            }
+
+            // Search for the building across all pages
+            const params = {
+                per_page: 10,
+                sort_by: 'is_anomaly',
+                sort_order: 'desc',
+                include_geometry: 1,
+                search_building_gid: selectedBuildingGid // Add a special search parameter
+            };
+
+            if (searchTerm.trim()) {
+                params.search = searchTerm.trim();
+            }
+
+            if (buildingTypeFilter) {
+                params.type = buildingTypeFilter;
+            }
+
+            if (anomalyFilter !== 'all') {
+                // Convert frontend values to backend expected values
+                if (anomalyFilter === 'anomaly') {
+                    params.anomaly_filter = 'true';
+                } else if (anomalyFilter === 'normal') {
+                    params.anomaly_filter = 'false';
+                }
+            }
+
+            // Try to find the building by searching through pages
+            for (let page = 1; page <= totalPages; page++) {
+                const response = await apiClient.get(isAdmin ? '/admin/buildings' : '/buildings', { 
+                    params: { ...params, page } 
+                });
+                
+                const foundBuilding = response.data.data.find(b => b.gid === selectedBuildingGid);
+                if (foundBuilding) {
+                    setCurrentPage(page);
+                    return;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to find building page:', error);
+        }
+    };
+
+    // Watch for selectedBuilding changes from map clicks
+    useEffect(() => {
+        if (selectedBuilding && selectedBuilding.gid) {
+            findBuildingPage(selectedBuilding.gid);
+        }
+    }, [selectedBuilding?.gid]);
+
     const handleBuildingHover = (building) => {
         if (onBuildingHighlight) {
             onBuildingHighlight(building);
         }
     };
 
-    const getTliColor = (tli) => {
-        if (tli <= 30) return '#10b981'; // green-500
-        if (tli <= 60) return '#f59e0b'; // amber-500  
-        if (tli <= 90) return '#f97316'; // orange-500
-        return '#ef4444'; // red-500
+    const getAnomalyColor = (isAnomaly) => {
+        return isAnomaly ? '#ef4444' : '#3b82f6'; // red-500 : blue-500
     };
 
-    const getTliColorClass = (tli) => {
-        if (tli <= 30) return 'bg-green-500';
-        if (tli <= 60) return 'bg-amber-500';
-        if (tli <= 90) return 'bg-orange-500';
-        return 'bg-red-500';
+    const getAnomalyColorClass = (isAnomaly) => {
+        if (isAnomaly === true) return 'bg-red-500';
+        if (isAnomaly === false) return 'bg-blue-500';
+        return 'bg-gray-400';
     };
 
-    const getTliLabel = (tli) => {
-        if (tli <= 30) return 'Low';
-        if (tli <= 60) return 'Medium';
-        if (tli <= 90) return 'High';
-        return 'Very High';
+    const getAnomalyLabel = (isAnomaly) => {
+        if (isAnomaly === true) return 'Anomaly';
+        if (isAnomaly === false) return 'Normal';
+        return 'No Data';
     };
 
     return (
@@ -121,13 +179,13 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
             {/* Toggle Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full h-10 flex items-center ${isOpen ? 'justify-between px-4' : 'justify-center'} ${isOpen ? 'border-b border-gray-200' : ''}`}
+                className={`w-full h-10 flex items-center ${isOpen ? 'justify-between px-4' : 'justify-center'} ${isOpen ? 'border-b border-gray-200' : ''} cursor-pointer hover:bg-gray-50`}
                 title={isOpen ? 'Close panel' : 'Open Building Explorer'}
             >
                 {isOpen && (
                     <h3 className="text-lg font-medium text-gray-900 mt-1">Building Explorer</h3>
                 )}
-                <div className="text-gray-400 hover:text-gray-600">
+                <div className="text-gray-400 hover:text-gray-600 cursor-pointer">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isOpen ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"} />
                     </svg>
@@ -155,7 +213,7 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
                                 <select
                                     value={buildingTypeFilter}
                                     onChange={(e) => setBuildingTypeFilter(e.target.value)}
-                                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                                 >
                                     {buildingTypes.map(type => (
                                         <option key={type.value} value={type.value}>
@@ -165,18 +223,16 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
                                 </select>
                             </div>
 
-                            {/* TLI Range Filter */}
+                            {/* Anomaly Filter */}
                             <div className="flex-1">
                                 <select
-                                    value={tliRangeFilter}
-                                    onChange={(e) => setTliRangeFilter(e.target.value)}
-                                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={anomalyFilter}
+                                    onChange={(e) => setAnomalyFilter(e.target.value)}
+                                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                                 >
-                                    {tliRanges.map(range => (
-                                        <option key={range.value} value={range.value}>
-                                            {range.label}
-                                        </option>
-                                    ))}
+                                    <option value="all">All Buildings</option>
+                                    <option value="anomaly">Anomalies Only</option>
+                                    <option value="normal">Normal Only</option>
                                 </select>
                             </div>
                         </div>
@@ -222,9 +278,9 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
                                                 <div className="ml-2 flex flex-col items-end">
                                                     <span
                                                         className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white"
-                                                        style={{ backgroundColor: building.tli_color }}
+                                                        style={{ backgroundColor: getAnomalyColor(building.is_anomaly) }}
                                                     >
-                                                        {building.thermal_loss_index_tli}
+                                                        {building.is_anomaly ? 'Anomaly' : 'Normal'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -246,7 +302,7 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
                                         className={`px-2 py-1 text-sm rounded ${
                                             currentPage === 1
                                                 ? 'text-gray-400 cursor-not-allowed'
-                                                : 'text-blue-600 hover:bg-blue-50'
+                                                : 'text-blue-600 hover:bg-blue-50 cursor-pointer'
                                         }`}
                                     >
                                         Previous
@@ -260,7 +316,7 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
                                         className={`px-2 py-1 text-sm rounded ${
                                             currentPage === totalPages
                                                 ? 'text-gray-400 cursor-not-allowed'
-                                                : 'text-blue-600 hover:bg-blue-50'
+                                                : 'text-blue-600 hover:bg-blue-50 cursor-pointer'
                                         }`}
                                     >
                                         Next
@@ -275,4 +331,4 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
     );
 };
 
-export default ContextPanel; 
+export default ContextPanel;

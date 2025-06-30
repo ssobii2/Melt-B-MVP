@@ -41,7 +41,7 @@ Stores metadata about the different data bundles available (e.g., specific therm
 | `id`              | `BIGINT` (PK)          | `AUTO_INCREMENT`, `PRIMARY KEY`       | Unique identifier for the dataset.                              |
 | `name`            | `VARCHAR(255)`         | `NOT NULL`, `UNIQUE`                  | Human-readable name (e.g., "Thermal Raster v2024-Q4 Debrecen"). |
 | `description`     | `TEXT`                 | `NULLABLE`                            | Detailed description of the dataset.                            |
-| `data_type`       | `VARCHAR(50)`          | `NOT NULL`, (e.g., 'thermal-raster', 'building-data') | Type of data bundle.                                            |
+| `data_type`       | `VARCHAR(50)`          | `NOT NULL`, (e.g., 'building_anomalies', 'building-data') | Type of data bundle (thermal-raster renamed to building_anomalies). |
 | `storage_location`| `TEXT`                 | `NOT NULL`                            | Path or prefix in object storage (e.g., S3 bucket/prefix).      |
 | `version`         | `VARCHAR(50)`          | `NULLABLE`                            | Version identifier for the dataset.                             |
 | `created_at`      | `TIMESTAMP`            | `NOT NULL`                            |                                                                 |
@@ -54,9 +54,9 @@ Defines the granular access rules (ABAC-style).
 | Column Name       | Data Type (PostgreSQL) | Constraints                               | Description                                                     |
 | :---------------- | :--------------------- | :---------------------------------------- | :-------------------------------------------------------------- |
 | `id`              | `BIGINT` (PK)          | `AUTO_INCREMENT`, `PRIMARY KEY`           | Unique identifier for the entitlement.                          |
-| `type`            | `VARCHAR(50)`          | `NOT NULL`, (e.g., 'DS-ALL', 'DS-AOI', 'DS-BLD', 'TILES') | The type of entitlement.                                        |
+| `type`            | `VARCHAR(50)`          | `NOT NULL`, (e.g., 'DS-ALL', 'DS-AOI', 'DS-BLD') | The type of entitlement (TILES type removed).                   |
 | `dataset_id`      | `BIGINT`               | `NOT NULL`, `FK` to `datasets.id`         | Which dataset this entitlement applies to.                      |
-| `aoi_geom`        | `GEOMETRY(POLYGON, 4326)`| `NULLABLE`, `SPATIAL_INDEX`               | PostGIS Polygon for Area of Interest (for 'DS-AOI', 'TILES').  |
+| `aoi_geom`        | `GEOMETRY(POLYGON, 4326)`| `NULLABLE`, `SPATIAL_INDEX`               | PostGIS Polygon for Area of Interest (for 'DS-AOI').           |
 | `building_gids`   | `JSONB`                | `NULLABLE`                                | JSON array of specific building GIDs (for 'DS-BLD').            |
 | `download_formats`| `JSONB`                | `NULLABLE`, (e.g., `["csv", "geojson", "xlsx"]`) | Allowed download formats for this entitlement.                  |
 | `expires_at`      | `TIMESTAMP`            | `NULLABLE`                                | Date/time when the entitlement expires.                         |
@@ -76,26 +76,50 @@ Links users to their specific entitlements (many-to-many relationship).
 
 #### **5. `buildings` Table**
 
-Stores the pre-generated thermal analysis results and building characteristics.
+Stores the pre-generated anomaly detection results and building characteristics.
 
 | Column Name                | Data Type (PostgreSQL) | Constraints                               | Description                                                     |
 | :------------------------- | :--------------------- | :---------------------------------------- | :-------------------------------------------------------------- |
 | `gid`                      | `VARCHAR(255)` (PK)    | `PRIMARY KEY`                             | Global Identifier for the building (from source data).          |
 | `geometry`                 | `GEOMETRY(POLYGON, 4326)`| `NOT NULL`, `SPATIAL_INDEX`               | PostGIS Polygon representing the building's footprint. (SRID 4326 for WGS84 Lat/Lon). |
-| `thermal_loss_index_tli`   | `INTEGER`              | `NOT NULL`                                | Calculated Thermal Loss Index (0-100).                          |
+| `average_heatloss`         | `DECIMAL(10,4)`        | `NULLABLE`                                | Average heat loss for the building.                             |
+| `reference_heatloss`       | `DECIMAL(10,4)`        | `NULLABLE`                                | Reference/baseline heat loss for comparison.                    |
+| `heatloss_difference`      | `DECIMAL(10,4)`        | `NULLABLE`                                | Difference from reference heat loss.                            |
+| `abs_heatloss_difference`  | `DECIMAL(10,4)`        | `NULLABLE`                                | Absolute difference from reference heat loss.                   |
+| `threshold`                | `DECIMAL(10,4)`        | `NULLABLE`                                | Threshold value for anomaly detection.                          |
+| `is_anomaly`               | `BOOLEAN`              | `NOT NULL`, `DEFAULT FALSE`               | Boolean flag indicating if building is an anomaly.              |
+| `confidence`               | `DECIMAL(5,4)`         | `NULLABLE`                                | Confidence score (0.0 to 1.0) for anomaly detection.           |
 | `building_type_classification` | `VARCHAR(100)`         | `NOT NULL`                                | e.g., 'residential', 'commercial', 'industrial'.                |
 | `co2_savings_estimate`     | `NUMERIC(10,2)`        | `NULLABLE`                                | Estimated CO2 savings potential.                                |
 | `address`                  | `TEXT`                 | `NULLABLE`                                | Building's street address.                                      |
 | `owner_operator_details`   | `TEXT`                 | `NULLABLE`                                | Business contact details for owner/operator (GDPR compliant).   |
 | `cadastral_reference`      | `VARCHAR(255)`         | `NULLABLE`                                | Cadastral reference ID.                                         |
-| `dataset_id`               | `BIGINT`               | `NOT NULL`, `FK` to `datasets.id`         | Which dataset provided this building's thermal data.            |
-| `last_analyzed_at`         | `TIMESTAMP`            | `NOT NULL`                                | Timestamp of the thermal analysis.                              |
-| `before_renovation_tli`    | `INTEGER`              | `NULLABLE`                                | TLI before any renovation (for comparison).                     |
-| `after_renovation_tli`     | `INTEGER`              | `NULLABLE`                                | TLI after renovation (for comparison).                          |
+| `dataset_id`               | `BIGINT`               | `NOT NULL`, `FK` to `datasets.id`         | Which dataset provided this building's anomaly data.            |
+| `last_analyzed_at`         | `TIMESTAMP`            | `NOT NULL`                                | Timestamp of the anomaly analysis.                              |
+| `before_renovation_tli`    | `INTEGER`              | `NULLABLE`                                | TLI before any renovation (for comparison, legacy).             |
+| `after_renovation_tli`     | `INTEGER`              | `NULLABLE`                                | TLI after renovation (for comparison, legacy).                  |
 | `created_at`               | `TIMESTAMP`            | `NOT NULL`                                |                                                                 |
 | `updated_at`               | `TIMESTAMP`            | `NOT NULL`                                |                                                                 |
 
-#### **6. `audit_logs` Table**
+#### **6. `analysis_jobs` Table**
+
+Tracks external analysis jobs and their status for the anomaly detection workflow.
+
+| Column Name          | Data Type (PostgreSQL) | Constraints                   | Description                                             |
+| :------------------- | :--------------------- | :---------------------------- | :------------------------------------------------------ |
+| `id`                 | `BIGINT` (PK)          | `AUTO_INCREMENT`, `PRIMARY KEY` | Unique identifier for the analysis job.                |
+| `status`             | `VARCHAR(50)`          | `NOT NULL`, `DEFAULT 'pending'` | Job status (pending, running, completed, failed).      |
+| `input_source_links` | `JSONB`                | `NULLABLE`                    | JSON array of input links (S3 URLs, etc.).             |
+| `output_csv_url`     | `TEXT`                 | `NULLABLE`                    | URL to the completed CSV file with results.            |
+| `external_job_id`    | `TEXT`                 | `NULLABLE`                    | ID from the external analysis system.                  |
+| `metadata`           | `JSONB`                | `NULLABLE`                    | Additional metadata about the job.                     |
+| `started_at`         | `TIMESTAMP`            | `NULLABLE`                    | When the external job started.                         |
+| `completed_at`       | `TIMESTAMP`            | `NULLABLE`                    | When the external job completed.                       |
+| `error_message`      | `TEXT`                 | `NULLABLE`                    | Error details if job failed.                           |
+| `created_at`         | `TIMESTAMP`            | `NOT NULL`                    | Record creation timestamp.                              |
+| `updated_at`         | `TIMESTAMP`            | `NOT NULL`                    | Last update timestamp.                                  |
+
+#### **7. `audit_logs` Table**
 
 To track administrative actions, as implied by the "Admin area" requirements.
 

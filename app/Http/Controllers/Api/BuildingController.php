@@ -63,11 +63,14 @@ class BuildingController extends Controller
             $query->forDataset($datasetId);
         }
 
-        // TLI range filters (tli_min and tli_max as specified in DATA.md)
-        $minTli = $request->input('tli_min');
-        $maxTli = $request->input('tli_max');
-        if ($minTli !== null || $maxTli !== null) {
-            $query->withTliRange($minTli, $maxTli);
+        // Anomaly filter
+        $anomalyFilter = $request->input('anomaly_filter');
+        if ($anomalyFilter !== null && $anomalyFilter !== '') {
+            if ($anomalyFilter === 'true') {
+                $query->where('is_anomaly', true);
+            } elseif ($anomalyFilter === 'false') {
+                $query->where('is_anomaly', false);
+            }
         }
 
         // Building type filter (as specified in DATA.md)
@@ -83,10 +86,10 @@ class BuildingController extends Controller
         }
 
         // Apply sorting (sort_by and sort_order as specified in DATA.md)
-        $sortBy = $request->input('sort_by', 'thermal_loss_index_tli');
+        $sortBy = $request->input('sort_by', 'is_anomaly');
         $sortOrder = $request->input('sort_order', 'desc');
 
-        if (in_array($sortBy, ['thermal_loss_index_tli', 'co2_savings_estimate', 'building_type_classification'])) {
+        if (in_array($sortBy, ['is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
             $query->orderBy($sortBy, $sortOrder);
         }
 
@@ -214,15 +217,10 @@ class BuildingController extends Controller
 
         $stats = [
             'total_buildings' => $query->count(),
-            'avg_tli' => round($query->avg('thermal_loss_index_tli'), 2),
+            'anomaly_buildings' => $query->clone()->where('is_anomaly', true)->count(),
+            'normal_buildings' => $query->clone()->where('is_anomaly', false)->count(),
+            'avg_confidence' => round($query->avg('confidence'), 2),
             'avg_co2_savings' => round($query->avg('co2_savings_estimate'), 2),
-            'tli_distribution' => [
-                'high' => $query->clone()->withTliRange(80, 100)->count(),
-                'medium_high' => $query->clone()->withTliRange(60, 79)->count(),
-                'medium' => $query->clone()->withTliRange(40, 59)->count(),
-                'medium_low' => $query->clone()->withTliRange(20, 39)->count(),
-                'low' => $query->clone()->withTliRange(0, 19)->count(),
-            ],
             'by_classification' => $query->clone()
                 ->selectRaw('building_type_classification, COUNT(*) as count')
                 ->groupBy('building_type_classification')

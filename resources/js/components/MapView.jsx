@@ -13,12 +13,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
     const [allBuildings, setAllBuildings] = useState([]); // Store all accessible buildings
     const [isZooming, setIsZooming] = useState(false); // Track zooming state
 
-    // TLI color helper function
-    const getTliColor = (tli) => {
-        if (tli <= 30) return '#10b981'; // green-500
-        if (tli <= 60) return '#f59e0b'; // amber-500
-        if (tli <= 90) return '#f97316'; // orange-500
-        return '#ef4444'; // red-500
+    // Anomaly color helper function
+    const getAnomalyColor = (isAnomaly) => {
+        return isAnomaly ? '#ef4444' : '#3b82f6'; // red for anomaly, blue for normal
     };
 
     // Calculate optimal initial view based on building density
@@ -353,11 +350,14 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
                 },
                 properties: {
                     gid: building.gid,
-                    tli: building.thermal_loss_index_tli,
+                    is_anomaly: building.is_anomaly,
+                    average_heatloss: building.average_heatloss,
+                    reference_heatloss: building.reference_heatloss,
+                    heatloss_difference: building.heatloss_difference,
+                    confidence: building.confidence,
                     address: building.address,
                     type: building.building_type_classification,
-                    co2_savings: building.co2_savings_estimate,
-                    tli_color: building.tli_color
+                    co2_savings: building.co2_savings_estimate
                 }
             }))
         };
@@ -368,7 +368,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
             data: geojson
         });
 
-        // Add building fill layer with TLI-based coloring
+        // Add building fill layer with anomaly-based coloring
         map.current.addLayer({
             id: 'buildings-fill',
             type: 'fill',
@@ -376,9 +376,11 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
             paint: {
                 'fill-color': [
                     'case',
-                    ['has', 'tli_color'],
-                    ['get', 'tli_color'],
-                    '#cccccc' // Default gray for buildings without TLI
+                    ['==', ['get', 'is_anomaly'], true],
+                    '#ef4444', // Red for anomalies
+                    ['==', ['get', 'is_anomaly'], false],
+                    '#3b82f6', // Blue for normal buildings
+                    '#cccccc' // Default gray for buildings without anomaly data
                 ],
                 'fill-opacity': 0.7
             }
@@ -537,40 +539,23 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
                 </div>
             )}
             
-            {isZooming && (
-                <div className="absolute top-4 right-4 bg-blue-100 border border-blue-200 rounded-lg px-3 py-2 z-20">
-                    <div className="flex items-center space-x-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                        <span className="text-sm text-blue-700">Zooming to building...</span>
-                    </div>
-                </div>
-            )}
-            
             <div ref={mapContainer} className="w-full h-full" />
             
             {/* Map Legend */}
             <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 text-xs max-w-48">
-                <h4 className="font-semibold mb-2">Thermal Loss Index (TLI)</h4>
+                <h4 className="font-semibold mb-2">Anomaly Detection</h4>
                 <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#00ff00' }}></div>
-                        <span>Low (0-20)</span>
+                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#ef4444' }}></div>
+                        <span>Anomaly</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#80ff00' }}></div>
-                        <span>Medium Low (20-40)</span>
+                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#3b82f6' }}></div>
+                        <span>Normal</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#ffff00' }}></div>
-                        <span>Medium (40-60)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#ff8000' }}></div>
-                        <span>Medium High (60-80)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#ff0000' }}></div>
-                        <span>High (80+)</span>
+                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#cccccc' }}></div>
+                        <span>No Data</span>
                     </div>
                 </div>
                 {selectedDataset && (
@@ -585,4 +570,4 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
     );
 };
 
-export default MapView; 
+export default MapView;

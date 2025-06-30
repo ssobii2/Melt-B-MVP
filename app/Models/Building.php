@@ -232,16 +232,14 @@ class Building extends Model
     }
 
     /**
-     * Filter buildings by TLI range.
+     * Filter buildings by anomaly status.
      */
-    public function scopeWithTliRange($query, int $minTli = null, int $maxTli = null)
+    public function scopeWithAnomalyFilter($query, string $anomalyFilter = null)
     {
-        if ($minTli !== null) {
-            $query->where('thermal_loss_index_tli', '>=', $minTli);
-        }
-
-        if ($maxTli !== null) {
-            $query->where('thermal_loss_index_tli', '<=', $maxTli);
+        if ($anomalyFilter === 'true') {
+            return $query->where('is_anomaly', true);
+        } elseif ($anomalyFilter === 'false') {
+            return $query->where('is_anomaly', false);
         }
 
         return $query;
@@ -267,11 +265,13 @@ class Building extends Model
     }
 
     /**
-     * Filter buildings by TLI range (alias for withTliRange).
+     * Filter buildings by TLI range (alias for withAnomalyFilter) - DEPRECATED.
      */
     public function scopeByTliRange($query, int $minTli = null, int $maxTli = null)
     {
-        return $this->scopeWithTliRange($query, $minTli, $maxTli);
+        // This method is deprecated and no longer functional
+        // Use withAnomalyFilter instead
+        return $query;
     }
 
     /**

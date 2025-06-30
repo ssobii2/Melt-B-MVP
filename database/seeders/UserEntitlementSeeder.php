@@ -38,19 +38,19 @@ class UserEntitlementSeeder extends Seeder
                 ['type' => 'DS-ALL',  'dataset' => 'Paris Building Anomalies Analysis 2025-Q1'],
             ],
 
-            // Researcher – specific Paris buildings access
+            // Researcher – specific Paris buildings access (200 buildings)
             'researcher@sorbonne.fr' => [
-                ['type' => 'DS-BLD', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1'],
+                ['type' => 'DS-BLD', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1', 'index' => 0], // First DS-BLD entitlement
             ],
 
-            // Contractor gets limited building access
+            // Contractor gets limited building access (150 buildings)
             'contractor@energieparis.fr' => [
-                'DS-BLD', // Specific buildings only
+                ['type' => 'DS-BLD', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1', 'index' => 1], // Second DS-BLD entitlement
             ],
 
-            // Test user gets basic access
+            // Test user gets basic access (50 buildings)
             'user@test.com' => [
-                'DS-BLD', // Building data access
+                ['type' => 'DS-BLD', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1', 'index' => 2], // Third DS-BLD entitlement
             ],
         ];
 
@@ -80,10 +80,11 @@ class UserEntitlementSeeder extends Seeder
             } else {
                 // Assign specific entitlement types
                 foreach ($entitlementTypes as $spec) {
-                    // Allow two formats: simple string ('DS-BLD') or array(['type'=>'DS-BLD','dataset'=>'Name'])
+                    // Allow two formats: simple string ('DS-BLD') or array(['type'=>'DS-BLD','dataset'=>'Name','index'=>0])
                     if (is_array($spec)) {
                         $type  = $spec['type'];
                         $dsName = $spec['dataset'] ?? null;
+                        $index = $spec['index'] ?? null;
                         $datasetId = $dsName && isset($datasets[$dsName]) ? $datasets[$dsName]->id : null;
 
                         $typeEntitlements = $entitlements->where('type', $type)
@@ -93,6 +94,16 @@ class UserEntitlementSeeder extends Seeder
                             ->where(function ($entitlement) {
                                 return $entitlement->expires_at === null || $entitlement->expires_at > now();
                             });
+                        
+                        // If index is specified, get only that specific entitlement
+                        if ($index !== null) {
+                            $typeEntitlements = $typeEntitlements->values();
+                            if (isset($typeEntitlements[$index])) {
+                                $typeEntitlements = collect([$typeEntitlements[$index]]);
+                            } else {
+                                $typeEntitlements = collect();
+                            }
+                        }
                     } else {
                         $type = $spec;
                         $typeEntitlements = $entitlements->where('type', $type)

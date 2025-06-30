@@ -71,7 +71,7 @@ class DatasetController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255', 'unique:datasets'],
-            'data_type' => ['required', 'string', 'in:thermal_raster,building_data,thermal_analysis,heat_map'],
+            'data_type' => ['required', 'string', 'max:100'],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'storage_location' => ['required', 'string', 'max:500'],
             'version' => ['sometimes', 'nullable', 'string', 'max:50'],
@@ -140,7 +140,7 @@ class DatasetController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => ['sometimes', 'string', 'max:255', 'unique:datasets,name,' . $id],
-            'data_type' => ['sometimes', 'string', 'in:thermal_raster,building_data,thermal_analysis,heat_map'],
+            'data_type' => ['sometimes', 'string', 'max:100'],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'storage_location' => ['sometimes', 'string', 'max:500'],
             'version' => ['sometimes', 'nullable', 'string', 'max:50'],
@@ -262,15 +262,40 @@ class DatasetController extends Controller
      */
     public function dataTypes(): JsonResponse
     {
-        $dataTypes = [
+        // Get distinct data types from database
+        $distinctDataTypes = Dataset::distinct()->pluck('data_type')->filter()->sort()->values();
+        
+        // Create formatted array with display names
+        $dataTypes = [];
+        foreach ($distinctDataTypes as $dataType) {
+            $dataTypes[$dataType] = $this->formatDataTypeLabel($dataType);
+        }
+        
+        // Add common data types if not present
+        $commonTypes = [
             'thermal_raster' => 'Thermal Raster',
-            'building_data' => 'Building Data',
+            'building_data' => 'Building Data', 
             'thermal_analysis' => 'Thermal Analysis',
-            'heat_map' => 'Heat Map'
+            'heat_map' => 'Heat Map',
+            'building_anomalies' => 'Building Anomalies'
         ];
+        
+        foreach ($commonTypes as $key => $label) {
+            if (!isset($dataTypes[$key])) {
+                $dataTypes[$key] = $label;
+            }
+        }
 
         return response()->json([
             'data_types' => $dataTypes
         ]);
+    }
+    
+    /**
+     * Format data type for display.
+     */
+    private function formatDataTypeLabel(string $dataType): string
+    {
+        return ucwords(str_replace(['_', '-'], ' ', $dataType));
     }
 }
