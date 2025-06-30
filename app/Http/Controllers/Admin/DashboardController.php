@@ -10,7 +10,6 @@ use App\Models\Entitlement;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
 class DashboardController extends Controller
 {
@@ -19,9 +18,8 @@ class DashboardController extends Controller
      */
     public function index(Request $request)
     {
-        // Get current user from session
-        $userId = $request->session()->get('admin_user_id');
-        $currentUser = User::find($userId);
+        // Get current user from Laravel's authentication
+        $currentUser = Auth::user();
 
         // Get dashboard statistics
         $stats = [
@@ -50,28 +48,16 @@ class DashboardController extends Controller
      */
     public function showLoginForm(Request $request)
     {
-        // If already logged in, redirect to dashboard
-        $token = $request->session()->get('admin_token');
-        $userId = $request->session()->get('admin_user_id');
-
-        if ($token && $userId) {
-            // Verify token is still valid
-            $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
-            if ($accessToken && $accessToken->tokenable_id == $userId) {
-                $user = User::find($userId);
-                if ($user && $user->isAdmin()) {
-                    return redirect()->route('admin.dashboard');
-                }
-            }
-            // If token is invalid, clear session
-            $request->session()->forget(['admin_token', 'admin_user_id']);
+        // If already logged in and user is admin, redirect to dashboard
+        if (Auth::check() && Auth::user()->isAdmin()) {
+            return redirect()->route('admin.dashboard');
         }
 
         return view('admin.auth.login');
     }
 
     /**
-     * Handle admin login and create token.
+     * Handle admin login using Laravel's session authentication.
      */
     public function login(Request $request)
     {
@@ -80,71 +66,62 @@ class DashboardController extends Controller
             'password' => ['required'],
         ]);
 
-        // Check if user exists and password is correct
-        $user = User::where('email', $credentials['email'])->first();
+        // Attempt to authenticate using Laravel's built-in authentication
+        if (Auth::attempt($credentials)) {
+            $user = Auth::user();
+            
+            // Check if user is admin
+            if (!$user->isAdmin()) {
+                Auth::logout();
+                return back()->withErrors([
+                    'email' => 'Access denied. Admin privileges required.',
+                ]);
+            }
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
-            return back()->withErrors([
-                'email' => 'The provided credentials do not match our records.',
-            ]);
+            // Regenerate session for security
+            $request->session()->regenerate();
+
+            // Log the admin login
+            AuditLog::createEntry(
+                userId: $user->id,
+                action: 'admin_login',
+                targetType: 'user',
+                targetId: $user->id,
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent()
+            );
+
+            return redirect()->intended('/admin/dashboard');
         }
 
-        // Check if user is admin
-        if (!$user->isAdmin()) {
-            return back()->withErrors([
-                'email' => 'Access denied. Admin privileges required.',
-            ]);
-        }
-
-        // Create admin token and store in session for dashboard access
-        $token = $user->createToken('Admin Dashboard Token');
-
-        // Store token in session for dashboard use
-        $request->session()->put('admin_token', $token->plainTextToken);
-        $request->session()->put('admin_user_id', $user->id);
-        $request->session()->regenerate();
-
-        // Log the admin login
-        AuditLog::createEntry(
-            userId: $user->id,
-            action: 'admin_login',
-            targetType: 'user',
-            targetId: $user->id,
-            ipAddress: $request->ip(),
-            userAgent: $request->userAgent()
-        );
-
-        return redirect()->intended('/admin/dashboard');
+        return back()->withErrors([
+            'email' => 'The provided credentials do not match our records.',
+        ]);
     }
 
     /**
-     * Handle admin logout and revoke token.
+     * Handle admin logout using Laravel's session authentication.
      */
     public function logout(Request $request)
     {
-        $token = $request->session()->get('admin_token');
-        $userId = $request->session()->get('admin_user_id');
+        $user = Auth::user();
 
-        if ($token && $userId) {
-            // Find and revoke the token
-            $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
-            if ($accessToken) {
-                $accessToken->delete();
-            }
-
+        if ($user) {
             // Log the admin logout
             AuditLog::createEntry(
-                userId: $userId,
+                userId: $user->id,
                 action: 'admin_logout',
                 targetType: 'user',
-                targetId: $userId,
+                targetId: $user->id,
                 ipAddress: $request->ip(),
                 userAgent: $request->userAgent()
             );
         }
 
-        // Clear session
-        $request->session()->forget(['admin_token', 'admin_user_id']);
+        // Log out using Laravel's built-in authentication
+        Auth::logout();
+        
+        // Invalidate session for security
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

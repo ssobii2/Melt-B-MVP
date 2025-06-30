@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { apiClient } from '../utils/api';
-import Cookies from 'js-cookie';
 
 const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => {
     const mapContainer = useRef(null);
@@ -281,20 +280,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
             availableDatasets.sort((a,b) => a.id - b.id);
             setDatasets(availableDatasets);
 
-            // Find a thermal raster dataset for tile layer (pick first)
-            const thermalDataset = availableDatasets.find(d => 
-                d.data_type === 'thermal_raster' || d.data_type === 'thermal_rasters'
-            );
-            
-            if (thermalDataset) {
-                setSelectedDataset(thermalDataset);
-                addThermalTileLayer(thermalDataset.id);
-            }
-
-            // If user has no building access, but dataset has bbox metadata, fit map to that
-            if (allBuildings.length === 0 && thermalDataset?.metadata?.bbox) {
-                const [minLon, minLat, maxLon, maxLat] = thermalDataset.metadata.bbox;
-                map.current.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 60, duration: 1000 });
+            // Set the first available dataset as selected (for context purposes)
+            if (availableDatasets.length > 0) {
+                setSelectedDataset(availableDatasets[0]);
             }
 
             // Load building footprint data for current view
@@ -304,35 +292,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
         }
     };
 
-    // Add thermal tile layer to map
-    const addThermalTileLayer = (datasetId) => {
-        if (!map.current || !datasetId) return;
 
-        const token = Cookies.get('auth_token');
-        
-        // Add thermal raster source with token as query parameter
-        map.current.addSource('thermal-tiles', {
-            type: 'raster',
-            tiles: [`/api/tiles/${datasetId}/{z}/{x}/{y}.png?token=${token}`],
-            tileSize: 256,
-            minzoom: 10, // Only show at zoom level 10+ (1:10,000 scale)
-            maxzoom: 18
-        });
-
-        // Add thermal layer (only visible at high zoom levels)
-        map.current.addLayer({
-            id: 'thermal-layer',
-            type: 'raster',
-            source: 'thermal-tiles',
-            layout: {
-                visibility: 'visible'
-            },
-            paint: {
-                'raster-opacity': 0.6
-            },
-            minzoom: 10 // Only show when zoomed in enough (≥1:10,000)
-        });
-    };
 
     // Load building footprint data (bounds-based for performance)
     const loadBuildingData = async () => {

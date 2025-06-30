@@ -4,7 +4,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BuildingController;
-use App\Http\Controllers\Api\TileController;
 use App\Http\Controllers\Api\DownloadController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\EntitlementController;
@@ -89,10 +88,6 @@ Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
     Route::get('/downloads/{id}', [DownloadController::class, 'download'])
         ->where(['id' => '[0-9]+']);
 });
-
-// Map tile serving route handles its own token authentication inside the controller.
-Route::get('/tiles/{dataset_id}/{z}/{x}/{y}.png', [TileController::class, 'serveTile'])
-        ->where(['z' => '[0-9]+', 'x' => '[0-9]+', 'y' => '[0-9]+']);
 
 // Admin-only routes (same token, but checks user role)
 Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(function () {

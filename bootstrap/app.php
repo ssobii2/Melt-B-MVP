@@ -26,7 +26,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'auth.admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'auth.api' => \App\Http\Middleware\HandleUnauthenticatedApiRequests::class,
-            'admin.token' => \App\Http\Middleware\EnsureAdminToken::class,
             'check.entitlements' => \App\Http\Middleware\CheckEntitlementsMiddleware::class,
         ]);
     })
