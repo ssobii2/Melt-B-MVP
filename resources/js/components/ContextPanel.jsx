@@ -36,8 +36,8 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
             const params = {
                 page,
                 per_page: 10,
-                sort_by: 'is_anomaly',
-                sort_order: 'desc',
+                sort_by: 'gid',
+                sort_order: 'asc',
                 include_geometry: 1 // Include geometry for zooming functionality
             };
 
@@ -107,8 +107,8 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
             // Use the new efficient findPage endpoint
             const params = {
                 per_page: 10,
-                sort_by: 'is_anomaly',
-                sort_order: 'desc'
+                sort_by: 'gid',
+                sort_order: 'asc'
             };
 
             if (searchTerm.trim()) {

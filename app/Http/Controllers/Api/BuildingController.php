@@ -87,11 +87,14 @@ class BuildingController extends Controller
         }
 
         // Apply sorting (sort_by and sort_order as specified in DATA.md)
-        $sortBy = $request->input('sort_by', 'is_anomaly');
-        $sortOrder = $request->input('sort_order', 'desc');
+        $sortBy = $request->input('sort_by', 'gid');
+        $sortOrder = $request->input('sort_order', 'asc');
 
-        if (in_array($sortBy, ['is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
-            $query->orderBy($sortBy, $sortOrder)->orderBy('gid', 'asc'); // Add secondary sort for stability
+        if (in_array($sortBy, ['gid', 'is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
+            $query->orderBy($sortBy, $sortOrder);
+            if ($sortBy !== 'gid') {
+                $query->orderBy('gid', 'asc'); // Add secondary sort for stability
+            }
         }
 
         // Get paginated results
@@ -242,11 +245,14 @@ class BuildingController extends Controller
         }
 
         // Apply same sorting
-        $sortBy = $request->input('sort_by', 'is_anomaly');
-        $sortOrder = $request->input('sort_order', 'desc');
+        $sortBy = $request->input('sort_by', 'gid');
+        $sortOrder = $request->input('sort_order', 'asc');
 
-        if (in_array($sortBy, ['is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
+        if (in_array($sortBy, ['gid', 'is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
             $query->orderBy($sortBy, $sortOrder);
+            if ($sortBy !== 'gid') {
+                $query->orderBy('gid', 'asc'); // Add secondary sort for stability
+            }
         }
 
         // Count buildings before the target building

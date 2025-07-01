@@ -62,11 +62,14 @@ class BuildingController extends Controller
         }
 
         // Apply same sorting as findPage method
-        $sortBy = $request->input('sort_by', 'is_anomaly');
-        $sortOrder = $request->input('sort_order', 'desc');
+        $sortBy = $request->input('sort_by', 'gid');
+        $sortOrder = $request->input('sort_order', 'asc');
 
-        if (in_array($sortBy, ['is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
-            $query->orderBy($sortBy, $sortOrder)->orderBy('gid', 'asc'); // Add secondary sort for stability
+        if (in_array($sortBy, ['gid', 'is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
+            $query->orderBy($sortBy, $sortOrder);
+            if ($sortBy !== 'gid') {
+                $query->orderBy('gid', 'asc'); // Add secondary sort for stability
+            }
         }
 
         // Pagination
@@ -133,14 +136,17 @@ class BuildingController extends Controller
         }
 
         // Apply same sorting as main listing
-        $sortBy = $request->input('sort_by', 'is_anomaly');
-        $sortOrder = $request->input('sort_order', 'desc');
+        $sortBy = $request->input('sort_by', 'gid');
+        $sortOrder = $request->input('sort_order', 'asc');
 
-        if (in_array($sortBy, ['is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
+        if (in_array($sortBy, ['gid', 'is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
             $query->orderBy($sortBy, $sortOrder);
+            if ($sortBy !== 'gid') {
+                $query->orderBy('gid', 'asc'); // Add secondary sort for stability
+            }
         }
 
-        $perPage = min($request->input('per_page', 10), 100);
+        $perPage = min($request->input('per_page', 15), 100);
         
         // Create a subquery to get the position of the building
         $positionQuery = clone $query;
