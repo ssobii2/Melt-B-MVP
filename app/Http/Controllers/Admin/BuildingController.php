@@ -27,10 +27,14 @@ class BuildingController extends Controller
 
     /**
      * Get buildings data for API (used by admin dashboard).
+     * Note: Admin users have unrestricted access to all buildings.
      */
     private function getBuildings(Request $request): JsonResponse
     {
         $query = Building::query()->with('dataset:id,name,data_type');
+
+        // Admin users see all buildings without entitlement filtering
+        // This is intentional for administrative oversight
 
         // Apply search filter
         if ($search = $request->input('search')) {
@@ -43,12 +47,30 @@ class BuildingController extends Controller
         }
 
         // Apply anomaly filter
-        if ($anomalyFilter = $request->input('anomaly_filter')) {
-            $query->withAnomalyFilter($anomalyFilter);
+        $anomalyFilter = $request->input('anomaly_filter');
+        if ($anomalyFilter !== null && $anomalyFilter !== '') {
+            if ($anomalyFilter === 'true') {
+                $query->where('is_anomaly', true);
+            } elseif ($anomalyFilter === 'false') {
+                $query->where('is_anomaly', false);
+            }
+        }
+
+        // Apply building type filter
+        if ($type = $request->input('type')) {
+            $query->byType($type);
+        }
+
+        // Apply same sorting as findPage method
+        $sortBy = $request->input('sort_by', 'is_anomaly');
+        $sortOrder = $request->input('sort_order', 'desc');
+
+        if (in_array($sortBy, ['is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
+            $query->orderBy($sortBy, $sortOrder)->orderBy('gid', 'asc'); // Add secondary sort for stability
         }
 
         // Pagination
-        $perPage = min($request->input('per_page', 15), 50);
+        $perPage = min($request->input('per_page', 15), 100);
         $buildings = $query->paginate($perPage);
 
         return response()->json([
@@ -96,8 +118,18 @@ class BuildingController extends Controller
         }
 
         // Apply anomaly filter
-        if ($anomalyFilter = $request->input('anomaly_filter')) {
-            $query->withAnomalyFilter($anomalyFilter);
+        $anomalyFilter = $request->input('anomaly_filter');
+        if ($anomalyFilter !== null && $anomalyFilter !== '') {
+            if ($anomalyFilter === 'true') {
+                $query->where('is_anomaly', true);
+            } elseif ($anomalyFilter === 'false') {
+                $query->where('is_anomaly', false);
+            }
+        }
+
+        // Apply building type filter (to match frontend filtering)
+        if ($type = $request->input('type')) {
+            $query->byType($type);
         }
 
         // Apply same sorting as main listing
@@ -108,11 +140,11 @@ class BuildingController extends Controller
             $query->orderBy($sortBy, $sortOrder);
         }
 
-        $perPage = min($request->input('per_page', 15), 50);
+        $perPage = min($request->input('per_page', 10), 100);
         
         // Create a subquery to get the position of the building
         $positionQuery = clone $query;
-        $positionQuery->selectRaw('ROW_NUMBER() OVER (ORDER BY ' . $sortBy . ' ' . $sortOrder . ', gid) as position, gid');
+        $positionQuery->selectRaw('ROW_NUMBER() OVER (ORDER BY ' . $sortBy . ' ' . $sortOrder . ', gid asc) as position, gid');
         
         // Find the position of our target building
         $result = DB::table(DB::raw('(' . $positionQuery->toSql() . ') as ranked_buildings'))
@@ -130,6 +162,50 @@ class BuildingController extends Controller
             'page' => $page,
             'position' => $result->position,
             'per_page' => $perPage
+        ]);
+    }
+
+    /**
+     * Get buildings within a specific geographic area for admin users.
+     * Admin users see all buildings without entitlement filtering.
+     */
+    public function withinBounds(Request $request): JsonResponse
+    {
+        // Validate bounding box parameters
+        $request->validate([
+            'north' => 'required|numeric|between:-90,90',
+            'south' => 'required|numeric|between:-90,90',
+            'east' => 'required|numeric|between:-180,180',
+            'west' => 'required|numeric|between:-180,180',
+        ]);
+
+        $north = $request->input('north');
+        $south = $request->input('south');
+        $east = $request->input('east');
+        $west = $request->input('west');
+
+        // Create bounding box polygon
+        $bbox = "POLYGON(({$west} {$south}, {$east} {$south}, {$east} {$north}, {$west} {$north}, {$west} {$south}))";
+
+        // Start building query - admin users see all buildings
+        $query = Building::query()->with('dataset:id,name,data_type');
+
+        // Apply bounding box filter
+        $query->withinGeometry($bbox);
+
+        // Limit results for performance
+        $limit = min($request->input('limit', 1000), 5000);
+        $buildings = $query->limit($limit)->get();
+
+        return response()->json([
+            'data' => $buildings,
+            'count' => $buildings->count(),
+            'bbox' => [
+                'north' => $north,
+                'south' => $south,
+                'east' => $east,
+                'west' => $west
+            ]
         ]);
     }
 

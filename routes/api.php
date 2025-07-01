@@ -128,6 +128,7 @@ Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(functi
     Route::get('/audit-logs/{id}', [AuditLogController::class, 'show']);
 
     // Buildings management (read-only for admin)
+    Route::get('/buildings/within/bounds', [\App\Http\Controllers\Admin\BuildingController::class, 'withinBounds']);
     Route::get('/buildings/{gid}/find-page', [\App\Http\Controllers\Admin\BuildingController::class, 'findPage']);
     Route::get('/buildings', [\App\Http\Controllers\Admin\BuildingController::class, 'index']);
     Route::get('/buildings/{gid}', [\App\Http\Controllers\Admin\BuildingController::class, 'show']);

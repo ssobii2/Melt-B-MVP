@@ -91,7 +91,7 @@ class BuildingController extends Controller
         $sortOrder = $request->input('sort_order', 'desc');
 
         if (in_array($sortBy, ['is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
-            $query->orderBy($sortBy, $sortOrder);
+            $query->orderBy($sortBy, $sortOrder)->orderBy('gid', 'asc'); // Add secondary sort for stability
         }
 
         // Get paginated results
@@ -250,11 +250,11 @@ class BuildingController extends Controller
         }
 
         // Count buildings before the target building
-        $perPage = min($request->input('per_page', 10), 100);
+        $perPage = min($request->input('per_page', 15), 100);
         
         // Create a subquery to get the position of the building
         $positionQuery = clone $query;
-        $positionQuery->selectRaw('ROW_NUMBER() OVER (ORDER BY ' . $sortBy . ' ' . $sortOrder . ', gid) as position, gid');
+        $positionQuery->selectRaw('ROW_NUMBER() OVER (ORDER BY ' . $sortBy . ' ' . $sortOrder . ', gid asc) as position, gid');
         
         // Find the position of our target building
         $result = DB::table(DB::raw('(' . $positionQuery->toSql() . ') as ranked_buildings'))

@@ -54,8 +54,6 @@ class Building extends Model
         'cadastral_reference',
         'dataset_id',
         'last_analyzed_at',
-        'before_renovation_tli',
-        'after_renovation_tli',
     ];
 
     /**
@@ -74,8 +72,6 @@ class Building extends Model
         'confidence' => 'decimal:4',
         'co2_savings_estimate' => 'decimal:2',
         'last_analyzed_at' => 'datetime',
-        'before_renovation_tli' => 'integer',
-        'after_renovation_tli' => 'integer',
     ];
 
     /**
@@ -88,21 +84,10 @@ class Building extends Model
 
     /**
      * Get the building color based on anomaly status.
-     * This replaces the old TLI-based coloring system.
      */
     public function getTliColorAttribute(): string
     {
-        // For backward compatibility, check if we still have TLI data
-        if ($this->thermal_loss_index_tli !== null) {
-            $tli = $this->thermal_loss_index_tli;
-            if ($tli >= 80) return '#ff0000'; // Red - High loss
-            if ($tli >= 60) return '#ff8000'; // Orange
-            if ($tli >= 40) return '#ffff00'; // Yellow
-            if ($tli >= 20) return '#80ff00'; // Light green
-            return '#00ff00'; // Green - Low loss
-        }
-
-        // New anomaly-based coloring
+        // Anomaly-based coloring
         if ($this->is_anomaly === null) {
             return '#808080'; // Gray - No data
         }
@@ -146,17 +131,7 @@ class Building extends Model
         return $this->is_anomaly && $this->confidence !== null && $this->confidence >= 0.8;
     }
 
-    /**
-     * Calculate improvement potential if after renovation TLI is available.
-     */
-    public function getImprovementPotentialAttribute(): ?int
-    {
-        if ($this->before_renovation_tli && $this->after_renovation_tli) {
-            return $this->before_renovation_tli - $this->after_renovation_tli;
-        }
 
-        return null;
-    }
 
     /**
      * Apply entitlement filters to the query based on user's access rights.
@@ -246,13 +221,14 @@ class Building extends Model
     }
 
     /**
-     * Search buildings by address or cadastral reference.
+     * Search buildings by address, cadastral reference, or building ID (gid).
      */
     public function scopeSearch($query, string $searchTerm)
     {
         return $query->where(function ($subQuery) use ($searchTerm) {
             $subQuery->where('address', 'ILIKE', "%{$searchTerm}%")
-                ->orWhere('cadastral_reference', 'ILIKE', "%{$searchTerm}%");
+                ->orWhere('cadastral_reference', 'ILIKE', "%{$searchTerm}%")
+                ->orWhere('gid', 'ILIKE', "%{$searchTerm}%");
         });
     }
 
@@ -264,15 +240,7 @@ class Building extends Model
         return $query->where('building_type_classification', $type);
     }
 
-    /**
-     * Filter buildings by TLI range (alias for withAnomalyFilter) - DEPRECATED.
-     */
-    public function scopeByTliRange($query, int $minTli = null, int $maxTli = null)
-    {
-        // This method is deprecated and no longer functional
-        // Use withAnomalyFilter instead
-        return $query;
-    }
+
 
     /**
      * Filter buildings that are anomalies.

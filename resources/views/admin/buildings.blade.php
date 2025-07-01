@@ -120,8 +120,24 @@
                                 <td id="detailAddress">-</td>
                             </tr>
                             <tr>
-                                <td><strong>Heat Loss:</strong></td>
+                                <td><strong>Average Heat Loss:</strong></td>
                                 <td id="detailHeatLoss">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Reference Heat Loss:</strong></td>
+                                <td id="detailReferenceHeatLoss">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Heat Loss Difference:</strong></td>
+                                <td id="detailHeatLossDifference">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Abs. Heat Loss Difference:</strong></td>
+                                <td id="detailAbsHeatLossDifference">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Threshold:</strong></td>
+                                <td id="detailThreshold">-</td>
                             </tr>
                             <tr>
                                 <td><strong>Anomaly Status:</strong></td>
@@ -322,7 +338,7 @@
             } else {
                 buildings.forEach(function(building) {
                     const analyzedDate = formatDate(building.last_analyzed_at);
-                    const heatLoss = building.average_heatloss ? building.average_heatloss.toFixed(2) : 'N/A';
+                    const heatLoss = building.average_heatloss != null && !isNaN(building.average_heatloss) ? Number(building.average_heatloss).toFixed(2) : 'N/A';
                     const anomalyStatus = building.is_anomaly ? 
                         '<span class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i> Anomaly</span>' : 
                         '<span class="badge badge-success"><i class="fas fa-check"></i> Normal</span>';
@@ -400,14 +416,18 @@
                     // Populate modal with building data
                     $('#detailGid').text(building.gid);
                     $('#detailAddress').text(building.address || 'N/A');
-                    $('#detailHeatLoss').text(building.average_heatloss ? building.average_heatloss.toFixed(2) : 'N/A');
+                    $('#detailHeatLoss').text(building.average_heatloss != null && !isNaN(building.average_heatloss) ? Number(building.average_heatloss).toFixed(2) : 'N/A');
+                    $('#detailReferenceHeatLoss').text(building.reference_heatloss != null && !isNaN(building.reference_heatloss) ? Number(building.reference_heatloss).toFixed(2) : 'N/A');
+                    $('#detailHeatLossDifference').text(building.heatloss_difference != null && !isNaN(building.heatloss_difference) ? Number(building.heatloss_difference).toFixed(2) : 'N/A');
+                    $('#detailAbsHeatLossDifference').text(building.abs_heatloss_difference != null && !isNaN(building.abs_heatloss_difference) ? Number(building.abs_heatloss_difference).toFixed(2) : 'N/A');
+                    $('#detailThreshold').text(building.threshold != null && !isNaN(building.threshold) ? Number(building.threshold).toFixed(2) : 'N/A');
                     
                     const anomalyStatus = building.is_anomaly ? 
                         '<span class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i> Anomaly</span>' : 
                         '<span class="badge badge-success"><i class="fas fa-check"></i> Normal</span>';
                     $('#detailAnomalyStatus').html(anomalyStatus);
                     
-                    $('#detailConfidence').text(building.confidence ? (building.confidence * 100).toFixed(1) + '%' : 'N/A');
+                    $('#detailConfidence').text(building.confidence != null && !isNaN(building.confidence) ? (Number(building.confidence) * 100).toFixed(1) + '%' : 'N/A');
                     $('#detailClassification').text(building.building_type_classification || 'N/A');
                     $('#detailCo2').text(building.co2_savings_estimate ? building.co2_savings_estimate + ' kg' : 'N/A');
                     $('#detailDataset').text(building.dataset ? building.dataset.name : 'N/A');

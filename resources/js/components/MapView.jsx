@@ -2,8 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { apiClient } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => {
+    const { isAdmin } = useAuth();
     const mapContainer = useRef(null);
     const map = useRef(null);
     const [buildingsData, setBuildingsData] = useState(null);
@@ -152,7 +154,8 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
     // Load all accessible buildings for initial view calculation
     const loadAllAccessibleBuildings = async () => {
         try {
-            const response = await apiClient.get('/buildings', {
+            const endpoint = isAdmin ? '/admin/buildings' : '/buildings';
+            const response = await apiClient.get(endpoint, {
                 params: {
                     per_page: 1000, // Get more buildings for better distribution calculation
                     include_geometry: 1
@@ -297,7 +300,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
             // Get current map bounds for filtering
             const bounds = map.current.getBounds();
             
-            const response = await apiClient.get('/buildings/within/bounds', {
+            // Use admin endpoint if user is admin to see all buildings without entitlement filtering
+            const endpoint = isAdmin ? '/admin/buildings/within/bounds' : '/buildings/within/bounds';
+            const response = await apiClient.get(endpoint, {
                 params: {
                     north: bounds.getNorth(),
                     south: bounds.getSouth(),

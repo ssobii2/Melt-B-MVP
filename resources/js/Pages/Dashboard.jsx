@@ -170,19 +170,19 @@ export default function Dashboard() {
                                             </div>
                                             <div>
                                                 <dt className="text-xs text-gray-500">Average Heat Loss</dt>
-                                                <dd className="text-sm text-gray-900">{selectedBuilding.average_heatloss ? selectedBuilding.average_heatloss.toFixed(2) : 'N/A'}</dd>
+                                                <dd className="text-sm text-gray-900">{selectedBuilding.average_heatloss != null && !isNaN(selectedBuilding.average_heatloss) ? Number(selectedBuilding.average_heatloss).toFixed(2) : 'N/A'}</dd>
                                             </div>
                                             <div>
                                                 <dt className="text-xs text-gray-500">Reference Heat Loss</dt>
-                                                <dd className="text-sm text-gray-900">{selectedBuilding.reference_heatloss ? selectedBuilding.reference_heatloss.toFixed(2) : 'N/A'}</dd>
+                                                <dd className="text-sm text-gray-900">{selectedBuilding.reference_heatloss != null && !isNaN(selectedBuilding.reference_heatloss) ? Number(selectedBuilding.reference_heatloss).toFixed(2) : 'N/A'}</dd>
                                             </div>
                                             <div>
                                                 <dt className="text-xs text-gray-500">Heat Loss Difference</dt>
-                                                <dd className="text-sm text-gray-900">{selectedBuilding.heatloss_difference ? selectedBuilding.heatloss_difference.toFixed(2) : 'N/A'}</dd>
+                                                <dd className="text-sm text-gray-900">{selectedBuilding.heatloss_difference != null && !isNaN(selectedBuilding.heatloss_difference) ? Number(selectedBuilding.heatloss_difference).toFixed(2) : 'N/A'}</dd>
                                             </div>
                                             <div>
                                                 <dt className="text-xs text-gray-500">Confidence Score</dt>
-                                                <dd className="text-sm text-gray-900">{selectedBuilding.confidence ? `${(selectedBuilding.confidence * 100).toFixed(1)}%` : 'N/A'}</dd>
+                                                <dd className="text-sm text-gray-900">{selectedBuilding.confidence != null && !isNaN(selectedBuilding.confidence) ? `${(Number(selectedBuilding.confidence) * 100).toFixed(1)}%` : 'N/A'}</dd>
                                             </div>
                                             <div>
                                                 <dt className="text-xs text-gray-500">CO2 Savings Estimate</dt>
