@@ -39,6 +39,7 @@ class DownloadController extends Controller
 
         // 2. Entitlement & Format Check
         $format = $request->query('format', 'csv');
+        $buildingGid = $request->query('building_gid'); // Optional parameter for single building download
 
         // Validate format
         if (!in_array($format, ['csv', 'geojson'])) {
@@ -71,15 +72,25 @@ class DownloadController extends Controller
         // 3. Retrieve Data for Download
         $query = Building::query()->where('dataset_id', $id);
 
+        // If building_gid is specified, filter for that specific building
+        if ($buildingGid) {
+            $query = $query->where('gid', $buildingGid);
+            
+            // Verify the building exists
+            if (!$query->exists()) {
+                abort(404, 'Building not found');
+            }
+        }
+
         // Apply the same ABAC logic from GET /api/buildings
         $query = $query->applyEntitlementFilters($user);
 
         // 4. Generate & Stream File
         switch ($format) {
             case 'csv':
-                return $this->downloadCsv($query, $dataset);
+                return $this->downloadCsv($query, $dataset, $buildingGid);
             case 'geojson':
-                return $this->downloadGeoJson($query, $dataset);
+                return $this->downloadGeoJson($query, $dataset, $buildingGid);
 
             default:
                 abort(400, 'Unsupported format');
@@ -89,9 +100,13 @@ class DownloadController extends Controller
     /**
      * Generate CSV download using PostgreSQL COPY command for performance
      */
-    private function downloadCsv($query, Dataset $dataset): StreamedResponse
+    private function downloadCsv($query, Dataset $dataset, $buildingGid = null): StreamedResponse
     {
-        $filename = "buildings_{$dataset->name}_{$dataset->version}_" . date('Y-m-d') . ".csv";
+        if ($buildingGid) {
+            $filename = "building_{$buildingGid}_data.csv";
+        } else {
+            $filename = "buildings_{$dataset->name}_{$dataset->version}_" . date('Y-m-d') . ".csv";
+        }
 
         return response()->stream(function () use ($query) {
             $handle = fopen('php://output', 'w');
@@ -143,9 +158,13 @@ class DownloadController extends Controller
     /**
      * Generate GeoJSON download
      */
-    private function downloadGeoJson($query, Dataset $dataset): StreamedResponse
+    private function downloadGeoJson($query, Dataset $dataset, $buildingGid = null): StreamedResponse
     {
-        $filename = "buildings_{$dataset->name}_{$dataset->version}_" . date('Y-m-d') . ".geojson";
+        if ($buildingGid) {
+            $filename = "building_{$buildingGid}_data.geojson";
+        } else {
+            $filename = "buildings_{$dataset->name}_{$dataset->version}_" . date('Y-m-d') . ".geojson";
+        }
 
         return response()->stream(function () use ($query) {
             echo '{"type":"FeatureCollection","features":[';

@@ -36,6 +36,40 @@
 
 ---
 
+## **🔧 DOWNLOAD FUNCTIONALITY FIX (December 2025)**
+
+### **✅ INDIVIDUAL BUILDING DOWNLOAD IMPLEMENTATION**
+
+**Issue Identified:**
+- ✅ **Download button in BuildingDetailsDrawer was downloading entire dataset instead of selected building data**
+- ✅ **Missing building_gid parameter in download API calls**
+- ✅ **DownloadController not filtering by specific building GID**
+
+**Files Modified:**
+
+**✅ Backend Changes:**
+- ✅ **DownloadController.php**: Added optional `building_gid` parameter to `download()` method
+- ✅ **Query Filtering**: Added conditional filtering by `gid` when `building_gid` is provided
+- ✅ **Filename Generation**: Updated `downloadCsv()` and `downloadGeoJson()` to generate building-specific filenames
+- ✅ **API Enhancement**: Download endpoint now supports both dataset-wide and building-specific downloads
+
+**✅ Frontend Changes:**
+- ✅ **BuildingDetailsDrawer.jsx**: Modified `handleDownload()` to pass `selectedBuilding.gid` as `building_gid` parameter
+- ✅ **Request Parameters**: Download requests now include building GID for individual building data extraction
+
+**✅ Functionality Achieved:**
+- ✅ **Individual Building Downloads**: Download button now correctly downloads only the selected building's data
+- ✅ **Proper Filenames**: Generated filenames include building GID for easy identification
+- ✅ **Backward Compatibility**: Dataset-wide downloads still work when no building_gid is provided
+- ✅ **Format Support**: Both CSV and GeoJSON formats support individual building downloads
+
+**✅ Testing Status:**
+- ✅ **Frontend Integration**: Building details drawer properly passes building GID
+- ✅ **Backend Processing**: Download controller correctly filters and serves individual building data
+- ✅ **File Generation**: Proper filename generation for building-specific downloads
+
+---
+
 ## **🔄 MAJOR REFACTORING COMPLETED (December 2025)**
 
 ### **✅ COMPLETE REFACTOR.MD IMPLEMENTATION**

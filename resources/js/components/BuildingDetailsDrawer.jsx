@@ -82,7 +82,10 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
             }
 
             const response = await apiClient.get(`/downloads/${datasetId}`, {
-                params: { format },
+                params: { 
+                    format,
+                    building_gid: selectedBuilding.gid // Pass the building GID to download only this building
+                },
                 responseType: 'blob'
             });
 
