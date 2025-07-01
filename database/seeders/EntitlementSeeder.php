@@ -38,7 +38,7 @@ class EntitlementSeeder extends Seeder
                 'dataset_id' => $parisDataset->id,
                 'aoi_geom' => null,
                 'building_gids' => null,
-                'download_formats' => ['csv', 'geojson', 'excel'],
+                'download_formats' => ['csv', 'geojson'],
                 'expires_at' => now()->addYear(),
             ],
 

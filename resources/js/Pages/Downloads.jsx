@@ -21,7 +21,7 @@ export default function Downloads() {
                                 <h4 className="text-sm font-medium text-blue-900 mb-2">Coming Soon:</h4>
                                 <ul className="text-sm text-blue-700 space-y-1">
                                     <li>• Download thermal analysis datasets</li>
-                                    <li>• Export building data in multiple formats (CSV, GeoJSON, Excel)</li>
+                                    <li>• Export building data in multiple formats (CSV, GeoJSON)</li>
                                     <li>• API token management for programmatic access</li>
                                     <li>• Download history and progress tracking</li>
                                 </ul>

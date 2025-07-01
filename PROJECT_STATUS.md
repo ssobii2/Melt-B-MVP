@@ -330,12 +330,38 @@ Route::prefix('webhooks')->group(function () {
 -   ✅ **Interactive Features**: Click-to-select from list, real-time filtering with anomaly API integration
 -   ✅ **Professional UI**: Clean, responsive design with anomaly-focused loading states and pagination
 
-### **Phase 4: Enhancements & Admin UI** ⏳ PENDING
+### **Phase 4: Enhancements & Admin UI** 🔄 IN PROGRESS
 
--   ✅ Enhanced building details with anomaly information
--   ✅ Admin dashboard UI with analysis job management
--   ⏳ Download centre UI for anomaly data
--   ⏳ Advanced anomaly visualization components
+#### 4.1. Frontend - Detailed Building Insights ✅ COMPLETED
+-   ✅ **Chart.js Integration**: Installed and configured Chart.js for data visualization
+-   ✅ **Enhanced Building Details Drawer**: Complete redesign with rich visual components
+    -   ✅ **Heat Loss Comparison Chart**: Bar chart comparing building vs category average
+    -   ✅ **Key Performance Indicators**: Anomaly status, confidence score, heat loss deviation, CO2 savings
+    -   ✅ **Professional Layout**: Two-column responsive design with organized data sections
+-   ✅ **Download Functionality**: User entitlement-based download system
+    -   ✅ **Entitlement Checking**: Fetches user permissions from `/api/me/entitlements`
+    -   ✅ **Format Support**: CSV and GeoJSON download options
+    -   ✅ **Secure Downloads**: API endpoint `/api/downloads/{datasetId}` with authentication
+    -   ✅ **Permission-based UI**: Download buttons enabled/disabled based on user entitlements
+-   ✅ **Error Handling**: Comprehensive error states and loading indicators
+-   ✅ **Data Validation**: Fallbacks for null/undefined values with proper formatting
+
+#### 4.2. Frontend - Download Centre & Profile Management ⏳ PENDING
+-   ⏳ **Download Centre Page** (`/downloads`): Dedicated page for dataset downloads
+-   ⏳ **Asynchronous Download Logic**: Background job handling for large datasets
+-   ⏳ **User Profile Page** (`/profile`): Profile management and API token generation
+
+#### 4.3. Backend & Admin UI - Analysis Job Management ✅ COMPLETED
+-   ✅ **Admin User Management**: Complete CRUD operations verified
+-   ✅ **Admin Entitlement Management**: Spatial polygon support implemented
+-   ✅ **Analysis Job Management**: Full workflow with status tracking
+-   ✅ **Audit Log Viewing**: Administrative action tracking interface
+
+#### 4.4. DevOps & Testing ⏳ PENDING
+-   ⏳ **End-to-End Testing**: Comprehensive test suite for Phase 4 features
+-   ⏳ **Cross-Browser Testing**: Multi-browser compatibility verification
+-   ⏳ **Integration Testing**: Full workflow testing
+-   ⏳ **CI/CD Pipeline**: Production build verification
 
 ### **Phase 5: Performance, Security & Deployment** ⏳ PENDING
 
@@ -378,6 +404,68 @@ The system needed integration with external analysis systems to receive anomaly 
 2. Administrators can monitor analysis jobs through comprehensive admin interface
 3. Users see updated anomaly data in real-time through existing API endpoints
 4. Complete audit trail maintained for all analysis activities
+
+---
+
+## **🚨 CURRENT ISSUE & RESOLUTION STATUS**
+
+### **Download Functionality Issues**
+
+**Issues:** 
+1. Download permissions showing "you do not have permission to download in this format" for admin/contractor users
+2. Excel format still available in admin entitlement modals
+
+**Root Causes:** 
+1. API response structure mismatch - `/me/entitlements` returns `{entitlements: [...]}` but frontend expected direct array
+2. Permission checking logic didn't validate `download_formats` field in entitlements
+3. Excel format was still included in backend validation and frontend UI
+
+**Location:** `BuildingDetailsDrawer.jsx`, `entitlements.blade.php`, `EntitlementController.php`, `DownloadController.php`
+
+**Status:** ✅ **FIXED**
+
+**Resolutions Applied:**
+1. ✅ Fixed API response parsing: `response.data.entitlements` instead of `response.data`
+2. ✅ Enhanced permission checking to validate both access rights and `download_formats`
+3. ✅ Removed Excel checkboxes from admin entitlement create/edit modals
+4. ✅ Updated backend validation to only allow 'csv' and 'geojson' formats
+5. ✅ Removed Excel support from DownloadController and related classes
+6. ✅ Updated EntitlementSeeder to remove Excel from default entitlements
+7. ✅ Updated Downloads.jsx page to remove Excel reference
+
+---
+
+## **📋 DOWNLOAD FUNCTIONALITY TIMELINE**
+
+### **Phase 4.1: Building Details Download** ✅ **COMPLETED** (Current Phase)
+
+**Status:** Download functionality is **IMPLEMENTED** but has a runtime error that needs fixing.
+
+**What's Working:**
+- ✅ Download button UI components
+- ✅ User entitlement checking logic
+- ✅ API integration for `/api/me/entitlements`
+- ✅ Download endpoint `/api/downloads/{datasetId}`
+- ✅ Format support (CSV, GeoJSON)
+- ✅ Permission-based button states
+
+**What Needs Fixing:**
+- ⚠️ Runtime error in entitlement validation
+- ⚠️ Proper error handling for API failures
+
+### **Phase 4.2: Download Centre Page** ⏳ **NEXT** (Upcoming)
+
+**Timeline:** After Phase 4.1 bug fix is complete
+
+**Scope:**
+- 📋 Dedicated `/downloads` page
+- 📋 List all user-entitled datasets
+- 📋 Bulk download capabilities
+- 📋 Download history tracking
+- 📋 Asynchronous download handling
+
+**According to FRONTEND.md Section 4.2:**
+> "Build the Download Centre Page (`/downloads`) that fetches data from the `/api/me/entitlements` endpoint and displays a list of all datasets the user is entitled to access."
 
 ---
 

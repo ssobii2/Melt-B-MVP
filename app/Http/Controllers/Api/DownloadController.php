@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Maatwebsite\Excel\Facades\Excel;
+
 use MatanYadaev\EloquentSpatial\Objects\Point;
 use MatanYadaev\EloquentSpatial\Objects\Polygon;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -41,8 +41,8 @@ class DownloadController extends Controller
         $format = $request->query('format', 'csv');
 
         // Validate format
-        if (!in_array($format, ['csv', 'geojson', 'excel'])) {
-            abort(400, 'Invalid format. Supported formats: csv, geojson, excel');
+        if (!in_array($format, ['csv', 'geojson'])) {
+            abort(400, 'Invalid format. Supported formats: csv, geojson');
         }
 
         // Check if user has access to download this dataset in this format
@@ -80,8 +80,7 @@ class DownloadController extends Controller
                 return $this->downloadCsv($query, $dataset);
             case 'geojson':
                 return $this->downloadGeoJson($query, $dataset);
-            case 'excel':
-                return $this->downloadExcel($query, $dataset);
+
             default:
                 abort(400, 'Unsupported format');
         }
@@ -190,74 +189,4 @@ class DownloadController extends Controller
         ]);
     }
 
-    /**
-     * Generate Excel download using Laravel Excel
-     */
-    private function downloadExcel($query, Dataset $dataset)
-    {
-        $filename = "buildings_{$dataset->name}_{$dataset->version}_" . date('Y-m-d') . ".xlsx";
-
-        return Excel::download(new BuildingExport($query), $filename);
-    }
-}
-
-/**
- * Excel Export class for Laravel Excel
- */
-class BuildingExport implements
-    \Maatwebsite\Excel\Concerns\FromQuery,
-    \Maatwebsite\Excel\Concerns\WithHeadings,
-    \Maatwebsite\Excel\Concerns\WithMapping,
-    \Maatwebsite\Excel\Concerns\WithChunkReading
-{
-    private $query;
-
-    public function __construct($query)
-    {
-        $this->query = $query;
-    }
-
-    public function query()
-    {
-        return $this->query;
-    }
-
-    public function headings(): array
-    {
-        return [
-            'GID',
-            'Thermal Loss Index (TLI)',
-            'Building Type',
-            'CO2 Savings Estimate',
-            'Address',
-            'Owner/Operator',
-            'Cadastral Reference',
-            'Geometry (WKT)',
-            'Dataset ID',
-            'Created At',
-            'Updated At'
-        ];
-    }
-
-    public function map($building): array
-    {
-        return [
-            $building->gid,
-            $building->thermal_loss_index_tli,
-            $building->building_type_classification,
-            $building->co2_savings_estimate,
-            $building->address,
-            $building->owner_operator_details,
-            $building->cadastral_reference,
-            $building->geometry ? $building->geometry->toWkt() : null,
-            $building->dataset_id,
-            $building->created_at?->toDateTimeString(),
-            $building->updated_at?->toDateTimeString()
-        ];
-    }
-
-    public function chunkSize(): int
-    {
-        return 1000;
-    }
 }

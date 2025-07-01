@@ -174,10 +174,7 @@
                                         <input type="checkbox" class="form-check-input" id="geojson" value="geojson" name="download_formats[]">
                                         <label class="form-check-label" for="geojson">GeoJSON</label>
                                     </div>
-                                    <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="excel" value="excel" name="download_formats[]">
-                                        <label class="form-check-label" for="excel">Excel</label>
-                                    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -270,10 +267,7 @@
                                         <input type="checkbox" class="form-check-input" id="editGeojson" value="geojson" name="edit_download_formats[]">
                                         <label class="form-check-label" for="editGeojson">GeoJSON</label>
                                     </div>
-                                    <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="editExcel" value="excel" name="edit_download_formats[]">
-                                        <label class="form-check-label" for="editExcel">Excel</label>
-                                    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -1131,7 +1125,7 @@
                                         <strong>${user.name}</strong> (${user.email})
                                         <br><small class="text-muted">Role: ${user.role}</small>
                                     </div>
-                                    <button class="btn btn-sm btn-danger" onclick="removeUserFromEntitlementModal(${user.id}, ${entitlementId})">
+                                    <button class="btn btn-sm btn-danger" onclick="removeEntitlementUser(${user.id}, ${entitlementId})">
                                         <i class="fas fa-times"></i> Remove
                                     </button>
                                 </div>

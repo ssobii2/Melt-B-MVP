@@ -103,7 +103,7 @@ class EntitlementController extends Controller
             'building_gids' => ['sometimes', 'array'],
             'building_gids.*' => ['string'],
             'download_formats' => ['sometimes', 'array'],
-            'download_formats.*' => ['string', 'in:csv,geojson,excel'],
+            'download_formats.*' => ['string', 'in:csv,geojson'],
             'expires_at' => ['sometimes', 'nullable', 'date', 'after:now'],
         ]);
 
@@ -203,7 +203,7 @@ class EntitlementController extends Controller
             'building_gids' => ['sometimes', 'array'],
             'building_gids.*' => ['string'],
             'download_formats' => ['sometimes', 'array'],
-            'download_formats.*' => ['string', 'in:csv,geojson,excel'],
+            'download_formats.*' => ['string', 'in:csv,geojson'],
             'expires_at' => ['sometimes', 'nullable', 'date', 'after:now'],
         ]);
 

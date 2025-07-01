@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import MapView from '../components/MapView';
 import ContextPanel from '../components/ContextPanel';
+import BuildingDetailsDrawer from '../components/BuildingDetailsDrawer';
 import { useAuth } from '../contexts/AuthContext';
 import { apiClient } from '../utils/api';
 
@@ -116,84 +117,11 @@ export default function Dashboard() {
             {/* Building Details and Quick Actions */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                    {/* Building Details - Shows on top when a building is selected */}
-                    {selectedBuilding && (
-                        <div className="bg-white overflow-hidden shadow rounded-lg mb-6">
-                            <div className="px-4 py-5 sm:p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                        Building Details
-                                    </h3>
-                                    <button
-                                        onClick={() => setSelectedBuilding(null)}
-                                        className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <h4 className="text-sm font-medium text-gray-900 mb-3">Basic Information</h4>
-                                        <dl className="space-y-2">
-                                            <div>
-                                                <dt className="text-xs text-gray-500">Address</dt>
-                                                <dd className="text-sm text-gray-900">{selectedBuilding.address || 'N/A'}</dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-xs text-gray-500">Building Type</dt>
-                                                <dd className="text-sm text-gray-900 capitalize">{selectedBuilding.building_type_classification || 'N/A'}</dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-xs text-gray-500">Building ID</dt>
-                                                <dd className="text-sm text-gray-900">{selectedBuilding.gid}</dd>
-                                            </div>
-                                        </dl>
-                                    </div>
-                                    
-                                    <div>
-                                        <h4 className="text-sm font-medium text-gray-900 mb-3">Anomaly Analysis</h4>
-                                        <dl className="space-y-2">
-                                            <div>
-                                                <dt className="text-xs text-gray-500">Anomaly Status</dt>
-                                                <dd className="text-sm">
-                                                    <span 
-                                                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-white ${
-                                                            selectedBuilding.is_anomaly ? 'bg-red-500' : 'bg-blue-500'
-                                                        }`}
-                                                    >
-                                                        {selectedBuilding.is_anomaly ? 'Anomaly' : 'Normal'}
-                                                    </span>
-                                                </dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-xs text-gray-500">Average Heat Loss</dt>
-                                                <dd className="text-sm text-gray-900">{selectedBuilding.average_heatloss != null && !isNaN(selectedBuilding.average_heatloss) ? Number(selectedBuilding.average_heatloss).toFixed(2) : 'N/A'}</dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-xs text-gray-500">Reference Heat Loss</dt>
-                                                <dd className="text-sm text-gray-900">{selectedBuilding.reference_heatloss != null && !isNaN(selectedBuilding.reference_heatloss) ? Number(selectedBuilding.reference_heatloss).toFixed(2) : 'N/A'}</dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-xs text-gray-500">Heat Loss Difference</dt>
-                                                <dd className="text-sm text-gray-900">{selectedBuilding.heatloss_difference != null && !isNaN(selectedBuilding.heatloss_difference) ? Number(selectedBuilding.heatloss_difference).toFixed(2) : 'N/A'}</dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-xs text-gray-500">Confidence Score</dt>
-                                                <dd className="text-sm text-gray-900">{selectedBuilding.confidence != null && !isNaN(selectedBuilding.confidence) ? `${(Number(selectedBuilding.confidence) * 100).toFixed(1)}%` : 'N/A'}</dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-xs text-gray-500">CO2 Savings Estimate</dt>
-                                                <dd className="text-sm text-gray-900">{selectedBuilding.co2_savings_estimate ? `${selectedBuilding.co2_savings_estimate} kg` : 'N/A'}</dd>
-                                            </div>
-                                        </dl>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    {/* Building Details Drawer */}
+                    <BuildingDetailsDrawer 
+                        selectedBuilding={selectedBuilding} 
+                        onClose={() => setSelectedBuilding(null)}
+                    />
 
                     {/* Building Data Overview - Always visible */}
                     <div className="bg-white overflow-hidden shadow rounded-lg">
