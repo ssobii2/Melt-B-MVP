@@ -72,6 +72,20 @@ class DashboardController extends Controller
             
             // Check if user is admin
             if (!$user->isAdmin()) {
+                // Log failed admin access attempt
+                AuditLog::createEntry(
+                    userId: $user->id,
+                    action: 'admin_login_failed',
+                    targetType: 'user',
+                    targetId: $user->id,
+                    newValues: [
+                        'email' => $credentials['email'],
+                        'reason' => 'insufficient_privileges'
+                    ],
+                    ipAddress: $request->ip(),
+                    userAgent: $request->userAgent()
+                );
+
                 Auth::logout();
                 return back()->withErrors([
                     'email' => 'Access denied. Admin privileges required.',
@@ -97,6 +111,21 @@ class DashboardController extends Controller
 
             return redirect()->intended('/admin/dashboard');
         }
+
+        // Log failed admin login attempt
+        $user = User::where('email', $credentials['email'])->first();
+        AuditLog::createEntry(
+            userId: $user?->id,
+            action: 'admin_login_failed',
+            targetType: 'user',
+            targetId: $user?->id,
+            newValues: [
+                'email' => $credentials['email'],
+                'reason' => !$user ? 'user_not_found' : 'invalid_password'
+            ],
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent()
+        );
 
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',

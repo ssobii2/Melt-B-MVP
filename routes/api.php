@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DatasetController;
 use App\Http\Controllers\Admin\AnalysisJobController;
+use App\Http\Controllers\Api\TokenController;
 
 /*
 |--------------------------------------------------------------------------
@@ -46,8 +47,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
 
     // API token management
-    Route::post('/tokens/generate', [AuthController::class, 'generateApiToken']);
-    Route::delete('/tokens/revoke', [AuthController::class, 'revokeApiTokens']);
+    Route::post('/tokens/generate', [TokenController::class, 'generate']);
+    
+    // List user's API tokens
+    Route::get('/tokens', [TokenController::class, 'index']);
+    
+    // Revoke API token
+    Route::delete('/tokens/{token}', [TokenController::class, 'revoke']);
+
+    // Profile management
+    Route::put('/user/profile-information', [AuthController::class, 'updateProfile']);
+    Route::put('/user/password', [AuthController::class, 'updatePassword']);
 
     // User entitlements
     Route::get('/me/entitlements', function (Request $request) {

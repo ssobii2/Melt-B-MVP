@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Building;
 use App\Models\Dataset;
+use App\Models\AuditLog;
 use App\Services\UserEntitlementService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -84,6 +85,22 @@ class DownloadController extends Controller
 
         // Apply the same ABAC logic from GET /api/buildings
         $query = $query->applyEntitlementFilters($user);
+
+        // Log the download action
+        AuditLog::createEntry(
+            userId: $user->id,
+            action: 'data_download',
+            targetType: 'dataset',
+            targetId: $dataset->id,
+            newValues: [
+                'dataset_name' => $dataset->name,
+                'format' => $format,
+                'building_gid' => $buildingGid,
+                'download_type' => $buildingGid ? 'single_building' : 'dataset'
+            ],
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent()
+        );
 
         // 4. Generate & Stream File
         switch ($format) {

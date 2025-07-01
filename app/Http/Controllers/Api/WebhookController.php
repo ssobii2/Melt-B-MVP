@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AnalysisJob;
+use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -92,6 +93,22 @@ class WebhookController extends Controller
             }
 
             $analysisJob->update($updateData);
+
+            // Log the webhook processing for audit purposes
+            AuditLog::createEntry(
+                userId: null, // Webhook calls don't have a user context
+                action: 'webhook_analysis_job_' . $request->status,
+                targetType: 'analysis_job',
+                targetId: $analysisJob->id,
+                newValues: [
+                    'external_job_id' => $request->external_job_id,
+                    'status' => $request->status,
+                    'output_csv_url' => $request->output_csv_url ?? null,
+                    'error_message' => $request->error_message ?? null
+                ],
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent()
+            );
 
             // If completed, trigger the CSV import process
             if ($request->status === 'completed') {

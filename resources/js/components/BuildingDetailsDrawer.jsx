@@ -194,9 +194,9 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
                     </button>
                 </div>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                     {/* Left Column - Basic Information and KPIs */}
-                    <div className="space-y-6">
+                    <div className="xl:col-span-1 space-y-6">
                         {/* Basic Information */}
                         <div>
                             <h4 className="text-sm font-medium text-gray-900 mb-3">Basic Information</h4>
@@ -309,19 +309,21 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
                     </div>
 
                     {/* Right Column - Chart and Detailed Metrics */}
-                    <div className="space-y-6">
+                    <div className="xl:col-span-2 space-y-6">
                         {/* Heat Loss Comparison Chart */}
                         <div>
                             <h4 className="text-sm font-medium text-gray-900 mb-3">Heat Loss Analysis</h4>
-                            <div className="bg-gray-50 p-4 rounded-lg">
+                            <div className="bg-gray-50 p-6 rounded-lg">
                                 {selectedBuilding.average_heatloss != null && selectedBuilding.reference_heatloss != null ? (
-                                    <Bar data={chartData} options={chartOptions} />
+                                    <div className="h-80 lg:h-96">
+                                        <Bar data={chartData} options={{...chartOptions, maintainAspectRatio: false}} />
+                                    </div>
                                 ) : (
-                                    <div className="text-center py-8 text-gray-500">
-                                        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <div className="text-center py-16 text-gray-500">
+                                        <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                         </svg>
-                                        <p className="mt-2 text-sm">Heat loss data not available</p>
+                                        <p className="mt-4 text-lg">Heat loss data not available</p>
                                     </div>
                                 )}
                             </div>

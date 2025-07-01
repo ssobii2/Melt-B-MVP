@@ -37,7 +37,16 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 relative overflow-hidden">
+            {/* Space background elements */}
+            <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-white rounded-full opacity-80 animate-pulse"></div>
+                <div className="absolute top-1/3 right-1/3 w-1 h-1 bg-white rounded-full opacity-60 animate-pulse" style={{animationDelay: '1s'}}></div>
+                <div className="absolute bottom-1/4 left-1/3 w-1.5 h-1.5 bg-white rounded-full opacity-70 animate-pulse" style={{animationDelay: '2s'}}></div>
+                <div className="absolute top-1/2 right-1/4 w-1 h-1 bg-white rounded-full opacity-50 animate-pulse" style={{animationDelay: '3s'}}></div>
+                <div className="absolute bottom-1/3 right-1/2 w-2 h-2 bg-white rounded-full opacity-40 animate-pulse" style={{animationDelay: '4s'}}></div>
+                <div className="absolute top-3/4 left-1/2 w-1 h-1 bg-white rounded-full opacity-60 animate-pulse" style={{animationDelay: '5s'}}></div>
+            </div>
             <div className="max-w-md w-full mx-4">
                 <div className="bg-white rounded-lg shadow-lg p-8">
                     <div className="text-center mb-8">
@@ -102,11 +111,7 @@ export default function Login() {
                         </p>
                     </div>
 
-                    <div className="mt-4 text-center">
-                        <a href="/admin/login" className="text-sm text-gray-500 hover:text-gray-700 cursor-pointer">
-                            Admin Login
-                        </a>
-                    </div>
+
                 </div>
             </div>
         </div>

@@ -72,10 +72,7 @@ export default function Dashboard() {
                                     Verified
                                 </span>
                             )}
-                            <div className="text-sm text-green-600 flex items-center gap-1">
-                                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                                Phase 3.4 - Active
-                            </div>
+
                         </div>
                     </div>
                 </div>
@@ -88,10 +85,7 @@ export default function Dashboard() {
                         <h3 className="text-lg leading-6 font-medium text-gray-900">
                             Interactive Thermal Analysis Map
                         </h3>
-                        <div className="text-sm text-green-600 flex items-center gap-1">
-                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                            Phase 3.4 - Active
-                        </div>
+
                     </div>
                     
                     {/* MapLibre GL Map Component with Context Panel Overlay */}
@@ -114,74 +108,40 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Building Details and Quick Actions */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    {/* Building Details Drawer */}
-                    <BuildingDetailsDrawer 
-                        selectedBuilding={selectedBuilding} 
-                        onClose={() => setSelectedBuilding(null)}
-                    />
+            {/* Building Details and Data Overview */}
+            <div className="space-y-6">
+                {/* Building Details Drawer */}
+                <BuildingDetailsDrawer 
+                    selectedBuilding={selectedBuilding} 
+                    onClose={() => setSelectedBuilding(null)}
+                />
 
-                    {/* Building Data Overview - Always visible */}
-                    <div className="bg-white overflow-hidden shadow rounded-lg">
-                        <div className="px-4 py-5 sm:p-6">
-                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                Building Data Overview
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-blue-600">{buildingStats.totalBuildings}</div>
-                                    <div className="text-sm text-gray-500">Total Buildings</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-red-600">{buildingStats.anomalyBuildings}</div>
-                                    <div className="text-sm text-gray-500">Anomaly Buildings</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-blue-600">{buildingStats.normalBuildings}</div>
-                                    <div className="text-sm text-gray-500">Normal Buildings</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-green-600">{buildingStats.totalCo2Savings}</div>
-                                    <div className="text-sm text-gray-500">CO2 Savings Potential (kg)</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-purple-600">{buildingStats.avgConfidence}</div>
-                                    <div className="text-sm text-gray-500">Average Confidence</div>
-                                </div>
+                {/* Building Data Overview - Always visible */}
+                <div className="bg-white overflow-hidden shadow rounded-lg">
+                    <div className="px-4 py-5 sm:p-6">
+                        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                            Building Data Overview
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            <div className="text-center">
+                                <div className="text-2xl font-bold text-blue-600">{buildingStats.totalBuildings}</div>
+                                <div className="text-sm text-gray-500">Total Buildings</div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="lg:col-span-1">
-                    <div className="bg-white overflow-hidden shadow rounded-lg">
-                        <div className="px-4 py-5 sm:p-6 flex flex-col" style={{ minHeight: '16rem' }}>
-                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                Quick Actions
-                            </h3>
-                            <div className="space-y-3 flex-grow flex flex-col justify-center">
-                                <Link
-                                    to="/downloads"
-                                    className="block w-full bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-3 rounded-md text-sm font-medium text-center transition-colors cursor-pointer"
-                                >
-                                    📥 Download Center
-                                </Link>
-                                <Link
-                                    to="/profile"
-                                    className="block w-full bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-3 rounded-md text-sm font-medium text-center transition-colors cursor-pointer"
-                                >
-                                    👤 Your Profile
-                                </Link>
-                                {user?.role === 'admin' && (
-                                    <a
-                                        href="/admin"
-                                        className="block w-full bg-purple-50 hover:bg-purple-100 text-purple-700 px-4 py-3 rounded-md text-sm font-medium text-center transition-colors cursor-pointer"
-                                    >
-                                        ⚙️ Admin Panel
-                                    </a>
-                                )}
+                            <div className="text-center">
+                                <div className="text-2xl font-bold text-red-600">{buildingStats.anomalyBuildings}</div>
+                                <div className="text-sm text-gray-500">Anomaly Buildings</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-2xl font-bold text-blue-600">{buildingStats.normalBuildings}</div>
+                                <div className="text-sm text-gray-500">Normal Buildings</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-2xl font-bold text-green-600">{buildingStats.totalCo2Savings}</div>
+                                <div className="text-sm text-gray-500">CO2 Savings Potential (kg)</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-2xl font-bold text-purple-600">{buildingStats.avgConfidence}</div>
+                                <div className="text-sm text-gray-500">Average Confidence</div>
                             </div>
                         </div>
                     </div>

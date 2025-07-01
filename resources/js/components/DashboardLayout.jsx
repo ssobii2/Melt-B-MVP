@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -7,11 +7,29 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
     const navigate = useNavigate();
     const location = useLocation();
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+    const profileMenuRef = useRef(null);
 
     const handleLogout = async () => {
         await logout();
         navigate('/login');
     };
+
+    // Close profile menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+                setProfileMenuOpen(false);
+            }
+        };
+
+        if (profileMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [profileMenuOpen]);
 
     // Helper function to determine if a link is active
     const isActivePath = (path) => {
@@ -57,10 +75,10 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
 
                         {/* User Profile Menu */}
                         <div className="flex items-center">
-                            <div className="relative">
+                            <div className="relative" ref={profileMenuRef}>
                                 <button
                                     onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                                    className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer"
+                                    className="flex items-center text-sm rounded-full focus:outline-none cursor-pointer"
                                 >
                                     <div className="flex items-center space-x-3">
                                         <div className="flex flex-col items-end">
@@ -89,20 +107,16 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
                                             >
                                                 Your Profile
                                             </Link>
-                                            <Link
-                                                to="/settings"
-                                                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
-                                                onClick={() => setProfileMenuOpen(false)}
-                                            >
-                                                Settings
-                                            </Link>
+
                                             {user?.role === 'admin' && (
                                                 <a
                                                     href="/admin"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
                                                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
                                                     onClick={() => setProfileMenuOpen(false)}
                                                 >
-                                                    Admin Panel
+                                                    Admin Dashboard
                                                 </a>
                                             )}
                                             <hr className="my-1" />

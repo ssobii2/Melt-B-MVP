@@ -84,6 +84,20 @@ class AuthController extends Controller
         $user = User::where('email', $credentials['email'])->first();
 
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
+            // Log the failed login attempt
+            AuditLog::createEntry(
+                userId: $user?->id, // null if user doesn't exist
+                action: 'user_login_failed',
+                targetType: 'user',
+                targetId: $user?->id,
+                newValues: [
+                    'email' => $credentials['email'],
+                    'reason' => !$user ? 'user_not_found' : 'invalid_password'
+                ],
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent()
+            );
+
             return response()->json([
                 'message' => 'The provided credentials do not match our records.',
             ], 401);
@@ -257,87 +271,103 @@ class AuthController extends Controller
         ], 400);
     }
 
+
+
     /**
-     * Generate API token for the authenticated user.
+     * Update user profile information.
      */
-    public function generateApiToken(Request $request): JsonResponse
+    public function updateProfile(Request $request): JsonResponse
     {
         $user = $request->user();
 
         if (!$user) {
-            if (!$request->hasHeader('Authorization')) {
-                return response()->json([
-                    'message' => 'Token generation endpoint is working. Authentication required.',
-                    'error' => 'authentication_required',
-                    'hint' => 'Add "Authorization: Bearer {token}" header to generate additional tokens.'
-                ], 401);
-            }
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
         ]);
 
-        // Revoke existing tokens if needed
-        if ($request->boolean('revoke_existing')) {
-            $user->tokens()->delete();
-        }
+        $oldValues = [
+            'name' => $user->name,
+            'email' => $user->email,
+        ];
 
-        $token = $user->createToken($request->name);
+        $user->update([
+            'name' => $request->name,
+            'email' => $request->email,
+        ]);
 
-        // Log the token generation
+        // Log the profile update
         AuditLog::createEntry(
             userId: $user->id,
-            action: 'api_token_generated',
+            action: 'profile_updated',
             targetType: 'user',
             targetId: $user->id,
-            newValues: ['token_name' => $request->name],
+            oldValues: $oldValues,
+            newValues: [
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
             ipAddress: $request->ip(),
             userAgent: $request->userAgent()
         );
 
         return response()->json([
-            'message' => 'API token generated successfully.',
-            'token' => $token->plainTextToken,
-            'name' => $request->name,
+            'message' => 'Profile updated successfully.',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'email_verified_at' => $user->email_verified_at,
+            ]
         ]);
     }
 
     /**
-     * Revoke API tokens for the authenticated user.
+     * Update user password.
      */
-    public function revokeApiTokens(Request $request): JsonResponse
+    public function updatePassword(Request $request): JsonResponse
     {
         $user = $request->user();
 
         if (!$user) {
-            if (!$request->hasHeader('Authorization')) {
-                return response()->json([
-                    'message' => 'Token revocation endpoint is working. Authentication required.',
-                    'error' => 'authentication_required',
-                    'hint' => 'Add "Authorization: Bearer {token}" header to revoke all tokens.'
-                ], 401);
-            }
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $tokenCount = $user->tokens()->count();
-        $user->tokens()->delete();
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', PasswordRule::defaults()],
+        ]);
 
-        // Log the token revocation
+        // Verify current password
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'message' => 'The current password is incorrect.',
+                'errors' => [
+                    'current_password' => ['The current password is incorrect.']
+                ]
+            ], 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        // Log the password change
         AuditLog::createEntry(
             userId: $user->id,
-            action: 'api_tokens_revoked',
+            action: 'password_changed',
             targetType: 'user',
             targetId: $user->id,
-            oldValues: ['token_count' => $tokenCount],
             ipAddress: $request->ip(),
             userAgent: $request->userAgent()
         );
 
         return response()->json([
-            'message' => "All API tokens revoked successfully. ({$tokenCount} tokens removed)"
+            'message' => 'Password updated successfully.'
         ]);
     }
 }

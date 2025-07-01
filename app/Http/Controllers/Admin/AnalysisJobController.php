@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AnalysisJob;
+use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -60,6 +61,21 @@ class AnalysisJobController extends Controller
             'metadata' => $request->metadata ?? [],
         ]);
 
+        // Log the admin action
+        AuditLog::createEntry(
+            userId: $request->user()->id,
+            action: 'admin_analysis_job_created',
+            targetType: 'analysis_job',
+            targetId: $job->id,
+            newValues: [
+                'status' => $job->status,
+                'input_source_links' => $job->input_source_links,
+                'metadata' => $job->metadata
+            ],
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent()
+        );
+
         // TODO: In the future, this is where we would call the science team's API
         // For now, we just create the database record
         
@@ -103,6 +119,8 @@ class AnalysisJobController extends Controller
             ], 422);
         }
 
+        $oldValues = $job->only(['status', 'output_csv_url', 'external_job_id', 'error_message', 'metadata']);
+        
         $job->update($request->only([
             'status', 'output_csv_url', 'external_job_id', 
             'error_message', 'metadata'
@@ -117,6 +135,18 @@ class AnalysisJobController extends Controller
             $job->save();
         }
 
+        // Log the admin action
+        AuditLog::createEntry(
+            userId: $request->user()->id,
+            action: 'admin_analysis_job_updated',
+            targetType: 'analysis_job',
+            targetId: $job->id,
+            oldValues: $oldValues,
+            newValues: $job->only(['status', 'output_csv_url', 'external_job_id', 'error_message', 'metadata']),
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent()
+        );
+
         return response()->json([
             'message' => 'Analysis job updated successfully',
             'analysis_job' => $job
@@ -126,7 +156,7 @@ class AnalysisJobController extends Controller
     /**
      * Remove the specified analysis job.
      */
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
         $job = AnalysisJob::findOrFail($id);
         
@@ -137,7 +167,20 @@ class AnalysisJobController extends Controller
             ], 422);
         }
 
+        $jobData = $job->only(['status', 'input_source_links', 'output_csv_url', 'external_job_id']);
+        
         $job->delete();
+
+        // Log the admin action
+        AuditLog::createEntry(
+            userId: $request->user()->id,
+            action: 'admin_analysis_job_deleted',
+            targetType: 'analysis_job',
+            targetId: $id,
+            oldValues: $jobData,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent()
+        );
 
         return response()->json([
             'message' => 'Analysis job deleted successfully'
