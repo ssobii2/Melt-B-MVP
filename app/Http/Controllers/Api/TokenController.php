@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\TokenResource;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -100,7 +101,7 @@ class TokenController extends Controller
             ->get();
 
         return response()->json([
-            'tokens' => $tokens
+            'tokens' => TokenResource::collection($tokens)
         ]);
     }
 

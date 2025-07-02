@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\PasswordReset;
+use App\Http\Resources\UserResource;
 use Dedoc\Scramble\Attributes\Tag;
 use Dedoc\Scramble\Attributes\Response;
 use Dedoc\Scramble\Attributes\RequestBody;
@@ -93,13 +94,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Registration successful. Please verify your email address.',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'email_verified_at' => $user->email_verified_at,
-            ]
+            'user' => new UserResource($user)
         ], 201);
     }
 
@@ -181,13 +176,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Login successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'email_verified_at' => $user->email_verified_at,
-            ],
+            'user' => new UserResource($user),
             'token' => $token->plainTextToken,
             'token_type' => 'Bearer'
         ]);
@@ -277,15 +266,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'email_verified_at' => $user->email_verified_at,
-                'contact_info' => $user->contact_info,
-                'created_at' => $user->created_at,
-            ]
+            'user' => new UserResource($user)
         ]);
     }
 
@@ -454,14 +435,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Profile updated successfully.',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'email_verified_at' => $user->email_verified_at,
-                'created_at' => $user->created_at,
-            ]
+            'user' => new UserResource($user)
         ]);
     }
 
