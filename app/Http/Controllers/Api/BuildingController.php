@@ -465,4 +465,166 @@ class BuildingController extends Controller
 
         return response()->json($stats);
     }
+
+    /**
+     * Get detailed heat loss analytics for buildings.
+     */
+    #[OperationId('getHeatLossAnalytics')]
+    #[Summary('Get heat loss analytics')]
+    #[Description('Retrieve detailed statistical analysis of heat loss data including distribution, percentiles, and comparison metrics.')]
+    #[Parameters([
+        'dataset_id' => 'integer|optional|Dataset ID to filter analytics',
+        'building_type' => 'string|optional|Filter by building type for comparison',
+        'building_gid' => 'string|optional|Specific building GID to highlight in analysis'
+    ])]
+    #[Response(200, 'Heat loss analytics retrieved', [
+        'heat_loss_statistics' => [
+            'mean' => 85.5,
+            'median' => 82.3,
+            'std_deviation' => 15.2,
+            'min' => 45.1,
+            'max' => 150.8,
+            'percentiles' => [
+                'p25' => 75.2,
+                'p75' => 95.8,
+                'p90' => 110.5,
+                'p95' => 125.3
+            ]
+        ],
+        'distribution' => [
+            ['range' => '40-60', 'count' => 120],
+            ['range' => '60-80', 'count' => 350],
+            ['range' => '80-100', 'count' => 450]
+        ],
+        'building_comparison' => [
+            'current_building' => [
+                'gid' => 'B001',
+                'heat_loss' => 95.2,
+                'percentile_rank' => 75.5
+            ]
+        ]
+    ])]
+    #[Response(401, 'Authentication required', [
+        'message' => 'Authentication required'
+    ])]
+    public function heatLossAnalytics(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Authentication required'], 401);
+        }
+
+        // Get entitlement filters from middleware
+        $entitlementFilters = $request->input('entitlement_filters', []);
+
+        // Start building query
+        $query = Building::query()->whereNotNull('average_heatloss');
+
+        // Apply entitlement filters
+        $query->where(function ($filterQuery) use ($entitlementFilters) {
+            $filterQuery->applyEntitlementFilters($entitlementFilters);
+        });
+
+        // Apply optional filters
+        $datasetId = $request->input('dataset_id');
+        if ($datasetId) {
+            $query->forDataset($datasetId);
+        }
+
+        $buildingType = $request->input('building_type');
+        if ($buildingType) {
+            $query->byType($buildingType);
+        }
+
+        // Get statistical data using raw SQL for better performance
+        $statsQuery = clone $query;
+        $rawStats = $statsQuery->selectRaw('
+            COUNT(*) as total_count,
+            AVG(average_heatloss) as mean_heat_loss,
+            STDDEV(average_heatloss) as std_deviation,
+            MIN(average_heatloss) as min_heat_loss,
+            MAX(average_heatloss) as max_heat_loss,
+            PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY average_heatloss) as p25,
+            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY average_heatloss) as median_heat_loss,
+            PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY average_heatloss) as p75,
+            PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY average_heatloss) as p90,
+            PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY average_heatloss) as p95
+        ')->first();
+
+        // Create distribution bins
+        $distributionQuery = clone $query;
+        $minValue = floor($rawStats->min_heat_loss / 10) * 10;
+        $maxValue = ceil($rawStats->max_heat_loss / 10) * 10;
+        $binSize = max(10, ($maxValue - $minValue) / 10); // Create ~10 bins
+
+        $distribution = [];
+        for ($i = $minValue; $i < $maxValue; $i += $binSize) {
+            $rangeEnd = $i + $binSize;
+            $count = $distributionQuery->clone()
+                ->whereBetween('average_heatloss', [$i, $rangeEnd])
+                ->count();
+            
+            if ($count > 0) {
+                $distribution[] = [
+                    'range' => round($i, 1) . '-' . round($rangeEnd, 1),
+                    'range_start' => round($i, 1),
+                    'range_end' => round($rangeEnd, 1),
+                    'count' => $count,
+                    'percentage' => round(($count / $rawStats->total_count) * 100, 1)
+                ];
+            }
+        }
+
+        $analytics = [
+            'heat_loss_statistics' => [
+                'total_buildings' => (int) $rawStats->total_count,
+                'mean' => round($rawStats->mean_heat_loss, 2),
+                'median' => round($rawStats->median_heat_loss, 2),
+                'std_deviation' => round($rawStats->std_deviation, 2),
+                'min' => round($rawStats->min_heat_loss, 2),
+                'max' => round($rawStats->max_heat_loss, 2),
+                'percentiles' => [
+                    'p25' => round($rawStats->p25, 2),
+                    'p75' => round($rawStats->p75, 2),
+                    'p90' => round($rawStats->p90, 2),
+                    'p95' => round($rawStats->p95, 2)
+                ]
+            ],
+            'distribution' => $distribution
+        ];
+
+        // Add specific building comparison if requested
+        $buildingGid = $request->input('building_gid');
+        if ($buildingGid) {
+            $specificBuilding = $query->clone()->where('gid', $buildingGid)->first();
+            if ($specificBuilding) {
+                // Calculate percentile rank for the specific building
+                $lowerCount = $query->clone()
+                    ->where('average_heatloss', '<', $specificBuilding->average_heatloss)
+                    ->count();
+                
+                $percentileRank = ($lowerCount / $rawStats->total_count) * 100;
+
+                $analytics['building_comparison'] = [
+                    'current_building' => [
+                        'gid' => $specificBuilding->gid,
+                        'heat_loss' => round($specificBuilding->average_heatloss, 2),
+                        'percentile_rank' => round($percentileRank, 1),
+                        'is_anomaly' => $specificBuilding->is_anomaly,
+                        'confidence' => round($specificBuilding->confidence, 2),
+                        'building_type' => $specificBuilding->building_type_classification
+                    ],
+                    'comparison_stats' => [
+                        'better_than_percent' => round($percentileRank, 1),
+                        'worse_than_percent' => round(100 - $percentileRank, 1),
+                        'deviation_from_mean' => round($specificBuilding->average_heatloss - $rawStats->mean_heat_loss, 2),
+                        'z_score' => round(($specificBuilding->average_heatloss - $rawStats->mean_heat_loss) / $rawStats->std_deviation, 2)
+                    ]
+                ];
+            }
+        }
+
+        return response()->json($analytics);
+    }
 }

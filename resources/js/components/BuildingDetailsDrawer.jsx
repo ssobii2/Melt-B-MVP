@@ -7,8 +7,10 @@ import {
     Title,
     Tooltip,
     Legend,
+    LineElement,
+    PointElement,
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Bar, Line } from 'react-chartjs-2';
 import { apiClient } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -17,6 +19,8 @@ ChartJS.register(
     CategoryScale,
     LinearScale,
     BarElement,
+    LineElement,
+    PointElement,
     Title,
     Tooltip,
     Legend
@@ -26,6 +30,8 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
     const { user } = useAuth();
     const [userEntitlements, setUserEntitlements] = useState([]);
     const [isLoadingEntitlements, setIsLoadingEntitlements] = useState(false);
+    const [heatLossAnalytics, setHeatLossAnalytics] = useState(null);
+    const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
     // Fetch user entitlements for download permissions
     useEffect(() => {
@@ -45,6 +51,35 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
         if (selectedBuilding) {
             fetchUserEntitlements();
         }
+    }, [selectedBuilding]);
+
+    // Fetch heat loss analytics
+    useEffect(() => {
+        const fetchHeatLossAnalytics = async () => {
+            if (!selectedBuilding) return;
+            
+            setIsLoadingAnalytics(true);
+            try {
+                const params = {
+                    building_gid: selectedBuilding.gid
+                };
+                
+                // Add building type filter if available
+                if (selectedBuilding.building_type_classification) {
+                    params.building_type = selectedBuilding.building_type_classification;
+                }
+                
+                const response = await apiClient.get('/buildings/analytics/heat-loss', { params });
+                setHeatLossAnalytics(response.data);
+            } catch (error) {
+                console.error('Failed to fetch heat loss analytics:', error);
+                setHeatLossAnalytics(null);
+            } finally {
+                setIsLoadingAnalytics(false);
+            }
+        };
+
+        fetchHeatLossAnalytics();
     }, [selectedBuilding]);
 
     // Check if user can download in specific format
@@ -127,6 +162,7 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
                     '#64748b'
                 ],
                 borderWidth: 1,
+                barThickness: 60, // Make bars thinner
             },
         ],
     };
@@ -306,32 +342,10 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
                                 </div>
                             )}
                         </div>
-                    </div>
 
-                    {/* Right Column - Chart and Detailed Metrics */}
-                    <div className="xl:col-span-2 space-y-6">
-                        {/* Heat Loss Comparison Chart */}
+                        {/* Building Metrics */}
                         <div>
-                            <h4 className="text-sm font-medium text-gray-900 mb-3">Heat Loss Analysis</h4>
-                            <div className="bg-gray-50 p-6 rounded-lg">
-                                {selectedBuilding.average_heatloss != null && selectedBuilding.reference_heatloss != null ? (
-                                    <div className="h-80 lg:h-96">
-                                        <Bar data={chartData} options={{...chartOptions, maintainAspectRatio: false}} />
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-16 text-gray-500">
-                                        <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                        </svg>
-                                        <p className="mt-4 text-lg">Heat loss data not available</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Detailed Metrics */}
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-900 mb-3">Detailed Metrics</h4>
+                            <h4 className="text-sm font-medium text-gray-900 mb-3">Building Metrics</h4>
                             <dl className="space-y-3">
                                 <div className="flex justify-between">
                                     <dt className="text-sm text-gray-500">Average Heat Loss</dt>
@@ -381,6 +395,228 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
                                 )}
                             </dl>
                         </div>
+
+                    </div>
+
+                    {/* Right Column - Chart and Detailed Metrics */}
+                    <div className="xl:col-span-2 space-y-6">
+                        {/* Heat Loss Comparison Chart */}
+                        <div>
+                            <h4 className="text-sm font-medium text-gray-900 mb-3">Heat Loss Analysis</h4>
+                            <div className="bg-gray-50 p-6 rounded-lg">
+                                {selectedBuilding.average_heatloss != null && selectedBuilding.reference_heatloss != null ? (
+                                    <>
+                                        <div className="mb-3">
+                                            <p className="text-xs text-gray-600">
+                                                This chart compares your building's heat loss (blue) against the category average (gray). 
+                                                Lower values indicate better thermal performance.
+                                            </p>
+                                        </div>
+                                        <div className="h-80 lg:h-96">
+                                            <Bar data={chartData} options={{...chartOptions, maintainAspectRatio: false}} />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="text-center py-16 text-gray-500">
+                                        <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                        </svg>
+                                        <p className="mt-4 text-lg">Heat loss data not available</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Statistical Analysis */}
+                        {isLoadingAnalytics ? (
+                            <div className="flex items-center justify-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                <span className="ml-2 text-gray-600">Loading analytics...</span>
+                            </div>
+                        ) : heatLossAnalytics && (
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-900 mb-3">Statistical Analysis</h4>
+                                
+                                {/* Distribution Chart */}
+                                {heatLossAnalytics.distribution && heatLossAnalytics.distribution.length > 0 && (
+                                    <div className="bg-gray-50 p-6 rounded-lg mb-6">
+                                        <h5 className="text-sm font-medium text-gray-700 mb-3">Heat Loss Distribution</h5>
+                                        <div className="mb-3">
+                                            <p className="text-xs text-gray-600">
+                                                This histogram shows how heat loss values are distributed across all buildings in the dataset. 
+                                                Your building is highlighted in {selectedBuilding.is_anomaly ? 'red (anomaly detected)' : 'blue'}, 
+                                                while other buildings appear in gray.
+                                            </p>
+                                        </div>
+                                        <div className="h-64">
+                                            <Bar 
+                                                data={{
+                                                    labels: heatLossAnalytics.distribution.map(bin => 
+                                                        `${bin.range_start.toFixed(1)} - ${bin.range_end.toFixed(1)}`
+                                                    ),
+                                                    datasets: [{
+                                                        label: 'Number of Buildings',
+                                                        data: heatLossAnalytics.distribution.map(bin => bin.count),
+                                                        backgroundColor: heatLossAnalytics.distribution.map(bin => {
+                                                            // Highlight the bin containing the current building
+                                                            const buildingValue = selectedBuilding.average_heatloss;
+                                                            if (buildingValue >= bin.range_start && buildingValue < bin.range_end) {
+                                                                return selectedBuilding.is_anomaly ? '#ef4444' : '#3b82f6';
+                                                            }
+                                                            return '#e5e7eb';
+                                                        }),
+                                                        borderColor: '#9ca3af',
+                                                        borderWidth: 1,
+                                                        barThickness: 40,
+                                                        maxBarThickness: 50
+                                                    }]
+                                                }}
+                                                options={{
+                                                    responsive: true,
+                                                    maintainAspectRatio: false,
+                                                    plugins: {
+                                                        legend: { display: false },
+                                                        title: {
+                                                            display: true,
+                                                            text: `Distribution of Heat Loss Values (${heatLossAnalytics.heat_loss_statistics?.total_buildings || 0} buildings)`,
+                                                            font: { size: 12 }
+                                                        },
+                                                        tooltip: {
+                                                            callbacks: {
+                                                                label: function(context) {
+                                                                    const totalBuildings = heatLossAnalytics.heat_loss_statistics?.total_buildings || 1;
+                                                                    const percentage = ((context.parsed.y / totalBuildings) * 100).toFixed(1);
+                                                                    return `${context.parsed.y} buildings (${percentage}%)`;
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    scales: {
+                                                        y: {
+                                                            beginAtZero: true,
+                                                            title: { display: true, text: 'Number of Buildings' }
+                                                        },
+                                                        x: {
+                                                            title: { display: true, text: 'Heat Loss Range' }
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Statistical Metrics Grid */}
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                    <div className="bg-blue-50 p-4 rounded-lg">
+                                        <dt className="text-xs text-blue-600 font-medium">Mean</dt>
+                                        <dd className="text-lg font-semibold text-blue-900">
+                                            {heatLossAnalytics.heat_loss_statistics?.mean?.toFixed(2) || 'N/A'}
+                                        </dd>
+                                    </div>
+                                    <div className="bg-green-50 p-4 rounded-lg">
+                                        <dt className="text-xs text-green-600 font-medium">Median</dt>
+                                        <dd className="text-lg font-semibold text-green-900">
+                                            {heatLossAnalytics.heat_loss_statistics?.median?.toFixed(2) || 'N/A'}
+                                        </dd>
+                                    </div>
+                                    <div className="bg-purple-50 p-4 rounded-lg">
+                                        <dt className="text-xs text-purple-600 font-medium">Std Dev</dt>
+                                        <dd className="text-lg font-semibold text-purple-900">
+                                            {heatLossAnalytics.heat_loss_statistics?.std_deviation?.toFixed(2) || 'N/A'}
+                                        </dd>
+                                    </div>
+                                    <div className="bg-orange-50 p-4 rounded-lg">
+                                        <dt className="text-xs text-orange-600 font-medium">Range</dt>
+                                        <dd className="text-lg font-semibold text-orange-900">
+                                            {heatLossAnalytics.heat_loss_statistics?.min != null && heatLossAnalytics.heat_loss_statistics?.max != null 
+                                                ? `${heatLossAnalytics.heat_loss_statistics.min.toFixed(1)} - ${heatLossAnalytics.heat_loss_statistics.max.toFixed(1)}`
+                                                : 'N/A'
+                                            }
+                                        </dd>
+                                    </div>
+                                </div>
+
+                                {/* Building Comparison */}
+                                {heatLossAnalytics.building_comparison && (
+                                    <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                                        <h5 className="text-sm font-medium text-gray-700 mb-3">Your Building vs. Similar Buildings</h5>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div className="text-center">
+                                                <dt className="text-xs text-gray-500">Percentile Rank</dt>
+                                                <dd className={`text-2xl font-bold ${
+                                                    heatLossAnalytics.building_comparison.current_building?.percentile_rank > 75 ? 'text-red-600' :
+                                                    heatLossAnalytics.building_comparison.current_building?.percentile_rank > 50 ? 'text-yellow-600' :
+                                                    'text-green-600'
+                                                }`}>
+                                                    {heatLossAnalytics.building_comparison.current_building?.percentile_rank?.toFixed(1)}%
+                                                </dd>
+                                                <dd className="text-xs text-gray-500 mt-1">
+                                                    {heatLossAnalytics.building_comparison.current_building?.percentile_rank > 75 ? 'Higher than most' :
+                                                     heatLossAnalytics.building_comparison.current_building?.percentile_rank > 50 ? 'Above average' :
+                                                     'Below average'}
+                                                </dd>
+                                            </div>
+                                            <div className="text-center">
+                                                <dt className="text-xs text-gray-500">Deviation from Mean</dt>
+                                                <dd className={`text-2xl font-bold ${
+                                                    heatLossAnalytics.building_comparison.comparison_stats?.deviation_from_mean > 0 ? 'text-red-600' : 'text-green-600'
+                                                }`}>
+                                                    {heatLossAnalytics.building_comparison.comparison_stats?.deviation_from_mean > 0 ? '+' : ''}
+                                                    {heatLossAnalytics.building_comparison.comparison_stats?.deviation_from_mean?.toFixed(2)}
+                                                </dd>
+                                            </div>
+                                            <div className="text-center">
+                                                <dt className="text-xs text-gray-500">Z-Score</dt>
+                                                <dd className={`text-2xl font-bold ${
+                                                    Math.abs(heatLossAnalytics.building_comparison.comparison_stats?.z_score) > 2 ? 'text-red-600' :
+                                                    Math.abs(heatLossAnalytics.building_comparison.comparison_stats?.z_score) > 1 ? 'text-yellow-600' :
+                                                    'text-green-600'
+                                                }`}>
+                                                    {heatLossAnalytics.building_comparison.comparison_stats?.z_score?.toFixed(2)}
+                                                </dd>
+                                                <dd className="text-xs text-gray-500 mt-1">
+                                                    {Math.abs(heatLossAnalytics.building_comparison.comparison_stats?.z_score) > 2 ? 'Highly unusual' :
+                                                     Math.abs(heatLossAnalytics.building_comparison.comparison_stats?.z_score) > 1 ? 'Somewhat unusual' :
+                                                     'Normal range'}
+                                                </dd>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Percentiles */}
+                                {heatLossAnalytics.p25 != null && (
+                                    <div>
+                                        <h5 className="text-sm font-medium text-gray-700 mb-3">Percentile Breakdown</h5>
+                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                            <div className="text-center p-3 bg-gray-100 rounded">
+                                                <dt className="text-xs text-gray-500">25th</dt>
+                                                <dd className="text-sm font-semibold">{heatLossAnalytics.p25.toFixed(2)}</dd>
+                                            </div>
+                                            <div className="text-center p-3 bg-gray-100 rounded">
+                                                <dt className="text-xs text-gray-500">50th</dt>
+                                                <dd className="text-sm font-semibold">{heatLossAnalytics.p50.toFixed(2)}</dd>
+                                            </div>
+                                            <div className="text-center p-3 bg-gray-100 rounded">
+                                                <dt className="text-xs text-gray-500">75th</dt>
+                                                <dd className="text-sm font-semibold">{heatLossAnalytics.p75.toFixed(2)}</dd>
+                                            </div>
+                                            <div className="text-center p-3 bg-gray-100 rounded">
+                                                <dt className="text-xs text-gray-500">90th</dt>
+                                                <dd className="text-sm font-semibold">{heatLossAnalytics.p90.toFixed(2)}</dd>
+                                            </div>
+                                            <div className="text-center p-3 bg-gray-100 rounded">
+                                                <dt className="text-xs text-gray-500">95th</dt>
+                                                <dd className="text-sm font-semibold">{heatLossAnalytics.p95.toFixed(2)}</dd>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+
                     </div>
                 </div>
             </div>

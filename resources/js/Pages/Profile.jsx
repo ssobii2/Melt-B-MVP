@@ -222,7 +222,7 @@ export default function Profile() {
                                     <label className="text-sm font-medium text-gray-700">Member Since</label>
                                     <div className="flex items-center gap-2">
                                         <Calendar className="h-4 w-4 text-gray-500" />
-                                        <p className="text-sm text-gray-900">{formatDate(user.created_at)}</p>
+                                        <p className="text-sm text-gray-900">{formatDate(user?.created_at || authUser?.created_at)}</p>
                                     </div>
                                 </div>
                             </div>
@@ -466,74 +466,20 @@ export default function Profile() {
 
                             <div className="shrink-0 bg-gray-200 h-[1px] w-full"></div>
 
-                            {/* Token Usage Instructions */}
+                            {/* API Documentation Link */}
                             <div className="bg-gray-50 p-4 rounded-lg">
-                                <h4 className="text-sm font-medium mb-3">Using Your API Token</h4>
-                                <div className="space-y-4 text-sm text-gray-600">
-                                    <div>
-                                        <p className="font-medium text-gray-800 mb-2">Authentication</p>
-                                        <p className="mb-2">
-                                            Include your API token in the Authorization header of all API requests:
-                                        </p>
-                                        <div className="bg-gray-100 p-3 rounded font-mono text-xs">
-                                            Authorization: Bearer YOUR_TOKEN_HERE
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <p className="font-medium text-gray-800 mb-2">Available Endpoints</p>
-                                        <div className="space-y-2">
-                                            <div>
-                                                <p className="font-medium">Get your entitlements:</p>
-                                                <div className="bg-gray-100 p-2 rounded font-mono text-xs">
-                                                    GET {window.location.origin}/api/me/entitlements
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <p className="font-medium">Get building data:</p>
-                                                <div className="bg-gray-100 p-2 rounded font-mono text-xs">
-                                                    GET {window.location.origin}/api/buildings
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <p className="font-medium">Download dataset:</p>
-                                                <div className="bg-gray-100 p-2 rounded font-mono text-xs">
-                                                    GET {window.location.origin}/api/downloads/{'{entitlement_id}'}?format=csv
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <p className="font-medium text-gray-800 mb-2">Example Usage (cURL)</p>
-                                        <div className="bg-gray-100 p-3 rounded font-mono text-xs overflow-x-auto">
-                                            curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \
-                                            <br />     -H "Accept: application/json" \
-                                            <br />     {window.location.origin}/api/me/entitlements
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <p className="font-medium text-gray-800 mb-2">Example Usage (JavaScript)</p>
-                                        <div className="bg-gray-100 p-3 rounded font-mono text-xs overflow-x-auto">
-                                            {`fetch('${window.location.origin}/api/buildings', {
-  headers: {
-    'Authorization': 'Bearer YOUR_TOKEN_HERE',
-    'Accept': 'application/json'
-  }
-})
-.then(response => response.json())
-.then(data => console.log(data));`}
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                                        <p className="text-blue-800 text-xs">
-                                            <strong>Security Note:</strong> Keep your API token secure and never share it publicly. 
-                                            If you suspect your token has been compromised, revoke it immediately and generate a new one.
-                                        </p>
-                                    </div>
-                                </div>
+                                <h4 className="text-sm font-medium mb-3">API Documentation</h4>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    For detailed API documentation, endpoints, and usage examples, visit our comprehensive API documentation.
+                                </p>
+                                <a 
+                                    href="/docs/api" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 h-10 py-2 px-4 cursor-pointer"
+                                >
+                                    View API Documentation
+                                </a>
                             </div>
                         </div>
                     </div>

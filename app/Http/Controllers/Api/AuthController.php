@@ -284,6 +284,7 @@ class AuthController extends Controller
                 'role' => $user->role,
                 'email_verified_at' => $user->email_verified_at,
                 'contact_info' => $user->contact_info,
+                'created_at' => $user->created_at,
             ]
         ]);
     }
@@ -459,6 +460,7 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'email_verified_at' => $user->email_verified_at,
+                'created_at' => $user->created_at,
             ]
         ]);
     }

@@ -92,6 +92,7 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
     // Building data endpoints - specific routes first
     Route::get('/buildings/stats', [BuildingController::class, 'stats']);
+    Route::get('/buildings/analytics/heat-loss', [BuildingController::class, 'heatLossAnalytics']);
     Route::get('/buildings/within/bounds', [BuildingController::class, 'withinBounds']);
     Route::get('/buildings/{gid}/find-page', [BuildingController::class, 'findPage']);
     Route::get('/buildings', [BuildingController::class, 'index']);
