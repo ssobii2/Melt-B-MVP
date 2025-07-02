@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { Alert, AlertDescription } from '../components/ui/alert';
 import { Download, FileText, Database, Map, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { apiClient } from '../utils/api';
@@ -135,10 +131,10 @@ export default function Downloads() {
         const expiresAt = entitlement.expires_at ? new Date(entitlement.expires_at) : null;
         
         if (expiresAt && expiresAt < now) {
-            return <Badge variant="destructive">Expired</Badge>;
+            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Expired</span>;
         }
         
-        return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>;
     };
 
     const isEntitlementActive = (entitlement) => {
@@ -173,66 +169,66 @@ export default function Downloads() {
                             </div>
 
                             {error && (
-                                <Alert className="mb-6">
-                                    <AlertCircle className="h-4 w-4" />
-                                    <AlertDescription>{error}</AlertDescription>
-                                </Alert>
+                                <div className="mb-6 p-4 border border-red-200 bg-red-50 rounded-md flex items-start gap-3">
+                                    <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                                    <p className="text-sm text-red-800">{error}</p>
+                                </div>
                             )}
                             
                             {/* Download Tips */}
                             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                                <h3 className="text-sm font-medium text-blue-800 mb-2">💡 Download Tips</h3>
-                                <ul className="text-sm text-blue-700 space-y-1">
-                                    <li>• Large datasets may take several minutes to prepare and download</li>
-                                    <li>• Progress indicators will show download status for your convenience</li>
-                                    <li>• CSV format is recommended for data analysis and spreadsheet applications</li>
-                                    <li>• GeoJSON format is ideal for GIS applications and mapping tools</li>
-                                    <li>• Downloads will start automatically once processing is complete</li>
+                                <h3 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
+                                    <CheckCircle className="h-5 w-5" />
+                                    Download Tips
+                                </h3>
+                                <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+                                    <li>Files are compressed to reduce download time</li>
+                                    <li>Large datasets may take several minutes to prepare</li>
+                                    <li>Downloads will expire after 24 hours for security</li>
+                                    <li>Contact support if you encounter any issues</li>
                                 </ul>
                             </div>
 
                             {entitlements.length === 0 ? (
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
+                                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                                    <div className="px-6 py-4">
+                                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                             <AlertCircle className="h-5 w-5 text-amber-600" />
                                             No Data Access
-                                        </CardTitle>
-                                        <CardDescription>
+                                        </h3>
+                                        <p className="text-sm text-gray-600 mt-1">
                                             You don't have access to any datasets yet. Contact your administrator to request data access.
-                                        </CardDescription>
-                                    </CardHeader>
-                                </Card>
+                                        </p>
+                                    </div>
+                                </div>
                             ) : (
                                 <div className="space-y-4">
                                     {entitlements.map((entitlement) => (
-                                        <Card key={entitlement.id}>
-                                            <CardHeader>
+                                        <div key={entitlement.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                                            <div className="px-6 py-4">
                                                 <div className="flex items-center justify-between">
-                                                    <CardTitle className="flex items-center gap-2">
+                                                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                                         {getDataTypeIcon(entitlement.dataset?.data_type)}
                                                         {entitlement.dataset?.name || 'Unknown Dataset'}
-                                                    </CardTitle>
+                                                    </h3>
                                                     {getStatusBadge(entitlement)}
                                                 </div>
-                                                <CardDescription>
+                                                <div className="text-sm text-gray-600 mt-2">
                                                     Data Type: {formatDataType(entitlement.dataset?.data_type)}
                                                     {entitlement.expires_at && (
                                                         <span className="block mt-1">
                                                             Expires: {new Date(entitlement.expires_at).toLocaleDateString()}
                                                         </span>
                                                     )}
-                                                </CardDescription>
-                                            </CardHeader>
-                                            <CardContent>
+                                                </div>
+                                            </div>
+                                            <div className="px-6 pb-4">
                                                 <div className="flex gap-2 flex-wrap">
                                                     {entitlement.download_formats?.includes('csv') && (
-                                                        <Button
+                                                        <button
                                                             onClick={() => handleDownload(entitlement.id, 'csv')}
                                                             disabled={!isEntitlementActive(entitlement) || downloadingIds.has(`${entitlement.id}-csv`)}
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="cursor-pointer"
+                                                            className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                                         >
                                                             {downloadingIds.has(`${entitlement.id}-csv`) ? (
                                                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -240,15 +236,13 @@ export default function Downloads() {
                                                                 <FileText className="h-4 w-4 mr-2" />
                                                             )}
                                                             Download as CSV
-                                                        </Button>
+                                                        </button>
                                                     )}
                                                     {entitlement.download_formats?.includes('geojson') && (
-                                                        <Button
+                                                        <button
                                                             onClick={() => handleDownload(entitlement.id, 'geojson')}
                                                             disabled={!isEntitlementActive(entitlement) || downloadingIds.has(`${entitlement.id}-geojson`)}
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="cursor-pointer"
+                                                            className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                                         >
                                                             {downloadingIds.has(`${entitlement.id}-geojson`) ? (
                                                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -256,14 +250,14 @@ export default function Downloads() {
                                                                 <Map className="h-4 w-4 mr-2" />
                                                             )}
                                                             Download as GeoJSON
-                                                        </Button>
+                                                        </button>
                                                     )}
                                                     {(!entitlement.download_formats || entitlement.download_formats.length === 0) && (
                                                         <p className="text-sm text-gray-500">No download formats available</p>
                                                     )}
                                                 </div>
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             )}

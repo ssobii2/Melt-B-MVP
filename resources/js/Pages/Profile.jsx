@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
-import { Separator } from '../components/ui/separator';
 import { User, Mail, Shield, Calendar, CheckCircle, XCircle, Key, Copy, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { apiClient } from '../utils/api';
@@ -43,6 +37,7 @@ export default function Profile() {
     const [showToken, setShowToken] = useState(false);
     const [existingTokens, setExistingTokens] = useState([]);
     const [tokensLoading, setTokensLoading] = useState(false);
+    const [tokenCopied, setTokenCopied] = useState(false);
 
     useEffect(() => {
         if (authUser) {
@@ -73,6 +68,10 @@ export default function Profile() {
             await apiClient.delete(`/tokens/${tokenId}`);
             toast.success('API token revoked successfully!');
             fetchExistingTokens(); // Refresh the list
+            // Hide the generated token display when any token is revoked
+            setGeneratedToken('');
+            setShowToken(false);
+            setTokenCopied(false);
         } catch (error) {
             const errorMsg = error.response?.data?.message || 'Failed to revoke token';
             toast.error(errorMsg);
@@ -142,6 +141,7 @@ export default function Profile() {
             
             setGeneratedToken(response.data.token);
             setShowToken(true);
+            setTokenCopied(false); // Reset copied state for new token
             toast.success('API token generated successfully! Make sure to copy it now.');
             fetchExistingTokens(); // Refresh the tokens list
         } catch (err) {
@@ -156,6 +156,7 @@ export default function Profile() {
         try {
             await navigator.clipboard.writeText(text);
             toast.success('Token copied to clipboard!');
+            setTokenCopied(true);
         } catch (err) {
             console.error('Failed to copy:', err);
             toast.error('Failed to copy to clipboard');
@@ -179,22 +180,22 @@ export default function Profile() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Basic Information */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
+                        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                     <User className="h-5 w-5" />
                                     Basic Information
-                                </CardTitle>
-                                <CardDescription>
+                                </h3>
+                                <p className="text-sm text-gray-600 mt-1">
                                     Your account details and contact information.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
+                                </p>
+                            </div>
+                            <div className="px-6 py-4 space-y-4">
                                 <div>
                                     <label className="text-sm font-medium text-gray-700">Role</label>
                                     <div className="flex items-center gap-2">
                                         <Shield className="h-4 w-4 text-gray-500" />
-                                        <Badge variant="outline">{formatRole(user.role)}</Badge>
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-700">{formatRole(user.role)}</span>
                                     </div>
                                 </div>
                                 <div>
@@ -203,16 +204,16 @@ export default function Profile() {
                                         {user.email_verified_at ? (
                                             <>
                                                 <CheckCircle className="h-4 w-4 text-green-600" />
-                                                <Badge variant="default" className="bg-green-100 text-green-800">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                                     Verified
-                                                </Badge>
+                                                </span>
                                             </>
                                         ) : (
                                             <>
                                                 <XCircle className="h-4 w-4 text-red-600" />
-                                                <Badge variant="destructive">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                                     Not Verified
-                                                </Badge>
+                                                </span>
                                             </>
                                         )}
                                     </div>
@@ -224,144 +225,143 @@ export default function Profile() {
                                         <p className="text-sm text-gray-900">{formatDate(user.created_at)}</p>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/* Update Profile */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Update Profile</CardTitle>
-                                <CardDescription>
+                        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <h3 className="text-lg font-semibold text-gray-900">Update Profile</h3>
+                                <p className="text-sm text-gray-600 mt-1">
                                     Update your name and email address.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
+                                </p>
+                            </div>
+                            <div className="px-6 py-4">
                                 <form onSubmit={handleProfileUpdate} className="space-y-4">
                                     <div>
-                                        <Label htmlFor="name">Name</Label>
-                                        <Input
+                                        <label htmlFor="name" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Name</label>
+                                        <input
                                             id="name"
                                             type="text"
                                             value={profileForm.name}
                                             onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
                                             required
+                                            className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
                                         />
                                     </div>
                                     <div>
-                                        <Label htmlFor="email">Email</Label>
-                                        <Input
+                                        <label htmlFor="email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Email</label>
+                                        <input
                                             id="email"
                                             type="email"
                                             value={profileForm.email}
                                             onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
                                             required
+                                            className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
                                         />
                                     </div>
-                                    <Button type="submit" disabled={profileLoading} className="cursor-pointer">
+                                    <button type="submit" disabled={profileLoading} className="inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 px-4 py-2 text-sm cursor-pointer">
                                     {profileLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                                     Update Profile
-                                </Button>
+                                </button>
                                 </form>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Change Password */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
+                    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                 <Key className="h-5 w-5" />
                                 Change Password
-                            </CardTitle>
-                            <CardDescription>
+                            </h3>
+                            <p className="text-sm text-gray-600 mt-1">
                                 Update your account password for better security.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
+                            </p>
+                        </div>
+                        <div className="px-6 py-4">
                             <form onSubmit={handlePasswordUpdate} className="space-y-4 max-w-md">
                                 <div>
-                                    <Label htmlFor="current_password">Current Password</Label>
+                                    <label htmlFor="current_password" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Current Password</label>
                                     <div className="relative">
-                                        <Input
+                                        <input
                                             id="current_password"
                                             type={showPasswords.current ? "text" : "password"}
                                             value={passwordForm.current_password}
                                             onChange={(e) => setPasswordForm(prev => ({ ...prev, current_password: e.target.value }))}
                                             required
+                                            className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
                                         />
-                                        <Button
+                                        <button
                                             type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="absolute right-0 top-0 h-full px-3"
+                                            className="inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none text-gray-700 hover:bg-gray-100 focus:ring-blue-500 px-3 py-1.5 text-xs absolute right-0 top-0 h-full"
                                             onClick={() => togglePasswordVisibility('current')}
                                         >
                                             {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                        </Button>
+                                        </button>
                                     </div>
                                 </div>
                                 <div>
-                                    <Label htmlFor="password">New Password</Label>
+                                    <label htmlFor="password" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">New Password</label>
                                     <div className="relative">
-                                        <Input
+                                        <input
                                             id="password"
                                             type={showPasswords.new ? "text" : "password"}
                                             value={passwordForm.password}
                                             onChange={(e) => setPasswordForm(prev => ({ ...prev, password: e.target.value }))}
                                             required
+                                            className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
                                         />
-                                        <Button
+                                        <button
                                             type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="absolute right-0 top-0 h-full px-3"
+                                            className="inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none text-gray-700 hover:bg-gray-100 focus:ring-blue-500 px-3 py-1.5 text-xs absolute right-0 top-0 h-full"
                                             onClick={() => togglePasswordVisibility('new')}
                                         >
                                             {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                        </Button>
+                                        </button>
                                     </div>
                                 </div>
                                 <div>
-                                    <Label htmlFor="password_confirmation">Confirm New Password</Label>
+                                    <label htmlFor="password_confirmation" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Confirm New Password</label>
                                     <div className="relative">
-                                        <Input
+                                        <input
                                             id="password_confirmation"
                                             type={showPasswords.confirm ? "text" : "password"}
                                             value={passwordForm.password_confirmation}
                                             onChange={(e) => setPasswordForm(prev => ({ ...prev, password_confirmation: e.target.value }))}
                                             required
+                                            className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
                                         />
-                                        <Button
+                                        <button
                                             type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="absolute right-0 top-0 h-full px-3"
+                                            className="inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none text-gray-700 hover:bg-gray-100 focus:ring-blue-500 px-3 py-1.5 text-xs absolute right-0 top-0 h-full"
                                             onClick={() => togglePasswordVisibility('confirm')}
                                         >
                                             {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                        </Button>
+                                        </button>
                                     </div>
                                 </div>
-                                <Button type="submit" disabled={passwordLoading} className="cursor-pointer">
+                                <button type="submit" disabled={passwordLoading} className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 h-10 py-2 px-4 cursor-pointer">
                                     {passwordLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                                     Update Password
-                                </Button>
+                                </button>
                             </form>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* API Token Management */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
+                    <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+                        <div className="flex flex-col space-y-1.5 p-6">
+                            <h3 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
                                 <Key className="h-5 w-5" />
                                 API Token Management
-                            </CardTitle>
-                            <CardDescription>
+                            </h3>
+                            <p className="text-sm text-gray-600">
                                 Generate API tokens for programmatic access to your data.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
+                            </p>
+                        </div>
+                        <div className="p-6 pt-0 space-y-6">
                             {/* Generate New Token */}
                             <div>
                                 <h4 className="text-sm font-medium mb-3">Generate New Token</h4>
@@ -371,9 +371,9 @@ export default function Profile() {
                                             <p className="text-sm text-gray-600 mb-4">
                                                 Generate a new API token for accessing the API. You can only have one active token at a time.
                                             </p>
-                                            <Button type="submit" disabled={tokenLoading} className="cursor-pointer">
+                                            <button type="submit" disabled={tokenLoading} className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 h-10 py-2 px-4 cursor-pointer">
                                                 {tokenLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Generate API Token'}
-                                            </Button>
+                                            </button>
                                         </form>
                                     )}
                                     {existingTokens.length > 0 && (
@@ -394,37 +394,34 @@ export default function Profile() {
                                         Make sure to copy this token now. You won't be able to see it again!
                                     </p>
                                     <div className="flex items-center gap-2">
-                                        <Input
+                                        <input
                                             type={showToken ? "text" : "password"}
                                             value={generatedToken}
                                             readOnly
-                                            className="font-mono text-xs"
+                                            className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 font-mono"
                                         />
-                                        <Button
+                                        <button
                                             type="button"
-                                            variant="outline"
-                                            size="sm"
                                             onClick={() => setShowToken(!showToken)}
-                                            className="cursor-pointer"
+                                            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none border border-gray-300 bg-white hover:bg-gray-50 focus:ring-blue-500 h-9 px-3 cursor-pointer"
                                         >
                                             {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                        </Button>
-                                        <Button
+                                        </button>
+                                        <button
                                             type="button"
-                                            variant="outline"
-                                            size="sm"
                                             onClick={() => copyToClipboard(generatedToken)}
-                                            className="cursor-pointer"
+                                            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none border border-gray-300 bg-white hover:bg-gray-50 focus:ring-blue-500 h-9 px-3 cursor-pointer"
                                         >
                                             <Copy className="h-4 w-4" />
-                                        </Button>
+                                        </button>
                                     </div>
                                 </div>
                             )}
 
-                            <Separator />
+                            <div className="shrink-0 bg-gray-200 h-[1px] w-full"></div>
 
                             {/* Existing API Tokens */}
+                            {(!generatedToken || tokenCopied) && (
                             <div>
                                 <h4 className="text-sm font-medium mb-3">Existing API Tokens</h4>
                                 {tokensLoading ? (
@@ -447,19 +444,17 @@ export default function Profile() {
                                                         </p>
                                                     )}
                                                 </div>
-                                                <Button
+                                                <button
                                                     onClick={() => handleRevokeToken(token.id)}
                                                     disabled={revokeLoading}
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    className="cursor-pointer"
+                                                    className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 h-9 px-3 cursor-pointer"
                                                 >
                                                     {revokeLoading ? (
                                                         <Loader2 className="w-3 h-3 animate-spin" />
                                                     ) : (
                                                         'Revoke'
                                                     )}
-                                                </Button>
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
@@ -467,8 +462,9 @@ export default function Profile() {
                                     <p className="text-gray-500 text-center py-4">No API tokens found</p>
                                 )}
                             </div>
+                            )}
 
-                            <Separator />
+                            <div className="shrink-0 bg-gray-200 h-[1px] w-full"></div>
 
                             {/* Token Usage Instructions */}
                             <div className="bg-gray-50 p-4 rounded-lg">
@@ -539,8 +535,8 @@ export default function Profile() {
                                     </div>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
             </div>
         </DashboardLayout>
