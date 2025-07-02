@@ -52,6 +52,7 @@ Route::prefix('admin')->group(function () {
 // --- ADD THIS CATCH-ALL FOR THE REACT SPA ---
 // This must be placed AFTER the admin routes.
 // It will catch '/', '/dashboard', '/profile', etc., and load the React app.
+// Exclude docs routes to allow Scramble documentation to work
 Route::get('/{any?}', function () {
     return view('app'); // Or whatever the main Blade file for the React SPA is named
-})->where('any', '.*')->name('react.spa');
+})->where('any', '^(?!docs).*')->name('react.spa');

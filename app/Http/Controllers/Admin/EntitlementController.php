@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\EntitlementResource;
 use App\Models\Entitlement;
 use App\Models\Dataset;
 use App\Models\AuditLog;
@@ -13,7 +14,15 @@ use Illuminate\Support\Facades\Validator;
 use MatanYadaev\EloquentSpatial\Objects\Polygon;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 use MatanYadaev\EloquentSpatial\Objects\LineString;
+use Dedoc\Scramble\Attributes\Tag;
+use Dedoc\Scramble\Attributes\Response;
+use Dedoc\Scramble\Attributes\RequestBody;
+use Dedoc\Scramble\Attributes\OperationId;
+use Dedoc\Scramble\Attributes\Summary;
+use Dedoc\Scramble\Attributes\Description;
+use Dedoc\Scramble\Attributes\Parameters;
 
+#[Tag('Admin - Entitlements')]
 class EntitlementController extends Controller
 {
     protected UserEntitlementService $entitlementService;
@@ -26,6 +35,42 @@ class EntitlementController extends Controller
     /**
      * Get a paginated list of all entitlements.
      */
+    #[OperationId('admin.entitlements.index')]
+    #[Summary('List entitlements')]
+    #[Description('Get a paginated list of entitlements with optional filtering by type and dataset.')]
+    #[Parameters([
+        'per_page' => 'integer|optional|Number of items per page (default: 15)',
+        'type' => 'string|optional|Filter by entitlement type (DS-ALL, DS-AOI, DS-BLD, TILES)',
+        'dataset_id' => 'integer|optional|Filter by dataset ID'
+    ])]
+    #[Response(200, 'Paginated entitlements', [
+        'data' => [
+            [
+                'id' => 1,
+                'type' => 'DS-AOI',
+                'dataset_id' => 5,
+                'building_gids' => null,
+                'download_formats' => ['csv', 'geojson'],
+                'expires_at' => '2024-12-31T23:59:59Z',
+                'created_at' => '2024-01-01T00:00:00Z',
+                'dataset' => [
+                    'id' => 5,
+                    'name' => 'Thermal Dataset',
+                    'data_type' => 'thermal_raster'
+                ],
+                'users' => [
+                    [
+                        'id' => 1,
+                        'name' => 'John Doe',
+                        'email' => 'john@example.com'
+                    ]
+                ]
+            ]
+        ],
+        'current_page' => 1,
+        'per_page' => 15,
+        'total' => 50
+    ])]
     public function index(Request $request): JsonResponse
     {
         $perPage = $request->input('per_page', 15);
@@ -47,12 +92,44 @@ class EntitlementController extends Controller
 
         $entitlements = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return response()->json($entitlements);
+        return response()->json([
+            'data' => EntitlementResource::collection($entitlements->items()),
+            'current_page' => $entitlements->currentPage(),
+            'per_page' => $entitlements->perPage(),
+            'total' => $entitlements->total()
+        ]);
     }
 
     /**
      * Get details of a specific entitlement.
      */
+    #[OperationId('admin.entitlements.show')]
+    #[Summary('Get entitlement details')]
+    #[Description('Get detailed information about a specific entitlement including AOI coordinates if applicable.')]
+    #[Response(200, 'Entitlement details', [
+        'entitlement' => [
+            'id' => 1,
+            'type' => 'DS-AOI',
+            'dataset_id' => 5,
+            'aoi_geom' => [
+                'type' => 'Polygon',
+                'coordinates' => [[[-1.0, 51.0], [-1.0, 52.0], [0.0, 52.0], [0.0, 51.0], [-1.0, 51.0]]]
+            ],
+            'aoi_coordinates' => [[-1.0, 51.0], [-1.0, 52.0], [0.0, 52.0], [0.0, 51.0], [-1.0, 51.0]],
+            'building_gids' => null,
+            'download_formats' => ['csv', 'geojson'],
+            'expires_at' => '2024-12-31T23:59:59Z',
+            'dataset' => [
+                'id' => 5,
+                'name' => 'Thermal Dataset',
+                'data_type' => 'thermal_raster'
+            ],
+            'users' => []
+        ],
+        'is_expired' => false,
+        'users_count' => 0
+    ])]
+    #[Response(404, 'Entitlement not found', ['message' => 'Entitlement not found'])]
     public function show(string $id): JsonResponse
     {
         $entitlement = Entitlement::with(['dataset', 'users'])->find($id);
@@ -61,37 +138,49 @@ class EntitlementController extends Controller
             return response()->json(['message' => 'Entitlement not found'], 404);
         }
 
-        $entitlementData = $entitlement->toArray();
-
-        // Extract coordinates from geometry if present
-        if ($entitlement->aoi_geom && in_array($entitlement->type, ['DS-AOI', 'TILES'])) {
-            try {
-                // The aoi_geom is already converted to GeoJSON format
-                $geoJson = $entitlement->aoi_geom;
-
-                if ($geoJson && isset($geoJson['coordinates']) && isset($geoJson['coordinates'][0])) {
-                    // Extract the coordinates from the GeoJSON polygon
-                    $coordinates = $geoJson['coordinates'][0];
-                    $entitlementData['aoi_coordinates'] = $coordinates;
-                } else {
-                    $entitlementData['aoi_coordinates'] = null;
-                }
-            } catch (\Exception $e) {
-                // If there's an issue extracting coordinates, just continue without them
-                $entitlementData['aoi_coordinates'] = null;
-            }
-        }
-
         return response()->json([
-            'entitlement' => $entitlementData,
-            'is_expired' => $entitlement->isExpired(),
-            'users_count' => $entitlement->users()->count()
+            'entitlement' => new EntitlementResource($entitlement)
         ]);
     }
 
     /**
      * Create a new entitlement.
      */
+    #[OperationId('admin.entitlements.store')]
+    #[Summary('Create a new entitlement')]
+    #[Description('Create a new entitlement with specified type, dataset, and optional AOI or building restrictions.')]
+    #[RequestBody([
+        'type' => 'string|required|Entitlement type (DS-ALL, DS-AOI, DS-BLD, TILES)',
+        'dataset_id' => 'integer|required|Dataset ID',
+        'aoi_coordinates' => 'array|optional|AOI coordinates for DS-AOI and TILES types (array of [lng, lat] pairs)',
+        'building_gids' => 'array|optional|Building GIDs for DS-BLD type',
+        'download_formats' => 'array|optional|Allowed download formats (csv, geojson)',
+        'expires_at' => 'string|optional|Expiration date (ISO 8601 format)'
+    ])]
+    #[Response(201, 'Entitlement created successfully', [
+        'message' => 'Entitlement created successfully',
+        'entitlement' => [
+            'id' => 1,
+            'type' => 'DS-AOI',
+            'dataset_id' => 5,
+            'download_formats' => ['csv', 'geojson'],
+            'expires_at' => '2024-12-31T23:59:59Z',
+            'dataset' => [
+                'id' => 5,
+                'name' => 'Thermal Dataset',
+                'data_type' => 'thermal_raster'
+            ],
+            'users' => []
+        ]
+    ])]
+    #[Response(404, 'Dataset not found', ['message' => 'Dataset not found'])]
+    #[Response(422, 'Validation failed', [
+        'message' => 'Validation failed',
+        'errors' => [
+            'type' => ['The selected type is invalid.'],
+            'aoi_coordinates' => ['Invalid AOI coordinates format.']
+        ]
+    ])]
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
@@ -186,6 +275,32 @@ class EntitlementController extends Controller
     /**
      * Update an existing entitlement.
      */
+    #[OperationId('admin.entitlements.update')]
+    #[Summary('Update entitlement')]
+    #[Description('Update an existing entitlement. All fields are optional.')]
+    #[RequestBody([
+        'type' => 'string|optional|Entitlement type (DS-ALL, DS-AOI, DS-BLD, TILES)',
+        'dataset_id' => 'integer|optional|Dataset ID',
+        'aoi_coordinates' => 'array|optional|AOI coordinates for DS-AOI and TILES types',
+        'building_gids' => 'array|optional|Building GIDs for DS-BLD type',
+        'download_formats' => 'array|optional|Allowed download formats (csv, geojson)',
+        'expires_at' => 'string|optional|Expiration date (ISO 8601 format)'
+    ])]
+    #[Response(200, 'Entitlement updated successfully', [
+        'message' => 'Entitlement updated successfully',
+        'entitlement' => [
+            'id' => 1,
+            'type' => 'DS-ALL',
+            'dataset_id' => 5,
+            'download_formats' => ['csv'],
+            'expires_at' => '2025-01-31T23:59:59Z'
+        ]
+    ])]
+    #[Response(404, 'Entitlement not found', ['message' => 'Entitlement not found'])]
+    #[Response(422, 'Validation failed', [
+        'message' => 'Validation failed',
+        'errors' => ['aoi_coordinates' => ['Invalid AOI coordinates format.']]
+    ])]
     public function update(Request $request, string $id): JsonResponse
     {
         $entitlement = Entitlement::find($id);
@@ -272,6 +387,14 @@ class EntitlementController extends Controller
     /**
      * Delete an entitlement.
      */
+    #[OperationId('admin.entitlements.destroy')]
+    #[Summary('Delete entitlement')]
+    #[Description('Delete an entitlement. Cannot delete entitlements with assigned users.')]
+    #[Response(200, 'Entitlement deleted successfully', ['message' => 'Entitlement deleted successfully'])]
+    #[Response(404, 'Entitlement not found', ['message' => 'Entitlement not found'])]
+    #[Response(422, 'Entitlement has users', [
+        'message' => 'Cannot delete entitlement. It has 3 user(s) assigned. Please remove all users first.'
+    ])]
     public function destroy(Request $request, string $id): JsonResponse
     {
         $entitlement = Entitlement::find($id);
@@ -315,6 +438,25 @@ class EntitlementController extends Controller
     /**
      * Get all available datasets for entitlement creation.
      */
+    #[OperationId('admin.entitlements.datasets')]
+    #[Summary('Get available datasets')]
+    #[Description('Get a list of all available datasets for creating entitlements.')]
+    #[Response(200, 'Available datasets', [
+        'datasets' => [
+            [
+                'id' => 1,
+                'name' => 'Thermal Dataset 2024',
+                'data_type' => 'thermal_raster',
+                'description' => 'Thermal imaging data for buildings'
+            ],
+            [
+                'id' => 2,
+                'name' => 'Building Data',
+                'data_type' => 'building_data',
+                'description' => 'Comprehensive building information'
+            ]
+        ]
+    ])]
     public function datasets(): JsonResponse
     {
         $datasets = Dataset::select('id', 'name', 'data_type', 'description')->get();
@@ -327,6 +469,34 @@ class EntitlementController extends Controller
     /**
      * Get entitlement statistics.
      */
+    #[OperationId('admin.entitlements.stats')]
+    #[Summary('Get entitlement statistics')]
+    #[Description('Get comprehensive statistics about entitlements including counts by type, dataset, and expiration status.')]
+    #[Response(200, 'Entitlement statistics', [
+        'total_entitlements' => 45,
+        'active_entitlements' => 38,
+        'expired_entitlements' => 7,
+        'by_type' => [
+            'DS-ALL' => 15,
+            'DS-AOI' => 12,
+            'DS-BLD' => 10,
+            'TILES' => 8
+        ],
+        'by_dataset' => [
+            [
+                'dataset_name' => 'Thermal Dataset 2024',
+                'count' => 20
+            ],
+            [
+                'dataset_name' => 'Building Data',
+                'count' => 15
+            ],
+            [
+                'dataset_name' => 'Heat Map Data',
+                'count' => 10
+            ]
+        ]
+    ])]
     public function stats(): JsonResponse
     {
         $stats = [

@@ -3,17 +3,51 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\DatasetResource;
 use App\Models\Dataset;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Dedoc\Scramble\Attributes\Tag;
+use Dedoc\Scramble\Attributes\Response;
+use Dedoc\Scramble\Attributes\RequestBody;
+use Dedoc\Scramble\Attributes\OperationId;
+use Dedoc\Scramble\Attributes\Summary;
+use Dedoc\Scramble\Attributes\Description;
+use Dedoc\Scramble\Attributes\Parameters;
 
+#[Tag('Admin - Dataset Management')]
 class DatasetController extends Controller
 {
     /**
      * Get a paginated list of all datasets.
      */
+    #[OperationId('admin.datasets.index')]
+    #[Summary('List all datasets')]
+    #[Description('Get a paginated list of all datasets with optional search and data type filtering.')]
+    #[Parameters([
+        'per_page' => 'Number of datasets per page (default: 15)',
+        'search' => 'Search term to filter by name or description',
+        'data_type' => 'Filter by data type (thermal_raster, building_data, etc.)'
+    ])]
+    #[Response(200, 'Paginated list of datasets', [
+        'data' => [
+            [
+                'id' => 1,
+                'name' => 'Thermal Dataset 2024',
+                'data_type' => 'thermal_raster',
+                'description' => 'Thermal imaging data for buildings',
+                'storage_location' => '/data/thermal/2024',
+                'version' => '1.0',
+                'metadata' => ['source' => 'satellite'],
+                'entitlements_count' => 5,
+                'created_at' => '2024-01-01T00:00:00Z'
+            ]
+        ],
+        'current_page' => 1,
+        'total' => 25
+    ])]
     public function index(Request $request): JsonResponse
     {
         $perPage = $request->input('per_page', 15);
@@ -37,12 +71,35 @@ class DatasetController extends Controller
 
         $datasets = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return response()->json($datasets);
+        return response()->json([
+            'data' => DatasetResource::collection($datasets->items()),
+            'current_page' => $datasets->currentPage(),
+            'per_page' => $datasets->perPage(),
+            'total' => $datasets->total()
+        ]);
     }
 
     /**
      * Get details of a specific dataset.
      */
+    #[OperationId('admin.datasets.show')]
+    #[Summary('Get dataset details')]
+    #[Description('Get detailed information about a specific dataset including entitlements and user access.')]
+    #[Response(200, 'Dataset details', [
+        'dataset' => [
+            'id' => 1,
+            'name' => 'Thermal Dataset 2024',
+            'data_type' => 'thermal_raster',
+            'description' => 'Thermal imaging data for buildings',
+            'storage_location' => '/data/thermal/2024',
+            'version' => '1.0',
+            'metadata' => ['source' => 'satellite'],
+            'entitlements' => []
+        ],
+        'entitlements_count' => 5,
+        'users_with_access' => 12
+    ])]
+    #[Response(404, 'Dataset not found', ['message' => 'Dataset not found'])]
     public function show(string $id): JsonResponse
     {
         $dataset = Dataset::with(['entitlements.users'])->find($id);
@@ -52,21 +109,44 @@ class DatasetController extends Controller
         }
 
         return response()->json([
-            'dataset' => $dataset,
-            'entitlements_count' => $dataset->entitlements()->count(),
-            'users_with_access' => $dataset->entitlements()
-                ->with('users:id,name,email')
-                ->get()
-                ->pluck('users')
-                ->flatten()
-                ->unique('id')
-                ->count()
+            'dataset' => new DatasetResource($dataset)
         ]);
     }
 
     /**
      * Create a new dataset.
      */
+    #[OperationId('admin.datasets.store')]
+    #[Summary('Create a new dataset')]
+    #[Description('Create a new dataset with metadata information.')]
+    #[RequestBody([
+        'name' => 'string|required|Dataset name (must be unique)',
+        'data_type' => 'string|required|Type of data (thermal_raster, building_data, etc.)',
+        'description' => 'string|optional|Dataset description',
+        'storage_location' => 'string|required|Storage path or location',
+        'version' => 'string|optional|Dataset version',
+        'source' => 'string|optional|Data source',
+        'format' => 'string|optional|Data format',
+        'size_mb' => 'number|optional|Size in megabytes',
+        'spatial_resolution' => 'string|optional|Spatial resolution',
+        'temporal_coverage' => 'string|optional|Temporal coverage'
+    ])]
+    #[Response(201, 'Dataset created successfully', [
+        'message' => 'Dataset created successfully',
+        'dataset' => [
+            'id' => 1,
+            'name' => 'Thermal Dataset 2024',
+            'data_type' => 'thermal_raster',
+            'description' => 'Thermal imaging data for buildings',
+            'storage_location' => '/data/thermal/2024',
+            'version' => '1.0',
+            'metadata' => ['source' => 'satellite']
+        ]
+    ])]
+    #[Response(422, 'Validation failed', [
+        'message' => 'Validation failed',
+        'errors' => ['name' => ['The name has already been taken.']]
+    ])]
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
@@ -130,6 +210,35 @@ class DatasetController extends Controller
     /**
      * Update an existing dataset.
      */
+    #[OperationId('admin.datasets.update')]
+    #[Summary('Update dataset')]
+    #[Description('Update an existing dataset. All fields are optional.')]
+    #[RequestBody([
+        'name' => 'string|optional|Dataset name',
+        'data_type' => 'string|optional|Type of data',
+        'description' => 'string|optional|Dataset description',
+        'storage_location' => 'string|optional|Storage path or location',
+        'version' => 'string|optional|Dataset version',
+        'source' => 'string|optional|Data source',
+        'format' => 'string|optional|Data format',
+        'size_mb' => 'number|optional|Size in megabytes',
+        'spatial_resolution' => 'string|optional|Spatial resolution',
+        'temporal_coverage' => 'string|optional|Temporal coverage'
+    ])]
+    #[Response(200, 'Dataset updated successfully', [
+        'message' => 'Dataset updated successfully',
+        'dataset' => [
+            'id' => 1,
+            'name' => 'Updated Thermal Dataset',
+            'data_type' => 'thermal_raster',
+            'description' => 'Updated description'
+        ]
+    ])]
+    #[Response(404, 'Dataset not found', ['message' => 'Dataset not found'])]
+    #[Response(422, 'Validation failed', [
+        'message' => 'Validation failed',
+        'errors' => ['name' => ['The name has already been taken.']]
+    ])]
     public function update(Request $request, string $id): JsonResponse
     {
         $dataset = Dataset::find($id);
@@ -196,6 +305,14 @@ class DatasetController extends Controller
     /**
      * Delete a dataset.
      */
+    #[OperationId('admin.datasets.destroy')]
+    #[Summary('Delete dataset')]
+    #[Description('Delete a dataset. Cannot delete datasets with associated entitlements.')]
+    #[Response(200, 'Dataset deleted successfully', ['message' => 'Dataset deleted successfully'])]
+    #[Response(404, 'Dataset not found', ['message' => 'Dataset not found'])]
+    #[Response(422, 'Dataset has entitlements', [
+        'message' => 'Cannot delete dataset. It has 5 associated entitlements. Please remove all entitlements first.'
+    ])]
     public function destroy(Request $request, string $id): JsonResponse
     {
         $dataset = Dataset::find($id);
@@ -236,6 +353,35 @@ class DatasetController extends Controller
     /**
      * Get dataset statistics.
      */
+    #[OperationId('admin.datasets.stats')]
+    #[Summary('Get dataset statistics')]
+    #[Description('Get comprehensive statistics about datasets including counts, types, and usage.')]
+    #[Response(200, 'Dataset statistics', [
+        'total_datasets' => 25,
+        'by_data_type' => [
+            'thermal_raster' => 10,
+            'building_data' => 8,
+            'thermal_analysis' => 7
+        ],
+        'datasets_with_entitlements' => 18,
+        'datasets_without_entitlements' => 7,
+        'recent_datasets' => [
+            [
+                'id' => 1,
+                'name' => 'Latest Dataset',
+                'data_type' => 'thermal_raster',
+                'created_at' => '2024-01-01T00:00:00Z'
+            ]
+        ],
+        'most_used_datasets' => [
+            [
+                'id' => 2,
+                'name' => 'Popular Dataset',
+                'data_type' => 'building_data',
+                'entitlements_count' => 15
+            ]
+        ]
+    ])]
     public function stats(): JsonResponse
     {
         $stats = [
@@ -260,6 +406,18 @@ class DatasetController extends Controller
     /**
      * Get available data types for filter dropdown.
      */
+    #[OperationId('admin.datasets.dataTypes')]
+    #[Summary('Get available data types')]
+    #[Description('Get a list of all available data types for filtering datasets.')]
+    #[Response(200, 'Available data types', [
+        'data_types' => [
+            'thermal_raster' => 'Thermal Raster',
+            'building_data' => 'Building Data',
+            'thermal_analysis' => 'Thermal Analysis',
+            'heat_map' => 'Heat Map',
+            'building_anomalies' => 'Building Anomalies'
+        ]
+    ])]
     public function dataTypes(): JsonResponse
     {
         // Get distinct data types from database

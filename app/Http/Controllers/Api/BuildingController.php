@@ -9,7 +9,15 @@ use App\Services\UserEntitlementService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Dedoc\Scramble\Attributes\Tag;
+use Dedoc\Scramble\Attributes\Response;
+use Dedoc\Scramble\Attributes\RequestBody;
+use Dedoc\Scramble\Attributes\OperationId;
+use Dedoc\Scramble\Attributes\Summary;
+use Dedoc\Scramble\Attributes\Description;
+use Dedoc\Scramble\Attributes\Parameters;
 
+#[Tag('Buildings')]
 class BuildingController extends Controller
 {
     protected UserEntitlementService $entitlementService;
@@ -22,6 +30,43 @@ class BuildingController extends Controller
     /**
      * Get filtered buildings based on user's entitlements.
      */
+    #[OperationId('getBuildings')]
+    #[Summary('List buildings')]
+    #[Description('Retrieve a paginated list of buildings filtered by user entitlements and optional query parameters.')]
+    #[Parameters([
+        'dataset_id' => 'integer|optional|Dataset ID to filter buildings',
+        'anomaly_filter' => 'string|optional|Filter by anomaly status (true/false)',
+        'type' => 'string|optional|Filter by building type',
+        'search' => 'string|optional|Search term for buildings',
+        'sort_by' => 'string|optional|Sort field (gid, is_anomaly, confidence, average_heatloss, co2_savings_estimate, building_type_classification)',
+        'sort_order' => 'string|optional|Sort order (asc/desc)',
+        'per_page' => 'integer|optional|Items per page (max 100)'
+    ])]
+    #[Response(200, 'Buildings retrieved successfully', [
+        'data' => [
+            [
+                'gid' => 'B001',
+                'is_anomaly' => true,
+                'confidence' => 0.85,
+                'average_heatloss' => 120.5,
+                'co2_savings_estimate' => 2.3,
+                'building_type_classification' => 'residential',
+                'dataset' => [
+                    'id' => 1,
+                    'name' => 'Sample Dataset',
+                    'data_type' => 'thermal'
+                ]
+            ]
+        ],
+        'meta' => [
+            'total' => 100,
+            'per_page' => 15,
+            'current_page' => 1
+        ]
+    ])]
+    #[Response(401, 'Authentication required', [
+        'message' => 'Authentication required'
+    ])]
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -108,6 +153,30 @@ class BuildingController extends Controller
     /**
      * Get details of a specific building.
      */
+    #[OperationId('getBuilding')]
+    #[Summary('Get building details')]
+    #[Description('Retrieve detailed information about a specific building by its GID.')]
+    #[Response(200, 'Building details retrieved', [
+        'data' => [
+            'gid' => 'B001',
+            'is_anomaly' => true,
+            'confidence' => 0.85,
+            'average_heatloss' => 120.5,
+            'co2_savings_estimate' => 2.3,
+            'building_type_classification' => 'residential',
+            'dataset' => [
+                'id' => 1,
+                'name' => 'Sample Dataset',
+                'data_type' => 'thermal'
+            ]
+        ]
+    ])]
+    #[Response(404, 'Building not found', [
+        'message' => 'Building not found or access denied'
+    ])]
+    #[Response(401, 'Authentication required', [
+        'message' => 'Authentication required'
+    ])]
     public function show(Request $request, string $gid): JsonResponse
     {
         $user = $request->user();
@@ -143,6 +212,35 @@ class BuildingController extends Controller
     /**
      * Get buildings within a specific geographic area (bounding box).
      */
+    #[OperationId('getBuildingsWithinBounds')]
+    #[Summary('Get buildings within bounds')]
+    #[Description('Retrieve buildings within a specified geographic bounding box.')]
+    #[Parameters([
+        'north' => 'number|required|Northern boundary latitude',
+        'south' => 'number|required|Southern boundary latitude',
+        'east' => 'number|required|Eastern boundary longitude',
+        'west' => 'number|required|Western boundary longitude'
+    ])]
+    #[Response(200, 'Buildings within bounds retrieved', [
+        'data' => [
+            [
+                'gid' => 'B001',
+                'latitude' => 51.5074,
+                'longitude' => -0.1278,
+                'is_anomaly' => true,
+                'confidence' => 0.85
+            ]
+        ]
+    ])]
+    #[Response(422, 'Invalid bounds parameters', [
+        'message' => 'The given data was invalid.',
+        'errors' => [
+            'north' => ['The north field is required.']
+        ]
+    ])]
+    #[Response(401, 'Authentication required', [
+        'message' => 'Authentication required'
+    ])]
     public function withinBounds(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -200,6 +298,29 @@ class BuildingController extends Controller
     /**
      * Find the page number where a specific building appears in the filtered results.
      */
+    #[OperationId('findBuildingPage')]
+    #[Summary('Find building page')]
+    #[Description('Find the page number where a specific building appears in filtered results.')]
+    #[Parameters([
+        'dataset_id' => 'integer|optional|Dataset ID to filter buildings',
+        'anomaly_filter' => 'string|optional|Filter by anomaly status (true/false)',
+        'type' => 'string|optional|Filter by building type',
+        'search' => 'string|optional|Search term for buildings',
+        'sort_by' => 'string|optional|Sort field',
+        'sort_order' => 'string|optional|Sort order (asc/desc)',
+        'per_page' => 'integer|optional|Items per page'
+    ])]
+    #[Response(200, 'Page number found', [
+        'page' => 3,
+        'per_page' => 15,
+        'total' => 100
+    ])]
+    #[Response(404, 'Building not found', [
+        'message' => 'Building not found in filtered results'
+    ])]
+    #[Response(401, 'Authentication required', [
+        'message' => 'Authentication required'
+    ])]
     public function findPage(Request $request, string $gid): JsonResponse
     {
         $user = $request->user();
@@ -284,6 +405,33 @@ class BuildingController extends Controller
     /**
      * Get building statistics based on user's entitlements.
      */
+    #[OperationId('getBuildingStats')]
+    #[Summary('Get building statistics')]
+    #[Description('Retrieve statistical information about buildings based on user entitlements.')]
+    #[Parameters([
+        'dataset_id' => 'integer|optional|Dataset ID to filter statistics'
+    ])]
+    #[Response(200, 'Building statistics retrieved', [
+        'total_buildings' => 1500,
+        'anomaly_buildings' => 150,
+        'anomaly_percentage' => 10.0,
+        'average_confidence' => 0.75,
+        'building_types' => [
+            'residential' => 800,
+            'commercial' => 500,
+            'industrial' => 200
+        ],
+        'datasets' => [
+            [
+                'id' => 1,
+                'name' => 'Dataset 1',
+                'building_count' => 750
+            ]
+        ]
+    ])]
+    #[Response(401, 'Authentication required', [
+        'message' => 'Authentication required'
+    ])]
     public function stats(Request $request): JsonResponse
     {
         $user = $request->user();

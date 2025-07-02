@@ -3,17 +3,63 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\BuildingResource;
 use App\Models\Building;
 use App\Models\Dataset;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Dedoc\Scramble\Attributes\Tag;
+use Dedoc\Scramble\Attributes\Response;
+use Dedoc\Scramble\Attributes\RequestBody;
+use Dedoc\Scramble\Attributes\OperationId;
+use Dedoc\Scramble\Attributes\Summary;
+use Dedoc\Scramble\Attributes\Description;
+use Dedoc\Scramble\Attributes\Parameters;
 
+#[Tag('Admin - Buildings')]
+#[Response(401, 'Unauthorized')]
+#[Response(403, 'Forbidden')]
 class BuildingController extends Controller
 {
     /**
      * Display a listing of buildings for admin viewing (web view).
      */
+    #[OperationId('admin.buildings.index')]
+    #[Summary('List buildings')]
+    #[Description('Get a paginated list of buildings with filtering options. Admin users have unrestricted access to all buildings.')]
+    #[Parameters([
+        'search' => 'Search term for building properties',
+        'dataset_id' => 'Filter by dataset ID',
+        'anomaly_filter' => 'Filter by anomaly status (true/false)',
+        'type' => 'Filter by building type',
+        'sort_by' => 'Sort field (gid, is_anomaly, confidence, average_heatloss, co2_savings_estimate, building_type_classification)',
+        'sort_order' => 'Sort order (asc/desc)',
+        'per_page' => 'Number of items per page (max: 100)'
+    ])]
+    #[Response(200, 'Buildings list', [
+        'data' => [
+            [
+                'gid' => 'BLD_001',
+                'is_anomaly' => true,
+                'confidence' => 0.85,
+                'average_heatloss' => 125.5,
+                'co2_savings_estimate' => 2.3,
+                'building_type_classification' => 'residential',
+                'dataset' => [
+                    'id' => 1,
+                    'name' => 'Thermal Dataset 2024',
+                    'data_type' => 'thermal_raster'
+                ]
+            ]
+        ],
+        'meta' => [
+            'current_page' => 1,
+            'last_page' => 10,
+            'per_page' => 15,
+            'total' => 150
+        ]
+    ])]
     public function index(Request $request)
     {
         // If this is an API request, return JSON data
@@ -77,7 +123,7 @@ class BuildingController extends Controller
         $buildings = $query->paginate($perPage);
 
         return response()->json([
-            'data' => $buildings->items(),
+            'data' => BuildingResource::collection($buildings->items()),
             'meta' => [
                 'current_page' => $buildings->currentPage(),
                 'last_page' => $buildings->lastPage(),
@@ -90,6 +136,26 @@ class BuildingController extends Controller
     /**
      * Show a specific building (API endpoint).
      */
+    #[OperationId('admin.buildings.show')]
+    #[Summary('Get building details')]
+    #[Description('Get detailed information about a specific building by its GID.')]
+    #[Response(200, 'Building details', [
+        'gid' => 'BLD_001',
+        'is_anomaly' => true,
+        'confidence' => 0.85,
+        'average_heatloss' => 125.5,
+        'co2_savings_estimate' => 2.3,
+        'building_type_classification' => 'residential',
+        'geometry' => 'POINT(-73.935242 40.730610)',
+        'dataset' => [
+            'id' => 1,
+            'name' => 'Thermal Dataset 2024',
+            'data_type' => 'thermal_raster'
+        ],
+        'created_at' => '2024-01-15T10:00:00Z',
+        'updated_at' => '2024-01-15T10:00:00Z'
+    ])]
+    #[Response(404, 'Building not found')]
     public function show(Request $request, string $gid): JsonResponse
     {
         $building = Building::with('dataset:id,name,data_type')
@@ -100,12 +166,30 @@ class BuildingController extends Controller
             return response()->json(['message' => 'Building not found'], 404);
         }
 
-        return response()->json($building);
+        return response()->json(new BuildingResource($building));
     }
 
     /**
      * Find the page number where a specific building appears in the filtered results.
      */
+    #[OperationId('admin.buildings.find-page')]
+    #[Summary('Find building page')]
+    #[Description('Find the page number where a specific building appears in the filtered and sorted results.')]
+    #[Parameters([
+        'search' => 'Search term for building properties',
+        'dataset_id' => 'Filter by dataset ID',
+        'anomaly_filter' => 'Filter by anomaly status (true/false)',
+        'type' => 'Filter by building type',
+        'sort_by' => 'Sort field (gid, is_anomaly, confidence, average_heatloss, co2_savings_estimate, building_type_classification)',
+        'sort_order' => 'Sort order (asc/desc)',
+        'per_page' => 'Number of items per page (max: 100)'
+    ])]
+    #[Response(200, 'Building page information', [
+        'page' => 3,
+        'position' => 42,
+        'per_page' => 15
+    ])]
+    #[Response(404, 'Building not found in current filter set')]
     public function findPage(Request $request, string $gid): JsonResponse
     {
         $query = Building::query();
@@ -175,6 +259,42 @@ class BuildingController extends Controller
      * Get buildings within a specific geographic area for admin users.
      * Admin users see all buildings without entitlement filtering.
      */
+    #[OperationId('admin.buildings.within-bounds')]
+    #[Summary('Get buildings within bounds')]
+    #[Description('Get buildings within a specific geographic bounding box. Admin users see all buildings without entitlement filtering.')]
+    #[Parameters([
+        'north' => 'Northern latitude boundary (-90 to 90)',
+        'south' => 'Southern latitude boundary (-90 to 90)',
+        'east' => 'Eastern longitude boundary (-180 to 180)',
+        'west' => 'Western longitude boundary (-180 to 180)',
+        'limit' => 'Maximum number of buildings to return (max: 5000, default: 1000)'
+    ])]
+    #[Response(200, 'Buildings within bounds', [
+        'data' => [
+            [
+                'gid' => 'BLD_001',
+                'is_anomaly' => true,
+                'confidence' => 0.85,
+                'average_heatloss' => 125.5,
+                'co2_savings_estimate' => 2.3,
+                'building_type_classification' => 'residential',
+                'geometry' => 'POINT(-73.935242 40.730610)',
+                'dataset' => [
+                    'id' => 1,
+                    'name' => 'Thermal Dataset 2024',
+                    'data_type' => 'thermal_raster'
+                ]
+            ]
+        ],
+        'count' => 150,
+        'bbox' => [
+            'north' => 40.8,
+            'south' => 40.7,
+            'east' => -73.9,
+            'west' => -74.0
+        ]
+    ])]
+    #[Response(422, 'Validation failed')]
     public function withinBounds(Request $request): JsonResponse
     {
         // Validate bounding box parameters
@@ -204,7 +324,7 @@ class BuildingController extends Controller
         $buildings = $query->limit($limit)->get();
 
         return response()->json([
-            'data' => $buildings,
+            'data' => BuildingResource::collection($buildings),
             'count' => $buildings->count(),
             'bbox' => [
                 'north' => $north,
@@ -218,6 +338,13 @@ class BuildingController extends Controller
     /**
      * Export buildings data (placeholder for future implementation).
      */
+    #[OperationId('admin.buildings.export')]
+    #[Summary('Export buildings data')]
+    #[Description('Export buildings data to CSV/Excel format. This is a placeholder for future implementation in Phase 2.')]
+    #[Response(200, 'Export information', [
+        'message' => 'Export functionality will be implemented in Phase 2',
+        'note' => 'This endpoint is ready for CSV/Excel export implementation'
+    ])]
     public function export(Request $request): JsonResponse
     {
         // This is a placeholder - actual export functionality would be implemented in Phase 2

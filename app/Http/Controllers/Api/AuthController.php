@@ -15,12 +15,45 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\PasswordReset;
+use Dedoc\Scramble\Attributes\Tag;
+use Dedoc\Scramble\Attributes\Response;
+use Dedoc\Scramble\Attributes\RequestBody;
+use Dedoc\Scramble\Attributes\OperationId;
+use Dedoc\Scramble\Attributes\Summary;
+use Dedoc\Scramble\Attributes\Description;
 
+#[Tag('Authentication')]
 class AuthController extends Controller
 {
     /**
      * Register a new user.
      */
+    #[OperationId('register')]
+    #[Summary('Register a new user')]
+    #[Description('Create a new user account with email verification.')]
+    #[RequestBody([
+        'name' => 'string|required|max:255',
+        'email' => 'string|required|email|max:255|unique:users',
+        'password' => 'string|required|confirmed',
+        'password_confirmation' => 'string|required',
+        'role' => 'string|optional|in:user,researcher,contractor,municipality'
+    ])]
+    #[Response(201, 'User registered successfully', [
+        'message' => 'Registration successful. Please verify your email address.',
+        'user' => [
+            'id' => 1,
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'role' => 'user',
+            'email_verified_at' => null
+        ]
+    ])]
+    #[Response(422, 'Validation failed', [
+        'message' => 'Validation failed',
+        'errors' => [
+            'email' => ['The email has already been taken.']
+        ]
+    ])]
     public function register(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
@@ -73,6 +106,30 @@ class AuthController extends Controller
     /**
      * Authenticate user and create token.
      */
+    #[OperationId('login')]
+    #[Summary('Authenticate user')]
+    #[Description('Login with email and password to receive an API token.')]
+    #[RequestBody([
+        'email' => 'string|required|email',
+        'password' => 'string|required',
+        'token_name' => 'string|optional',
+        'revoke_existing' => 'boolean|optional'
+    ])]
+    #[Response(200, 'Login successful', [
+        'message' => 'Login successful',
+        'user' => [
+            'id' => 1,
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'role' => 'user',
+            'email_verified_at' => '2024-01-01T00:00:00.000000Z'
+        ],
+        'token' => '1|abcdef123456...',
+        'token_type' => 'Bearer'
+    ])]
+    #[Response(401, 'Invalid credentials', [
+        'message' => 'The provided credentials do not match our records.'
+    ])]
     public function login(Request $request): JsonResponse
     {
         $credentials = $request->validate([
@@ -139,6 +196,15 @@ class AuthController extends Controller
     /**
      * Logout user and revoke current token.
      */
+    #[OperationId('logout')]
+    #[Summary('Logout user')]
+    #[Description('Revoke the current API token and logout the user.')]
+    #[Response(200, 'Logout successful', [
+        'message' => 'Logout successful - token revoked'
+    ])]
+    #[Response(401, 'Not authenticated', [
+        'message' => 'Not authenticated'
+    ])]
     public function logout(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -177,6 +243,22 @@ class AuthController extends Controller
     /**
      * Get authenticated user details.
      */
+    #[OperationId('getUser')]
+    #[Summary('Get current user')]
+    #[Description('Retrieve the authenticated user\'s profile information.')]
+    #[Response(200, 'User details retrieved', [
+        'user' => [
+            'id' => 1,
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'role' => 'user',
+            'email_verified_at' => '2024-01-01T00:00:00.000000Z',
+            'contact_info' => null
+        ]
+    ])]
+    #[Response(401, 'Not authenticated', [
+        'message' => 'Unauthenticated'
+    ])]
     public function user(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -209,6 +291,19 @@ class AuthController extends Controller
     /**
      * Send password reset link.
      */
+    #[OperationId('forgotPassword')]
+    #[Summary('Send password reset link')]
+    #[Description('Send a password reset link to the user\'s email address.')]
+    #[RequestBody([
+        'email' => 'string|required|email'
+    ])]
+    #[Response(200, 'Reset link sent', [
+        'message' => 'Password reset link sent to your email.'
+    ])]
+    #[Response(400, 'Unable to send reset link', [
+        'message' => 'Unable to send password reset link.',
+        'error' => 'passwords.user'
+    ])]
     public function forgotPassword(Request $request): JsonResponse
     {
         $request->validate(['email' => 'required|email']);
@@ -230,6 +325,22 @@ class AuthController extends Controller
     /**
      * Reset password using token.
      */
+    #[OperationId('resetPassword')]
+    #[Summary('Reset password')]
+    #[Description('Reset user password using the token received via email.')]
+    #[RequestBody([
+        'token' => 'string|required',
+        'email' => 'string|required|email',
+        'password' => 'string|required|confirmed',
+        'password_confirmation' => 'string|required'
+    ])]
+    #[Response(200, 'Password reset successful', [
+        'message' => 'Password has been reset successfully.'
+    ])]
+    #[Response(400, 'Unable to reset password', [
+        'message' => 'Unable to reset password.',
+        'error' => 'passwords.token'
+    ])]
     public function resetPassword(Request $request): JsonResponse
     {
         $request->validate([
@@ -276,6 +387,32 @@ class AuthController extends Controller
     /**
      * Update user profile information.
      */
+    #[OperationId('updateProfile')]
+    #[Summary('Update user profile')]
+    #[Description('Update the authenticated user\'s profile information.')]
+    #[RequestBody([
+        'name' => 'string|required|max:255',
+        'email' => 'string|required|email|max:255|unique:users,email,{user_id}'
+    ])]
+    #[Response(200, 'Profile updated successfully', [
+        'message' => 'Profile updated successfully.',
+        'user' => [
+            'id' => 1,
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'role' => 'user',
+            'email_verified_at' => '2024-01-01T00:00:00.000000Z'
+        ]
+    ])]
+    #[Response(401, 'Not authenticated', [
+        'message' => 'Unauthenticated'
+    ])]
+    #[Response(422, 'Validation failed', [
+        'message' => 'The given data was invalid.',
+        'errors' => [
+            'email' => ['The email has already been taken.']
+        ]
+    ])]
     public function updateProfile(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -329,6 +466,26 @@ class AuthController extends Controller
     /**
      * Update user password.
      */
+    #[OperationId('updatePassword')]
+    #[Summary('Update user password')]
+    #[Description('Update the authenticated user\'s password.')]
+    #[RequestBody([
+        'current_password' => 'string|required',
+        'password' => 'string|required|confirmed',
+        'password_confirmation' => 'string|required'
+    ])]
+    #[Response(200, 'Password updated successfully', [
+        'message' => 'Password updated successfully.'
+    ])]
+    #[Response(401, 'Not authenticated', [
+        'message' => 'Unauthenticated'
+    ])]
+    #[Response(422, 'Current password incorrect', [
+        'message' => 'The current password is incorrect.',
+        'errors' => [
+            'current_password' => ['The current password is incorrect.']
+        ]
+    ])]
     public function updatePassword(Request $request): JsonResponse
     {
         $user = $request->user();

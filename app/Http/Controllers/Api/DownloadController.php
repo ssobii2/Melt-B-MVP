@@ -16,7 +16,14 @@ use MatanYadaev\EloquentSpatial\Objects\Point;
 use MatanYadaev\EloquentSpatial\Objects\Polygon;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Dedoc\Scramble\Attributes\Tag;
+use Dedoc\Scramble\Attributes\Response as ScrambleResponse;
+use Dedoc\Scramble\Attributes\OperationId;
+use Dedoc\Scramble\Attributes\Summary;
+use Dedoc\Scramble\Attributes\Description;
+use Dedoc\Scramble\Attributes\Parameters;
 
+#[Tag('Data Downloads')]
 class DownloadController extends Controller
 {
     private UserEntitlementService $entitlementService;
@@ -33,6 +40,29 @@ class DownloadController extends Controller
      * @param int $id Dataset ID
      * @return StreamedResponse|BinaryFileResponse
      */
+    #[OperationId('downloadDataset')]
+    #[Summary('Download dataset')]
+    #[Description('Download building data from a dataset in CSV or GeoJSON format. Supports downloading entire datasets or individual buildings based on user entitlements.')]
+    #[Parameters([
+        'format' => 'string|optional|Download format (csv, geojson) - defaults to csv',
+        'building_gid' => 'string|optional|Specific building GID to download (downloads single building instead of entire dataset)'
+    ])]
+    #[ScrambleResponse(200, 'File download started', [
+        'Content-Type' => 'text/csv or application/geo+json',
+        'Content-Disposition' => 'attachment; filename="buildings_dataset_2024-01-01.csv"'
+    ])]
+    #[ScrambleResponse(400, 'Invalid format or parameters', [
+        'message' => 'Invalid format. Supported formats: csv, geojson'
+    ])]
+    #[ScrambleResponse(403, 'Access denied', [
+        'message' => 'You do not have permission to download data in this format'
+    ])]
+    #[ScrambleResponse(404, 'Dataset or building not found', [
+        'message' => 'Dataset not found'
+    ])]
+    #[ScrambleResponse(401, 'Authentication required', [
+        'message' => 'Authentication required'
+    ])]
     public function download(Request $request, int $id)
     {
         // 1. Authentication & Initial Middleware - already handled by auth:sanctum

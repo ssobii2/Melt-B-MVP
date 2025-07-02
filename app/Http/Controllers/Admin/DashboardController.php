@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
+use App\Http\Resources\AuditLogResource;
 use App\Models\User;
 use App\Models\Dataset;
 use App\Models\Building;
@@ -10,12 +12,45 @@ use App\Models\Entitlement;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Dedoc\Scramble\Attributes\Tag;
+use Dedoc\Scramble\Attributes\Response;
+use Dedoc\Scramble\Attributes\RequestBody;
+use Dedoc\Scramble\Attributes\OperationId;
+use Dedoc\Scramble\Attributes\Summary;
+use Dedoc\Scramble\Attributes\Description;
 
+#[Tag('Admin Dashboard')]
 class DashboardController extends Controller
 {
     /**
-     * Show the admin dashboard.
+     * Display the admin dashboard with statistics and recent activity
      */
+    #[OperationId('adminDashboard')]
+    #[Summary('Admin dashboard')]
+    #[Description('Retrieve dashboard statistics including user counts, dataset information, and recent activity.')]
+    #[Response(200, 'Dashboard data retrieved', [
+        'stats' => [
+            'total_users' => 150,
+            'active_users' => 120,
+            'total_datasets' => 5,
+            'total_buildings' => 50000,
+            'recent_logins' => 25
+        ],
+        'recent_activity' => [
+            [
+                'id' => 1,
+                'action' => 'user_login',
+                'user_name' => 'John Doe',
+                'created_at' => '2024-01-01T12:00:00.000000Z'
+            ]
+        ]
+    ])]
+    #[Response(401, 'Not authenticated', [
+        'message' => 'Unauthenticated'
+    ])]
+    #[Response(403, 'Access denied', [
+        'message' => 'Access denied. Admin role required.'
+    ])]
     public function index(Request $request)
     {
         // Get current user from Laravel's authentication
@@ -31,13 +66,17 @@ class DashboardController extends Controller
                 ->groupBy('role')
                 ->pluck('count', 'role')
                 ->toArray(),
-            'recent_registrations' => User::latest()
-                ->take(5)
-                ->get(['id', 'name', 'email', 'role', 'created_at']),
-            'recent_audit_logs' => AuditLog::with('user:id,name,email')
-                ->latest()
-                ->take(10)
-                ->get(),
+            'recent_registrations' => UserResource::collection(
+                User::latest()
+                    ->take(5)
+                    ->get(['id', 'name', 'email', 'role', 'created_at'])
+            ),
+            'recent_audit_logs' => AuditLogResource::collection(
+                AuditLog::with('user:id,name,email')
+                    ->latest()
+                    ->take(10)
+                    ->get()
+            ),
         ];
 
         return view('admin.dashboard', compact('stats', 'currentUser'));
@@ -46,6 +85,11 @@ class DashboardController extends Controller
     /**
      * Show the admin login form.
      */
+    #[OperationId('showAdminLoginForm')]
+    #[Summary('Show admin login form')]
+    #[Description('Display the admin login form or redirect to dashboard if already authenticated.')]
+    #[Response(200, 'Login form displayed')]
+    #[Response(302, 'Already authenticated - redirect to dashboard')]
     public function showLoginForm(Request $request)
     {
         // If already logged in and user is admin, redirect to dashboard
@@ -59,6 +103,24 @@ class DashboardController extends Controller
     /**
      * Handle admin login using Laravel's session authentication.
      */
+    #[OperationId('adminLogin')]
+    #[Summary('Admin login')]
+    #[Description('Authenticate admin user and create session with API token.')]
+    #[RequestBody([
+        'email' => 'string|required|Admin email address',
+        'password' => 'string|required|Admin password'
+    ])]
+    #[Response(302, 'Login successful - redirect to dashboard')]
+    #[Response(422, 'Invalid credentials', [
+        'errors' => [
+            'email' => ['The provided credentials do not match our records.']
+        ]
+    ])]
+    #[Response(403, 'Access denied', [
+        'errors' => [
+            'email' => ['Access denied. Admin privileges required.']
+        ]
+    ])]
     public function login(Request $request)
     {
         $credentials = $request->validate([
@@ -135,6 +197,10 @@ class DashboardController extends Controller
     /**
      * Handle admin logout using Laravel's session authentication.
      */
+    #[OperationId('adminLogout')]
+    #[Summary('Admin logout')]
+    #[Description('Logout admin user, revoke tokens and clear session.')]
+    #[Response(302, 'Logout successful - redirect to login')]
     public function logout(Request $request)
     {
         $user = Auth::user();
