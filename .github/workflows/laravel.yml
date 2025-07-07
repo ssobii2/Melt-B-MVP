@@ -1,0 +1,112 @@
+name: Laravel CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: ⬇️ Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐘 Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, bcmath, xml, ctype, fileinfo, pdo_pgsql, redis
+        ini-values: post_max_size=256M, upload_max_filesize=256M
+
+    - name: 🧙 Install Composer dependencies
+      run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: 📦 Install Node dependencies
+      run: npm ci
+
+    - name: ⚡ Build frontend
+      run: npm run build
+
+    - name: 🗝️ Setup .env and Laravel key
+      run: |
+        cp .env.example .env
+        php artisan key:generate
+
+    - name: 🛠️ Configure database for CI
+      run: |
+        sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=pgsql/' .env
+        sed -i 's/DB_HOST=.*/DB_HOST=127.0.0.1/' .env
+        sed -i 's/DB_PORT=.*/DB_PORT=5432/' .env
+        sed -i 's/DB_DATABASE=.*/DB_DATABASE=postgres/' .env
+        sed -i 's/DB_USERNAME=.*/DB_USERNAME=postgres/' .env
+        sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=postgres/' .env
+
+    - name: 🧩 Run Laravel migrations
+      run: php artisan migrate --force
+
+    - name: 🚀 Optimize Laravel
+      run: |
+        php artisan config:cache
+        php artisan route:cache
+        php artisan view:cache
+
+    - name: 🔗 Link storage
+      run: php artisan storage:link
+
+  deploy:
+    name: 🚀 Deploy to Server
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: 📡 SSH Deploy
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        script: |
+          cd /home/runcloud/webapps/Melt-B-MVP
+          git pull origin main
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+          php artisan migrate --force
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          php artisan storage:link
+          npm install
+          npm run build
