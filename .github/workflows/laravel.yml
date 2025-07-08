@@ -84,7 +84,7 @@ jobs:
         key: ${{ secrets.DEPLOY_KEY }}
         script: |
           cd /home/runcloud/webapps/Melt-B-MVP
-          php artisan down || true
+          /RunCloud/Packages/php82rc/bin/php artisan down || true
 
           shopt -s dotglob
           rm -rf -- *
@@ -92,11 +92,11 @@ jobs:
 
           unzip /home/runcloud/deploy/melt-deploy.zip -d .
 
-          php artisan migrate --force
-          php artisan config:cache
-          php artisan route:cache
-          php artisan view:cache
-          php artisan storage:link
-          php artisan up
+          /RunCloud/Packages/php82rc/bin/php artisan migrate --force
+          /RunCloud/Packages/php82rc/bin/php artisan config:cache
+          /RunCloud/Packages/php82rc/bin/php artisan route:cache
+          /RunCloud/Packages/php82rc/bin/php artisan view:cache
+          /RunCloud/Packages/php82rc/bin/php artisan storage:link
+          /RunCloud/Packages/php82rc/bin/php artisan up
 
           rm -rf /home/runcloud/deploy
