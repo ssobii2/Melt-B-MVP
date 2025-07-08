@@ -35,15 +35,18 @@ jobs:
     - name: ⚡ Build frontend
       run: npm run build
 
-    - name: 🗝️ Setup Laravel .env and key (build only)
+    - name: 🗝️ Setup Laravel .env and key
       run: |
         cp .env.example .env
         php artisan key:generate
 
-    - name: 📦 Archive build as deployable artifact
+    - name: 📦 Create zip artifact
       run: |
         mkdir -p artifact
-        zip -r artifact/melt-deploy.zip . -x "node_modules/*" "tests/*" ".git/*" ".github/*"
+        zip -r artifact/melt-deploy.zip . -x "node_modules/*" "tests/*" ".git/*" ".github/*" "artifact/*"
+
+    - name: 🧹 Clean up deploy folder
+      run: rm -rf deploy
 
     - name: 📤 Upload artifact
       uses: actions/upload-artifact@v4
@@ -64,6 +67,10 @@ jobs:
         name: melt-deploy
         path: ./deploy
 
+    - name: 🛰️ Upload artifact to server via scp
+      run: |
+        scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ./deploy/melt-deploy.zip ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/home/runcloud/deploy/melt-deploy.zip
+
     - name: 📡 SSH Deploy
       uses: appleboy/ssh-action@v1.0.0
       with:
@@ -73,11 +80,18 @@ jobs:
         script: |
           cd /home/runcloud/webapps/Melt-B-MVP
           php artisan down || true
-          rm -rf *
-          unzip ~/deploy/melt-deploy.zip -d .
+
+          shopt -s dotglob
+          rm -rf -- *
+          shopt -u dotglob
+
+          unzip /home/runcloud/deploy/melt-deploy.zip -d .
+
           php artisan migrate --force
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
           php artisan storage:link
           php artisan up
+
+          rm -f /home/runcloud/deploy/melt-deploy.zip
