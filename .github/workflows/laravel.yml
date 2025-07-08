@@ -74,7 +74,7 @@ jobs:
         username: ${{ secrets.DEPLOY_USER }}
         key: ${{ secrets.DEPLOY_KEY }}
         source: ./deploy/melt-deploy.zip
-        target: /home/runcloud/deploy
+        target: /home/runcloud/deploy/
 
     - name: 📡 SSH Deploy
       uses: appleboy/ssh-action@v1.0.0
