@@ -35,10 +35,22 @@ jobs:
     - name: ⚡ Build frontend
       run: npm run build
 
-    - name: 🗝️ Setup Laravel .env and key (build only)
+    - name: 🗝️ Setup Laravel .env and key (for build only)
       run: |
         cp .env.example .env
         php artisan key:generate
+
+    - name: 📦 Package project
+      run: |
+        mkdir -p build
+        rsync -ar --exclude=node_modules --exclude=vendor --exclude=tests ./ build/
+        cp -r vendor node_modules build/
+
+    - name: 📤 Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: laravel-artifact
+        path: build/
 
   deploy:
     name: 🚀 Deploy to Server
@@ -47,6 +59,12 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
+    - name: 📥 Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: laravel-artifact
+        path: /tmp/melt-deploy
+
     - name: 📡 SSH Deploy
       uses: appleboy/ssh-action@v1.0.0
       with:
@@ -55,9 +73,9 @@ jobs:
         key: ${{ secrets.DEPLOY_KEY }}
         script: |
           cd /home/runcloud/webapps/Melt-B-MVP
-          php artisan down
-          git pull origin main
-          composer install --no-interaction --prefer-dist --optimize-autoloader
+          php artisan down || true
+          rm -rf *
+          cp -r /tmp/melt-deploy/* .
           php artisan migrate --force
           php artisan config:cache
           php artisan route:cache
