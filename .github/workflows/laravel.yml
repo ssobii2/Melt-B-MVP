@@ -12,14 +12,14 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        image: postgis/postgis:15-3.4
         env:
           POSTGRES_DB: postgres
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
-        options: >-
+        options: >
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
@@ -43,8 +43,8 @@ jobs:
       uses: shivammathur/setup-php@v2
       with:
         php-version: '8.2'
-        extensions: mbstring, bcmath, xml, ctype, fileinfo, pdo_pgsql, redis
-        ini-values: post_max_size=256M, upload_max_filesize=256M
+        extensions: mbstring, bcmath, xml, ctype, fileinfo, pdo_pgsql, redis, gd, zip, intl
+        ini-values: post_max_size=256M, upload_max_filesize=256M, memory_limit=512M
 
     - name: 🧙 Install Composer dependencies
       run: composer install --no-interaction --prefer-dist --optimize-autoloader
@@ -60,19 +60,15 @@ jobs:
     - name: ⚡ Build frontend
       run: npm run build
 
-    - name: 🗝️ Setup .env and Laravel key
+    - name: 🗝️ Setup Laravel .env and key for CI only
       run: |
         cp .env.example .env
         php artisan key:generate
 
-    - name: 🛠️ Configure database for CI
+    - name: 🔍 Enable PostGIS extension
       run: |
-        sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=pgsql/' .env
-        sed -i 's/DB_HOST=.*/DB_HOST=127.0.0.1/' .env
-        sed -i 's/DB_PORT=.*/DB_PORT=5432/' .env
-        sed -i 's/DB_DATABASE=.*/DB_DATABASE=postgres/' .env
-        sed -i 's/DB_USERNAME=.*/DB_USERNAME=postgres/' .env
-        sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=postgres/' .env
+        PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+        PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS postgis_topology;"
 
     - name: 🧩 Run Laravel migrations
       run: php artisan migrate --force
