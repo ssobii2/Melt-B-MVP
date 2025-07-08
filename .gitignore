@@ -13,8 +13,27 @@ auth.json
 .phpactor.json
 .phpunit.result.cache
 /.phpunit.cache
+
+# Ignore everything in storage, then un-ignore necessary folders and .gitignore files
+/storage/*
+!/storage/app/
+!/storage/app/.gitignore
+!/storage/framework/
+!/storage/framework/.gitignore
+!/storage/framework/cache/
+!/storage/framework/cache/.gitignore
+!/storage/framework/sessions/
+!/storage/framework/sessions/.gitignore
+!/storage/framework/views/
+!/storage/framework/views/.gitignore
+!/storage/logs/
+!/storage/logs/.gitignore
+
+# Explicitly ignore sensitive or non-essential items in storage
 /storage/*.key
 /storage/pail
+
+# Vendor and Node dependencies
 /vendor
 /node_modules
 
@@ -22,19 +41,14 @@ auth.json
 /public/build
 /public/hot
 /public/storage
-/storage/*
 /bootstrap/cache/*
+!/bootstrap/cache/
+!/bootstrap/cache/.gitignore
 
 # AdminLTE related (keep config but ignore build assets)
 /public/vendor
 /resources/adminlte-build/*
 /lang/vendor
-
-# Keep necessary gitignore placeholders
-!/storage/app/.gitignore
-!/storage/framework/.gitignore
-!/storage/logs/.gitignore
-!/bootstrap/cache/.gitignore
 
 # IDE / tool configs
 /.idea
