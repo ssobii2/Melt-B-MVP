@@ -25,29 +25,18 @@ return [
 
     /*
      * API versions configuration. This allows you to have multiple API documentations.
+     * Note: Closures removed to allow config caching in production.
      */
     'api_versions' => [
-        'public' => [
-            'name' => 'Public API',
-            'description' => 'MELT-B MVP Public API provides access to building thermal data, user authentication, and data download capabilities. This API supports authentication via Laravel Sanctum tokens.',
-            'routes' => function () {
-                return collect(app('router')->getRoutes())
-                    ->filter(function (Route $route) {
-                        return Str::startsWith($route->uri(), 'api/') && 
-                               !Str::startsWith($route->uri(), 'api/admin/');
-                    });
-            },
-        ],
-        'admin' => [
-            'name' => 'Admin API', 
-            'description' => 'MELT-B MVP Admin API provides comprehensive administrative functions including user management, entitlement management, dataset management, audit logs, and system statistics.',
-            'routes' => function () {
-                return collect(app('router')->getRoutes())
-                    ->filter(function (Route $route) {
-                        return Str::startsWith($route->uri(), 'api/admin/');
-                    });
-            },
-        ],
+        // Commented out to allow config caching - closures cannot be serialized
+        // 'public' => [
+        //     'name' => 'Public API',
+        //     'description' => 'MELT-B MVP Public API provides access to building thermal data, user authentication, and data download capabilities. This API supports authentication via Laravel Sanctum tokens.',
+        // ],
+        // 'admin' => [
+        //     'name' => 'Admin API', 
+        //     'description' => 'MELT-B MVP Admin API provides comprehensive administrative functions including user management, entitlement management, dataset management, audit logs, and system statistics.',
+        // ],
     ],
 
     'info' => [
