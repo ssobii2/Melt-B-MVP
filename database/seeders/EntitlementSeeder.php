@@ -142,14 +142,15 @@ class EntitlementSeeder extends Seeder
      */
     private function parisCentralDistricts(): Polygon
     {
-        // Central Paris area including Louvre, Châtelet, Marais
+        // Central Paris area including Louvre, Châtelet, Marais (1st-4th arrondissements)
+        // Testing: Point constructor might expect (latitude, longitude) instead
         return new Polygon([
             new LineString([
-                new Point(2.325, 48.855), // Southwest
-                new Point(2.365, 48.855), // Southeast
-                new Point(2.365, 48.870), // Northeast  
-                new Point(2.325, 48.870), // Northwest
-                new Point(2.325, 48.855), // Close polygon
+                new Point(48.850, 2.320), // Southwest: Latitude 48.850, Longitude 2.320
+                new Point(48.850, 2.370), // Southeast: Latitude 48.850, Longitude 2.370
+                new Point(48.875, 2.370), // Northeast: Latitude 48.875, Longitude 2.370
+                new Point(48.875, 2.320), // Northwest: Latitude 48.875, Longitude 2.320
+                new Point(48.850, 2.320), // Close polygon
             ])
         ]);
     }
@@ -159,14 +160,15 @@ class EntitlementSeeder extends Seeder
      */
     private function parisResearchZone(): Polygon
     {
-        // Smaller research area around Notre-Dame/Île de la Cité
+        // Northern Paris area around Montmartre (18th arrondissement)
+        // Testing: Point constructor might expect (latitude, longitude) instead
         return new Polygon([
             new LineString([
-                new Point(2.340, 48.850), // Southwest
-                new Point(2.355, 48.850), // Southeast
-                new Point(2.355, 48.860), // Northeast
-                new Point(2.340, 48.860), // Northwest
-                new Point(2.340, 48.850), // Close polygon
+                new Point(48.880, 2.330), // Southwest: Latitude 48.880, Longitude 2.330
+                new Point(48.880, 2.360), // Southeast: Latitude 48.880, Longitude 2.360
+                new Point(48.900, 2.360), // Northeast: Latitude 48.900, Longitude 2.360
+                new Point(48.900, 2.330), // Northwest: Latitude 48.900, Longitude 2.330
+                new Point(48.880, 2.330), // Close polygon
             ])
         ]);
     }

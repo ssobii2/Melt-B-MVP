@@ -807,7 +807,7 @@
 
         window.viewEntitlement = function(entitlementId) {
             $.ajax({
-                url: `/api/admin/entitlements/${entitlementId}`,
+                url: `/api/admin/entitlements/${entitlementId}?include_geometry=1`,
                 method: 'GET',
                 headers: {
                     'Authorization': 'Bearer ' + '{{ session("admin_token") }}',
@@ -884,7 +884,7 @@
         window.editEntitlement = function(entitlementId) {
             // Load entitlement data for editing
             $.ajax({
-                url: `/api/admin/entitlements/${entitlementId}`,
+                url: `/api/admin/entitlements/${entitlementId}?include_geometry=1`,
                 method: 'GET',
                 headers: {
                     'Authorization': 'Bearer ' + '{{ session("admin_token") }}',
@@ -898,6 +898,10 @@
 
                     // Handle type-specific fields
                     toggleEntitlementFields('edit');
+
+                    // Clear type-specific fields first
+                    $('#editBuildingGids').val('');
+                    $('#editAoiCoordinates').val('');
 
                     // Handle type-specific field values
                     if (entitlement.building_gids) {

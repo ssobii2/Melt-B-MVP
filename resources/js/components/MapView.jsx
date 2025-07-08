@@ -14,6 +14,8 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
     const [isLoading, setIsLoading] = useState(true);
     const [allBuildings, setAllBuildings] = useState([]); // Store all accessible buildings
     const [isZooming, setIsZooming] = useState(false); // Track zooming state
+    const [aoiEntitlements, setAoiEntitlements] = useState([]); // Store AOI entitlements
+    const [showAoiBoundaries, setShowAoiBoundaries] = useState(true); // Toggle AOI visibility
 
     // Anomaly color helper function
     const getAnomalyColor = (isAnomaly) => {
@@ -269,6 +271,12 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
             const entitlementsResponse = await apiClient.get('/me/entitlements');
             const entitlements = entitlementsResponse.data.entitlements || [];
             
+            // Extract AOI entitlements with geometry
+            const aoiEntitlements = entitlements.filter(entitlement => 
+                entitlement.type === 'DS-AOI' && entitlement.aoi_geom
+            );
+            setAoiEntitlements(aoiEntitlements);
+            
             // Extract unique datasets from entitlements
             const availableDatasets = entitlements
                 .map(entitlement => entitlement.dataset)
@@ -287,6 +295,11 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
 
             // Load building footprint data for current view
             loadBuildingData();
+            
+            // Add AOI boundaries if any exist
+            if (aoiEntitlements.length > 0) {
+                addAoiBoundaries(aoiEntitlements);
+            }
         } catch (error) {
             console.error('Failed to load initial map data:', error);
         }
@@ -491,6 +504,161 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
         }
     }, [selectedBuilding, highlightedBuilding, buildingsData]);
 
+    // Add AOI boundary layers to map
+    const addAoiBoundaries = (aoiEntitlements) => {
+        if (!map.current || !aoiEntitlements || aoiEntitlements.length === 0) {
+            return;
+        }
+
+        // Remove existing AOI layers
+        if (map.current.getLayer('aoi-boundaries-fill')) {
+            map.current.removeLayer('aoi-boundaries-fill');
+        }
+        if (map.current.getLayer('aoi-boundaries-stroke')) {
+            map.current.removeLayer('aoi-boundaries-stroke');
+        }
+        if (map.current.getSource('aoi-boundaries')) {
+            map.current.removeSource('aoi-boundaries');
+        }
+
+        // Convert AOI entitlements to GeoJSON
+        const aoiFeatures = aoiEntitlements.map((entitlement, index) => {
+            // Convert aoi_geom to proper GeoJSON format
+            let geometry;
+            if (entitlement.aoi_geom && entitlement.aoi_geom.type === 'Polygon') {
+                geometry = entitlement.aoi_geom;
+            } else if (entitlement.aoi_geom && entitlement.aoi_geom.coordinates) {
+                geometry = {
+                    type: 'Polygon',
+                    coordinates: entitlement.aoi_geom.coordinates
+                };
+            } else {
+                return null;
+            }
+
+            const feature = {
+                type: 'Feature',
+                geometry: geometry,
+                properties: {
+                    entitlement_id: entitlement.id,
+                    dataset_name: entitlement.dataset?.name || 'Unknown Dataset',
+                    index: index
+                }
+            };
+            return feature;
+        }).filter(feature => feature !== null);
+
+        if (aoiFeatures.length === 0) return;
+
+        const aoiGeojson = {
+            type: 'FeatureCollection',
+            features: aoiFeatures
+        };
+
+        // Add AOI source
+        map.current.addSource('aoi-boundaries', {
+            type: 'geojson',
+            data: aoiGeojson
+        });
+
+        // Add AOI fill layer (semi-transparent)
+        map.current.addLayer({
+            id: 'aoi-boundaries-fill',
+            type: 'fill',
+            source: 'aoi-boundaries',
+            paint: {
+                'fill-color': [
+                    'case',
+                    ['==', ['%', ['get', 'index'], 5], 0], '#10b981', // Green
+                    ['==', ['%', ['get', 'index'], 5], 1], '#f59e0b', // Orange  
+                    ['==', ['%', ['get', 'index'], 5], 2], '#8b5cf6', // Purple
+                    ['==', ['%', ['get', 'index'], 5], 3], '#ef4444', // Red
+                    '#06b6d4' // Cyan
+                ],
+                'fill-opacity': 0.15
+            }
+        });
+
+        // Add AOI stroke layer
+        map.current.addLayer({
+            id: 'aoi-boundaries-stroke',
+            type: 'line',
+            source: 'aoi-boundaries',
+            paint: {
+                'line-color': [
+                    'case',
+                    ['==', ['%', ['get', 'index'], 5], 0], '#10b981', // Green
+                    ['==', ['%', ['get', 'index'], 5], 1], '#f59e0b', // Orange
+                    ['==', ['%', ['get', 'index'], 5], 2], '#8b5cf6', // Purple
+                    ['==', ['%', ['get', 'index'], 5], 3], '#ef4444', // Red
+                    '#06b6d4' // Cyan
+                ],
+                'line-width': 2,
+                'line-opacity': 0.8
+            }
+        });
+    };
+
+    // Toggle AOI boundary visibility
+    useEffect(() => {
+        if (!map.current) return;
+
+        const layers = ['aoi-boundaries-fill', 'aoi-boundaries-stroke'];
+        layers.forEach(layerId => {
+            if (map.current.getLayer(layerId)) {
+                map.current.setLayoutProperty(layerId, 'visibility', showAoiBoundaries ? 'visible' : 'none');
+            }
+        });
+    }, [showAoiBoundaries]);
+
+    // Zoom to AOI boundaries
+    const zoomToAoiBoundaries = () => {
+        if (!map.current || !aoiEntitlements || aoiEntitlements.length === 0) {
+            return;
+        }
+        
+        // Calculate bounds of all AOI polygons
+        let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+        let hasValidBounds = false;
+
+        aoiEntitlements.forEach((entitlement) => {
+            const geometry = entitlement.aoi_geom;
+            if (geometry && geometry.coordinates && geometry.coordinates[0]) {
+                geometry.coordinates[0].forEach(coord => {
+                    if (coord && coord.length >= 2) {
+                        const [lng, lat] = coord;
+                        if (!isNaN(lng) && !isNaN(lat)) {
+                            minLng = Math.min(minLng, lng);
+                            minLat = Math.min(minLat, lat);
+                            maxLng = Math.max(maxLng, lng);
+                            maxLat = Math.max(maxLat, lat);
+                            hasValidBounds = true;
+                        }
+                    }
+                });
+            }
+        });
+
+        if (hasValidBounds) {
+            // Add some padding to the bounds
+            const padding = 0.001; // Adjust as needed
+            const bounds = [
+                [minLng - padding, minLat - padding], // Southwest
+                [maxLng + padding, maxLat + padding]  // Northeast
+            ];
+            
+            map.current.fitBounds(bounds, {
+                padding: 50,
+                duration: 2000
+            });
+            
+            // Ensure AOI boundaries are visible when zooming to them
+            if (!showAoiBoundaries) {
+                setShowAoiBoundaries(true);
+            }
+        }
+    };
+
     // Zoom to a specific building (slower animation)
     const zoomToBuilding = (building) => {
         if (!map.current || !building) return;
@@ -558,11 +726,60 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
                         <div className="w-4 h-3 rounded" style={{ backgroundColor: '#3b82f6' }}></div>
                         <span>Normal</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#cccccc' }}></div>
-                        <span>No Data</span>
-                    </div>
                 </div>
+                
+                {/* AOI Boundaries Section */}
+                {aoiEntitlements.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="flex items-center justify-between mb-1">
+                            <h5 className="font-semibold">AOI Boundaries</h5>
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={() => zoomToAoiBoundaries()}
+                                    className="px-2 py-1 text-xs rounded bg-green-500 text-white hover:bg-green-600 cursor-pointer transition-colors duration-200"
+                                    title="Zoom to AOI boundaries"
+                                >
+                                    📍
+                                </button>
+                                <button
+                                    onClick={() => setShowAoiBoundaries(!showAoiBoundaries)}
+                                    className={`px-2 py-1 text-xs rounded cursor-pointer transition-colors duration-200 ${
+                                        showAoiBoundaries 
+                                            ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                >
+                                    {showAoiBoundaries ? 'Hide' : 'Show'}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            {aoiEntitlements.map((entitlement, index) => {
+                                const colors = [
+                                    { border: '#10b981', fill: 'rgba(16, 185, 129, 0.15)' },
+                                    { border: '#f59e0b', fill: 'rgba(245, 158, 11, 0.15)' },
+                                    { border: '#8b5cf6', fill: 'rgba(139, 92, 246, 0.15)' },
+                                    { border: '#ef4444', fill: 'rgba(239, 68, 68, 0.15)' },
+                                    { border: '#06b6d4', fill: 'rgba(6, 182, 212, 0.15)' }
+                                ];
+                                const color = colors[index % colors.length];
+                                return (
+                                    <div key={entitlement.id} className="flex items-center gap-2">
+                                        <div 
+                                            className="w-4 h-3 rounded border-2" 
+                                            style={{ borderColor: color.border, backgroundColor: color.fill }}
+                                        ></div>
+                                        <span className="truncate">{entitlement.dataset?.name || `AOI ${index + 1}`}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p className="text-gray-600 text-xs mt-1">
+                            {aoiEntitlements.length} AOI entitlement{aoiEntitlements.length !== 1 ? 's' : ''}
+                        </p>
+                    </div>
+                )}
+                
                 {selectedDataset && (
                     <div className="mt-2 pt-2 border-t border-gray-200">
                         <p className="text-gray-600 text-xs">

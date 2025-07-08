@@ -74,6 +74,9 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
+        // Add include_geometry to request for EntitlementResource
+        $request->merge(['include_geometry' => '1']);
+
         $entitlements = $user->entitlements()
             ->with('dataset:id,name,data_type')
             ->where(function ($query) {
@@ -83,7 +86,7 @@ Route::middleware('auth:sanctum')->group(function () {
             ->get();
 
         return response()->json([
-            'entitlements' => $entitlements
+            'entitlements' => \App\Http\Resources\EntitlementResource::collection($entitlements)
         ]);
     });
 });
