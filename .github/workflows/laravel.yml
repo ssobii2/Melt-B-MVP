@@ -45,9 +45,6 @@ jobs:
         mkdir -p artifact
         zip -r artifact/melt-deploy.zip . -x "node_modules/*" "tests/*" ".git/*" ".github/*" "artifact/*"
 
-    - name: 🧹 Clean up deploy folder
-      run: rm -rf deploy
-
     - name: 📤 Upload artifact
       uses: actions/upload-artifact@v4
       with:
@@ -65,18 +62,18 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: melt-deploy
-        path: ./deploy
+        path: .
 
-    - name: 🛰️ Upload artifact to server via SCP Action
+    - name: 🛰️ Upload artifact to server via SCP
       uses: appleboy/scp-action@v0.1.4
       with:
         host: ${{ secrets.DEPLOY_HOST }}
         username: ${{ secrets.DEPLOY_USER }}
         key: ${{ secrets.DEPLOY_KEY }}
-        source: ./deploy/melt-deploy.zip
+        source: melt-deploy.zip
         target: /home/runcloud/deploy/
 
-    - name: 📡 SSH Deploy
+    - name: 📡 SSH Deploy and Extract
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.DEPLOY_HOST }}
