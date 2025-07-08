@@ -62,7 +62,10 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: melt-deploy
-        path: .
+        path: ./deploy
+
+    - name: 🧼 Flatten deploy path
+      run: mv ./deploy/melt-deploy.zip ./melt-deploy.zip
 
     - name: 🛰️ Upload artifact to server via SCP
       uses: appleboy/scp-action@v0.1.4
@@ -96,4 +99,4 @@ jobs:
           php artisan storage:link
           php artisan up
 
-          rm -f /home/runcloud/deploy/melt-deploy.zip
+          rm -rf /home/runcloud/deploy
