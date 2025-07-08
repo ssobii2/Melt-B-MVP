@@ -20,7 +20,8 @@ class DatasetSeeder extends Seeder
      */
     public function run(): void
     {
-        Dataset::truncate();
+        // Remove truncate to allow duplicate protection
+        // Dataset::truncate();
 
         $datasets = [
             [
@@ -45,9 +46,12 @@ class DatasetSeeder extends Seeder
         ];
 
         foreach ($datasets as $dataset) {
-            Dataset::create($dataset);
+            Dataset::updateOrCreate(
+                ['name' => $dataset['name']], // Find by name
+                $dataset // Update or create with this data
+            );
         }
 
-        $this->command->info('✅ Created ' . count($datasets) . ' anomaly detection datasets');
+        $this->command->info('✅ Created/updated ' . count($datasets) . ' anomaly detection datasets');
     }
 }

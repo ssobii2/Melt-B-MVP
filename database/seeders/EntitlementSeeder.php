@@ -21,7 +21,8 @@ class EntitlementSeeder extends Seeder
      */
     public function run(): void
     {
-        Entitlement::truncate();
+        // Remove truncate to allow duplicate protection
+        // Entitlement::truncate();
 
         // Get the anomaly detection datasets
         $parisDataset = Dataset::where('name', 'Paris Building Anomalies Analysis 2025-Q1')->first();
@@ -94,10 +95,46 @@ class EntitlementSeeder extends Seeder
         ];
 
         foreach ($entitlements as $entitlementData) {
-            Entitlement::create($entitlementData);
+            // For DS-BLD type, check if entitlement with same type, dataset_id and building_gids exists
+            if ($entitlementData['type'] === 'DS-BLD' && !empty($entitlementData['building_gids'])) {
+                $existing = Entitlement::where('type', $entitlementData['type'])
+                    ->where('dataset_id', $entitlementData['dataset_id'])
+                    ->whereJsonContains('building_gids', $entitlementData['building_gids'])
+                    ->first();
+                    
+                if ($existing) {
+                    $existing->update($entitlementData);
+                } else {
+                    Entitlement::create($entitlementData);
+                }
+            }
+            // For DS-AOI type, use simpler unique key without geometry comparison
+            elseif ($entitlementData['type'] === 'DS-AOI') {
+                $uniqueKey = [
+                    'type' => $entitlementData['type'],
+                    'dataset_id' => $entitlementData['dataset_id']
+                ];
+                
+                // Find existing AOI entitlement and update, or create new one
+                $existing = Entitlement::where($uniqueKey)->first();
+                if ($existing) {
+                    $existing->update($entitlementData);
+                } else {
+                    Entitlement::create($entitlementData);
+                }
+            }
+            // For DS-ALL type, simple unique key
+            else {
+                $uniqueKey = [
+                    'type' => $entitlementData['type'],
+                    'dataset_id' => $entitlementData['dataset_id']
+                ];
+                
+                Entitlement::updateOrCreate($uniqueKey, $entitlementData);
+            }
         }
 
-        $this->command->info('✅ Created ' . count($entitlements) . ' anomaly detection entitlements (TILES removed)');
+        $this->command->info('✅ Created/updated ' . count($entitlements) . ' anomaly detection entitlements (TILES removed)');
     }
 
     /**

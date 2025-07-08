@@ -78,7 +78,12 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($users as $userData) {
-            User::create($userData);
+            User::updateOrCreate(
+                ['email' => $userData['email']], // Find by email
+                $userData // Update or create with this data
+            );
         }
+
+        $this->command->info('✅ Created/updated ' . count($users) . ' users');
     }
 }

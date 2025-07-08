@@ -69,7 +69,7 @@ class UserEntitlementSeeder extends Seeder
                 });
 
                 foreach ($userEntitlements as $entitlement) {
-                    DB::table('user_entitlements')->insert([
+                    DB::table('user_entitlements')->insertOrIgnore([
                         'user_id' => $user->id,
                         'entitlement_id' => $entitlement->id,
                         'created_at' => now(),
@@ -120,7 +120,7 @@ class UserEntitlementSeeder extends Seeder
                             ->exists();
 
                         if (!$exists) {
-                            DB::table('user_entitlements')->insert([
+                            DB::table('user_entitlements')->insertOrIgnore([
                                 'user_id' => $user->id,
                                 'entitlement_id' => $entitlement->id,
                                 'created_at' => now(),

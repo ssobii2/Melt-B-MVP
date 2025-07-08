@@ -21,7 +21,8 @@ class BuildingSeeder extends Seeder
      */
     public function run(): void
     {
-        Building::truncate();
+        // Remove truncate to allow duplicate protection
+        // Building::truncate();
 
         $datasets = Dataset::all()->keyBy('name');
 
@@ -81,10 +82,13 @@ class BuildingSeeder extends Seeder
         }
 
         foreach ($records as $record) {
-            Building::create($record);
+            Building::updateOrCreate(
+                ['gid' => $record['gid']], // Find by gid (unique identifier)
+                $record // Update or create with this data
+            );
         }
 
-        $this->command->info('✅ Created ' . count($records) . ' sample buildings with anomaly detection data');
+        $this->command->info('✅ Created/updated ' . count($records) . ' sample buildings with anomaly detection data');
     }
 
     private function rect(float $lat, float $lon, float $size): Polygon

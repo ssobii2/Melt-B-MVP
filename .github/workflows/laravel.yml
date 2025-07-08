@@ -86,11 +86,27 @@ jobs:
           cd /home/runcloud/webapps/Melt-B-MVP
           /RunCloud/Packages/php82rc/bin/php artisan down || true
 
+          # Create backup directory if it doesn't exist
+          mkdir -p /home/runcloud/storage_backup
+
+          # Move storage/data directory to backup location if it exists
+          if [ -d "storage/data" ]; then
+            echo "📁 Moving storage/data directory to backup..."
+            mv storage/data /home/runcloud/storage_backup/
+          fi
+
           shopt -s dotglob
           rm -rf -- *
           shopt -u dotglob
 
           unzip /home/runcloud/deploy/melt-deploy.zip -d .
+
+          # Move storage/data directory back from backup if it exists
+          if [ -d "/home/runcloud/storage_backup/data" ]; then
+            echo "📁 Moving storage/data directory back from backup..."
+            mkdir -p storage
+            mv /home/runcloud/storage_backup/data storage/
+          fi
 
           /RunCloud/Packages/php82rc/bin/php artisan migrate --force
           /RunCloud/Packages/php82rc/bin/php artisan db:seed --force
