@@ -67,9 +67,14 @@ jobs:
         name: melt-deploy
         path: ./deploy
 
-    - name: 🛰️ Upload artifact to server via scp
-      run: |
-        scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ./deploy/melt-deploy.zip ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/home/runcloud/deploy/melt-deploy.zip
+    - name: 🛰️ Upload artifact to server via SCP Action
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        source: ./deploy/melt-deploy.zip
+        target: /home/runcloud/deploy
 
     - name: 📡 SSH Deploy
       uses: appleboy/ssh-action@v1.0.0
