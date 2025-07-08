@@ -94,7 +94,7 @@ jobs:
 
           /RunCloud/Packages/php82rc/bin/php artisan migrate --force
           /RunCloud/Packages/php82rc/bin/php artisan db:seed --force
-          /RunCloud/Packages/php82rc/bin/php artisan vendor:publish --provider="JeroenNoten\LaravelAdminLte\AdminLteServiceProvider" --tag=assets --force
+          /RunCloud/Packages/php82rc/bin/php artisan adminlte:install --only=assets --force
           /RunCloud/Packages/php82rc/bin/php artisan config:cache
           /RunCloud/Packages/php82rc/bin/php artisan route:cache
           /RunCloud/Packages/php82rc/bin/php artisan view:cache

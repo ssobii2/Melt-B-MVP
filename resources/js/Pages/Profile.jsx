@@ -154,12 +154,46 @@ export default function Profile() {
 
     const copyToClipboard = async (text) => {
         try {
-            await navigator.clipboard.writeText(text);
-            toast.success('Token copied to clipboard!');
-            setTokenCopied(true);
+            // Check if navigator.clipboard is available (secure context required)
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                toast.success('Token copied to clipboard!');
+                setTokenCopied(true);
+            } else {
+                // Fallback for non-secure contexts or older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        toast.success('Token copied to clipboard!');
+                        setTokenCopied(true);
+                    } else {
+                        throw new Error('Copy command failed');
+                    }
+                } catch (fallbackErr) {
+                    console.error('Fallback copy failed:', fallbackErr);
+                    // Show the token in a prompt as last resort
+                    prompt('Copy this token manually:', text);
+                    toast.info('Please copy the token manually from the dialog.');
+                    setTokenCopied(true);
+                } finally {
+                    document.body.removeChild(textArea);
+                }
+            }
         } catch (err) {
             console.error('Failed to copy:', err);
-            toast.error('Failed to copy to clipboard');
+            // Show the token in a prompt as last resort
+            prompt('Copy this token manually:', text);
+            toast.info('Please copy the token manually from the dialog.');
+            setTokenCopied(true);
         }
     };
 

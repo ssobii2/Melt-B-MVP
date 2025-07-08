@@ -121,7 +121,7 @@ return [
 
     'middleware' => [
         'web',
-        RestrictedDocsAccess::class,
+        // RestrictedDocsAccess::class, // Commented out to allow access in production
     ],
 
     'extensions' => [],
