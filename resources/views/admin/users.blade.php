@@ -456,7 +456,7 @@
                 },
                 success: function(response) {
                     renderUsersTable(response.data);
-                    renderPagination(response);
+                    renderPagination(response.meta);
                 },
                 error: function(xhr) {
                     console.error('Error loading users:', xhr);
@@ -499,23 +499,23 @@
         }
 
         // Render pagination
-        function renderPagination(response) {
+        function renderPagination(meta) {
             let html = '<nav><ul class="pagination pagination-sm">';
 
             // Previous button
-            if (response.current_page > 1) {
-                html += `<li class="page-item"><a class="page-link" href="#" onclick="changePage(${response.current_page - 1})">Previous</a></li>`;
+            if (meta.current_page > 1) {
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="changePage(${meta.current_page - 1})">Previous</a></li>`;
             }
 
             // Page numbers
-            for (let i = 1; i <= response.last_page; i++) {
-                const active = i === response.current_page ? 'active' : '';
+            for (let i = 1; i <= meta.last_page; i++) {
+                const active = i === meta.current_page ? 'active' : '';
                 html += `<li class="page-item ${active}"><a class="page-link" href="#" onclick="changePage(${i})">${i}</a></li>`;
             }
 
             // Next button
-            if (response.current_page < response.last_page) {
-                html += `<li class="page-item"><a class="page-link" href="#" onclick="changePage(${response.current_page + 1})">Next</a></li>`;
+            if (meta.current_page < meta.last_page) {
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="changePage(${meta.current_page + 1})">Next</a></li>`;
             }
 
             html += '</ul></nav>';

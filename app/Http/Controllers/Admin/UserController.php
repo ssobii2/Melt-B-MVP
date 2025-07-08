@@ -88,7 +88,15 @@ class UserController extends Controller
 
         $users = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return UserResource::collection($users);
+        return response()->json([
+            'data' => UserResource::collection($users->items()),
+            'meta' => [
+                'current_page' => $users->currentPage(),
+                'last_page' => $users->lastPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
+            ]
+        ]);
     }
 
     /**

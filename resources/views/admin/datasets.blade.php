@@ -438,7 +438,7 @@
                 url: '/api/admin/datasets/data-types',
                 method: 'GET',
                 headers: {
-                    'Authorization': 'Bearer ' + localStorage.getItem('auth_token'),
+                    'Authorization': 'Bearer ' + '{{ session("admin_token") }}',
                     'Accept': 'application/json'
                 },
                 success: function(response) {
