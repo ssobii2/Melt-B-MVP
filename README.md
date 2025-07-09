@@ -107,20 +107,20 @@ All endpoints are versioned under `/api/*` and protected by Laravel Sanctum. The
 
 ---
 
-## Roadmap Snapshot
+## Roadmap
 
-Development is organised into **6 phases**. Current focus: **Phase 5 – Performance, Security & Deployment**.
+Below is a **condensed view of the six-phase roadmap**—enough to understand where the project stands without switching files.
 
-```
-✓ Phase 0 – Foundation & Core Setup
-✓ Phase 1 – Auth & ABAC
-✓ Phase 2 – Data APIs & Ingestion
-✓ Phase 3 – Front-End Dashboard
-✓ Phase 4 – Enhancements & Admin UI
-⌛ Phase 5 – Performance, Security & Deployment (in progress)
-```
+| Phase | Status | Key Deliverables |
+|-------|--------|------------------|
+| 0. Foundation & Core Setup | ✅ Done | PostGIS schema & migrations (users, buildings, datasets, entitlements) • Spatial Eloquent models • Seed data |
+| 1. Auth & ABAC | ✅ Done | Laravel Sanctum auth + password flows • AdminLTE dashboard • Role & entitlement middleware |
+| 2. Data APIs & Ingestion | ✅ Done | CSV ingestion command & webhook pipeline • Analysis job tracking APIs • Filtered Buildings & Download APIs |
+| 3. Front-End Dashboard | ✅ Done | React SPA with MapLibre anomaly map • Building explorer & details drawer • Unified auth flow |
+| 4. Enhancements & Admin UI | ✅ Done | KPI charts & anomaly insights • Download centre & profile mgmt • Admin CRUD for analysis jobs & entitlements |
+| 5. Performance, Security & Deployment | ⌛ In progress | Caching & query optimisation • Background jobs • Test automation & CI/CD • Production deployment |
 
-Consult `ROADMAP.md` for the full task breakdown.
+> Last updated: **December 2025**
 
 ---
 
