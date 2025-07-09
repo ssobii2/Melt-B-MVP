@@ -107,26 +107,37 @@ All endpoints are versioned under `/api/*` and protected by Laravel Sanctum. The
 
 ---
 
-## Roadmap
+## Feature Highlights
 
-Below is a **condensed view of the six-phase roadmap**—enough to understand where the project stands without switching files.
+MELT-B ships with a complete, production-ready stack. The key capabilities are grouped below so you can grasp the platform at a glance.
 
-| Phase | Status | Key Deliverables |
-|-------|--------|------------------|
-| 0. Foundation & Core Setup | ✅ Done | PostGIS schema & migrations (users, buildings, datasets, entitlements) • Spatial Eloquent models • Seed data |
-| 1. Auth & ABAC | ✅ Done | Laravel Sanctum auth + password flows • AdminLTE dashboard • Role & entitlement middleware |
-| 2. Data APIs & Ingestion | ✅ Done | CSV ingestion command & webhook pipeline • Analysis job tracking APIs • Filtered Buildings & Download APIs |
-| 3. Front-End Dashboard | ✅ Done | React SPA with MapLibre anomaly map • Building explorer & details drawer • Unified auth flow |
-| 4. Enhancements & Admin UI | ✅ Done | KPI charts & anomaly insights • Download centre & profile mgmt • Admin CRUD for analysis jobs & entitlements |
-| 5. Performance, Security & Deployment | ⌛ In progress | Caching & query optimisation • Background jobs • Test automation & CI/CD • Production deployment |
+### Backend (Laravel API)
 
-> Last updated: **December 2025**
+- Spatial database powered by **PostgreSQL + PostGIS**
+- Secure authentication with **Laravel Sanctum** (session & token)
+- **Attribute-based access control (ABAC)** via entitlements (`DS-ALL`, `DS-AOI`, `DS-BLD`)
+- RESTful endpoints for buildings, datasets, downloads, analysis jobs and webhooks
+- **CSV ingestion & webhook pipeline** that updates building anomaly metrics in real time
+- Comprehensive **audit logging** for administrative actions
 
----
+### Front-End (React SPA)
 
-## Project Status (December 2025)
+- Interactive **MapLibre GL** map with anomaly-based building styling
+- **Building Explorer** with search, filters, and detailed metrics drawer
+- **Download Centre** for CSV/GeoJSON exports respecting user entitlements
+- Responsive dashboard components & **KPI visualisations** (Chart.js)
 
-The system is **feature-complete for anomaly detection** and ready for production ingestion. Remaining tasks concentrate on performance tuning, test automation, and deployment hardening. See `PROJECT_STATUS.md` for the exhaustive changelog.
+### Admin Dashboard (AdminLTE)
+
+- User, entitlement, dataset and analysis-job management
+- Role-based middleware and separate `/admin` authentication flow
+- Real-time system statistics & **audit log viewer**
+
+### DevOps & Performance
+
+- Artisan commands for import tasks and maintenance
+- Caching strategies and background job queues for heavy workloads
+- CI-ready test suite with PHPUnit & modern frontend testing tools
 
 ---
 
