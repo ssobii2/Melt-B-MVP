@@ -6,7 +6,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { apiClient } from '../utils/api';
 
 export default function Profile() {
-    const { user: authUser, token } = useAuth();
+    const { user: authUser, token, updateUser } = useAuth();
     const [user, setUser] = useState(authUser);
     const [profileLoading, setProfileLoading] = useState(false);
     const [passwordLoading, setPasswordLoading] = useState(false);
@@ -101,7 +101,10 @@ export default function Profile() {
         
         try {
             const response = await apiClient.put('/user/profile-information', profileForm);
-            setUser(response.data.user);
+            const updatedUser = response.data.user;
+            setUser(updatedUser);
+            // Update the global user state in AuthContext for real-time updates
+            updateUser(updatedUser);
             toast.success('Profile updated successfully!');
         } catch (err) {
             const errorMsg = err.response?.data?.message || 'Failed to update profile';
