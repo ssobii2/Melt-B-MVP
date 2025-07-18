@@ -44,7 +44,6 @@
                             <option value="DS-ALL">DS-ALL (Full Dataset)</option>
                             <option value="DS-AOI">DS-AOI (Area of Interest)</option>
                             <option value="DS-BLD">DS-BLD (Specific Buildings)</option>
-                            <option value="TILES">TILES (Map Tiles)</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -124,7 +123,6 @@
                                     <option value="DS-ALL">DS-ALL (Full Dataset Access)</option>
                                     <option value="DS-AOI">DS-AOI (Area of Interest)</option>
                                     <option value="DS-BLD">DS-BLD (Specific Buildings)</option>
-                                    <option value="TILES">TILES (Map Tiles)</option>
                                 </select>
                                 <small class="form-text text-muted">Choose the type of access this entitlement provides</small>
                             </div>
@@ -140,24 +138,114 @@
                         </div>
                     </div>
 
-                    <!-- AOI Coordinates (for DS-AOI and TILES) -->
+                    <!-- AOI Coordinates (for DS-AOI) -->
                     <div id="createAoiSection" style="display: none;">
-                        <div class="form-group">
-                            <label for="createAoiCoordinates">Area of Interest Coordinates <span class="text-danger">*</span></label>
-                            <textarea class="form-control" id="createAoiCoordinates" name="aoi_coordinates" rows="4"
-                                placeholder='[[lng1, lat1], [lng2, lat2], [lng3, lat3], [lng1, lat1]]'></textarea>
-                            <small class="form-text text-muted">Enter polygon coordinates as JSON array: [[longitude, latitude], ...]. Must form a closed polygon.</small>
-                            <small class="form-text text-info">Example: [[21.5804, 47.5316], [21.6304, 47.5316], [21.6304, 47.5716], [21.5804, 47.5716], [21.5804, 47.5316]]</small>
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-map-marked-alt"></i> Area of Interest Selection
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Bounding Box Method -->
+                                <div id="createAoiBounds">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="createNorthBound">North Latitude <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="createNorthBound" step="0.000001" placeholder="48.8566">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="createSouthBound">South Latitude <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="createSouthBound" step="0.000001" placeholder="48.8466">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="createEastBound">East Longitude <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="createEastBound" step="0.000001" placeholder="2.3522">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="createWestBound">West Longitude <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="createWestBound" step="0.000001" placeholder="2.3422">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-light p-3 rounded mb-3">
+                                        <button type="button" class="btn btn-info btn-sm" onclick="generatePolygonFromBounds('create')">
+                                            <i class="fas fa-magic"></i> Generate Polygon from Bounds
+                                        </button>
+                                        <small class="form-text text-muted mt-2">Enter the bounding box coordinates and click the button to generate polygon coordinates automatically.</small>
+                                    </div>
+                                    <!-- Hidden field to store generated coordinates -->
+                                    <input type="hidden" id="createAoiCoordinates" name="aoi_coordinates">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Building GIDs (for DS-BLD) -->
                     <div id="createBuildingSection" style="display: none;">
-                        <div class="form-group">
-                            <label for="createBuildingGids">Building GIDs <span class="text-danger">*</span></label>
-                            <textarea class="form-control" id="createBuildingGids" name="building_gids" rows="3"
-                                placeholder='["building_001", "building_002", "building_003"]'></textarea>
-                            <small class="form-text text-muted">Enter building GIDs as JSON array: ["gid1", "gid2", ...]</small>
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-building"></i> Building Selection
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">                                        <div class="form-group">
+                                            <label for="createBuildingDataset">Filter by Dataset</label>
+                                            <select class="form-control" id="createBuildingDataset">
+                                                <option value="">All Datasets</option>
+                                                <!-- Populated dynamically -->
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Select from List Method -->
+                                <div id="createBuildingSelect">
+                                    <div class="form-group">
+                                        <label>Available Buildings</label>
+                                        <input type="text" class="form-control" id="createBuildingSearch" placeholder="Search buildings by GID...">
+                                    </div>
+                                    <div class="form-group">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label class="mb-0">Select Buildings (<span id="createSelectedCount">0</span> selected) <span class="text-danger">*</span></label>
+                                            <div>
+                                                <button type="button" class="btn btn-sm btn-outline-primary mr-1" onclick="selectAllBuildings('create')">
+                                                    Select All
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearBuildingSelection('create')">
+                                                    Clear All
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div id="createBuildingList" class="border rounded p-2 bg-light" style="max-height: 300px; overflow-y: auto;">
+                                            <p class="text-muted text-center mb-0">Loading buildings...</p>
+                                        </div>
+                                        <div id="createBuildingPagination" class="d-flex justify-content-between align-items-center mt-2" style="display: none;">
+                                            <small class="text-muted" id="createBuildingPageInfo"></small>
+                                            <div>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="createBuildingPrevBtn" onclick="changeBuildingPage('create', 'prev')" disabled>
+                                                    <i class="fas fa-chevron-left"></i> Previous
+                                                </button>
+                                                <span class="mx-2">Page <span id="createBuildingCurrentPage">1</span> of <span id="createBuildingTotalPages">1</span></span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="createBuildingNextBtn" onclick="changeBuildingPage('create', 'next')">
+                                                    Next <i class="fas fa-chevron-right"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Hidden field to store selected building GIDs -->
+                                    <input type="hidden" id="createBuildingGids" name="building_gids">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -222,7 +310,6 @@
                                     <option value="DS-ALL">DS-ALL (Full Dataset Access)</option>
                                     <option value="DS-AOI">DS-AOI (Area of Interest)</option>
                                     <option value="DS-BLD">DS-BLD (Specific Buildings)</option>
-                                    <option value="TILES">TILES (Map Tiles)</option>
                                 </select>
                             </div>
                         </div>
@@ -238,19 +325,113 @@
 
                     <!-- AOI Coordinates -->
                     <div id="editAoiSection" style="display: none;">
-                        <div class="form-group">
-                            <label for="editAoiCoordinates">Area of Interest Coordinates <span class="text-danger">*</span></label>
-                            <textarea class="form-control" id="editAoiCoordinates" name="aoi_coordinates" rows="4"></textarea>
-                            <small class="form-text text-muted">Enter polygon coordinates as JSON array</small>
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-map-marked-alt"></i> Area of Interest Selection
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Bounding Box Method -->
+                                <div id="editAoiBounds">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="editNorthBound">North Latitude <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="editNorthBound" step="0.000001">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="editSouthBound">South Latitude <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="editSouthBound" step="0.000001">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="editEastBound">East Longitude <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="editEastBound" step="0.000001">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="editWestBound">West Longitude <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="editWestBound" step="0.000001">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-light p-3 rounded mb-3">
+                                        <button type="button" class="btn btn-info btn-sm" onclick="generatePolygonFromBounds('edit')">
+                                            <i class="fas fa-magic"></i> Generate Polygon from Bounds
+                                        </button>
+                                        <small class="form-text text-muted mt-2">Enter the bounding box coordinates and click the button to generate polygon coordinates automatically.</small>
+                                    </div>
+                                    <!-- Hidden field to store generated coordinates -->
+                                    <input type="hidden" id="editAoiCoordinates" name="aoi_coordinates">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Building GIDs -->
                     <div id="editBuildingSection" style="display: none;">
-                        <div class="form-group">
-                            <label for="editBuildingGids">Building GIDs <span class="text-danger">*</span></label>
-                            <textarea class="form-control" id="editBuildingGids" name="building_gids" rows="3"></textarea>
-                            <small class="form-text text-muted">Enter building GIDs as JSON array</small>
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-building"></i> Building Selection
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="editBuildingDataset">Filter by Dataset</label>
+                                            <select class="form-control" id="editBuildingDataset">
+                                                <option value="">All Datasets</option>
+                                                <!-- Populated dynamically -->
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Select from List Method -->
+                                <div id="editBuildingSelect">
+                                    <div class="form-group">
+                                        <label>Available Buildings</label>
+                                        <input type="text" class="form-control" id="editBuildingSearch" placeholder="Search buildings by GID...">
+                                    </div>
+                                    <div class="form-group">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label class="mb-0">Select Buildings (<span id="editSelectedCount">0</span> selected) <span class="text-danger">*</span></label>
+                                            <div>
+                                                <button type="button" class="btn btn-sm btn-outline-primary mr-1" onclick="selectAllBuildings('edit')">
+                                                    Select All
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearBuildingSelection('edit')">
+                                                    Clear All
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div id="editBuildingList" class="border rounded p-2 bg-light" style="max-height: 300px; overflow-y: auto;">
+                                            <p class="text-muted text-center mb-0">Loading buildings...</p>
+                                        </div>
+                                        <div id="editBuildingPagination" class="d-flex justify-content-between align-items-center mt-2" style="display: none;">
+                                            <small class="text-muted" id="editBuildingPageInfo"></small>
+                                            <div>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="editBuildingPrevBtn" onclick="changeBuildingPage('edit', 'prev')" disabled>
+                                                    <i class="fas fa-chevron-left"></i> Previous
+                                                </button>
+                                                <span class="mx-2">Page <span id="editBuildingCurrentPage">1</span> of <span id="editBuildingTotalPages">1</span></span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="editBuildingNextBtn" onclick="changeBuildingPage('edit', 'next')">
+                                                    Next <i class="fas fa-chevron-right"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Hidden field to store selected building GIDs -->
+                                    <input type="hidden" id="editBuildingGids" name="building_gids">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -477,9 +658,67 @@
         let typeFilter = '';
         let datasetFilter = '';
 
+        // Initialize global variables
+        window.globalBuildingSelection = {
+            create: new Set(),
+            edit: new Set()
+        };
+        
+        window.buildingPagination = {
+            create: { currentPage: 1, totalPages: 1, perPage: 50 },
+            edit: { currentPage: 1, totalPages: 1, perPage: 50 }
+        };
+
+        // Initialize create form UI function
+        function initializeCreateForm() {
+            // Clear all fields
+            $('#createAoiCoordinates, #createBuildingGids').val('');
+            $('#createNorthBound, #createSouthBound, #createEastBound, #createWestBound').val('');
+            $('#createBuildingDataset, #createBuildingSearch').val('');
+            $('#createBuildingList').html('<p class="text-muted text-center mb-0">Select a dataset to view buildings</p>');
+            $('#createSelectedCount').text('0');
+            // Clear global selection state
+            window.globalBuildingSelection.create.clear();
+        }
+        
         // Load data on page load
         loadEntitlements();
         loadDatasets();
+        
+        // Initialize create form UI
+        initializeCreateForm();
+        
+        // Reset create form when modal is opened
+        $('#createEntitlementModal').on('show.bs.modal', function() {
+            initializeCreateForm();
+        });
+        
+        // Auto-load buildings when create modal opens and DS-BLD is selected
+        $('#createType').on('change', function() {
+            if ($(this).val() === 'DS-BLD') {
+                // Only auto-load if a dataset is already selected
+                const selectedDataset = $('#createBuildingDataset').val();
+                if (selectedDataset) {
+                    setTimeout(() => {
+                        loadBuildingsForSelection('create');
+                    }, 100);
+                }
+            }
+        });
+        
+        // Auto-load buildings when edit modal opens
+        $('#editEntitlementModal').on('show.bs.modal', function() {
+            const entitlementType = $('#editType').val();
+            if (entitlementType === 'DS-BLD') {
+                // Only auto-load if a dataset is already selected
+                const selectedDataset = $('#editBuildingDataset').val();
+                if (selectedDataset) {
+                    setTimeout(() => {
+                        loadBuildingsForSelection('edit');
+                    }, 100);
+                }
+            }
+        });
 
         // Search functionality
         let searchTimeout;
@@ -521,7 +760,7 @@
                     'Accept': 'application/json'
                 },
                 success: function(response) {
-                    let options = '<option value="">All Datasets</option>';
+                    let options = '<option value="">Select Dataset</option>';
                     response.datasets.forEach(function(dataset) {
                         options += `<option value="${dataset.id}">${dataset.name}</option>`;
                     });
@@ -595,7 +834,7 @@
                 const isExpired = entitlement.expires_at && new Date(entitlement.expires_at) < new Date();
 
                 let details = '';
-                if (entitlement.type === 'DS-AOI' || entitlement.type === 'TILES') {
+                if (entitlement.type === 'DS-AOI') {
                     details = 'AOI Polygon';
                 } else if (entitlement.type === 'DS-BLD') {
                     const buildingCount = entitlement.building_gids ? entitlement.building_gids.length : 0;
@@ -689,12 +928,15 @@
                 html += `<li class="page-item"><a class="page-link" href="#" onclick="changePage(${response.current_page - 1})">Previous</a></li>`;
             }
 
-            for (let i = 1; i <= response.last_page; i++) {
+            // Calculate last page from total and per_page
+            const lastPage = Math.ceil(response.total / response.per_page);
+
+            for (let i = 1; i <= lastPage; i++) {
                 const active = i === response.current_page ? 'active' : '';
                 html += `<li class="page-item ${active}"><a class="page-link" href="#" onclick="changePage(${i})">${i}</a></li>`;
             }
 
-            if (response.current_page < response.last_page) {
+            if (response.current_page < lastPage) {
                 html += `<li class="page-item"><a class="page-link" href="#" onclick="changePage(${response.current_page + 1})">Next</a></li>`;
             }
 
@@ -707,8 +949,7 @@
             const colors = {
                 'DS-ALL': 'success',
                 'DS-AOI': 'warning',
-                'DS-BLD': 'info',
-                'TILES': 'primary'
+                'DS-BLD': 'info'
             };
             return colors[type] || 'secondary';
         }
@@ -722,12 +963,405 @@
             aoiSection.hide();
             buildingSection.hide();
 
-            if (type === 'DS-AOI' || type === 'TILES') {
+            if (type === 'DS-AOI') {
                 aoiSection.show();
             } else if (type === 'DS-BLD') {
                 buildingSection.show();
+                // Load datasets for building filtering
+                loadDatasetsForBuildings(prefix);
+                
+                // For create modal, clear any previous selections and reset UI
+                if (prefix === 'create') {
+                    $(`#${prefix}BuildingDataset`).val('');
+                    $(`#${prefix}BuildingSearch`).val('');
+                    $(`#${prefix}BuildingGids`).val('');
+                    $(`#${prefix}SelectedCount`).text('0');
+                }
             }
         };
+
+        // Generate polygon from bounding box coordinates
+        window.generatePolygonFromBounds = function(prefix) {
+            const north = parseFloat(document.getElementById(prefix + 'NorthBound').value);
+            const south = parseFloat(document.getElementById(prefix + 'SouthBound').value);
+            const east = parseFloat(document.getElementById(prefix + 'EastBound').value);
+            const west = parseFloat(document.getElementById(prefix + 'WestBound').value);
+            
+            if (isNaN(north) || isNaN(south) || isNaN(east) || isNaN(west)) {
+                alert('Please enter valid coordinates for all bounds.');
+                return;
+            }
+            
+            if (north <= south) {
+                alert('North latitude must be greater than south latitude.');
+                return;
+            }
+            
+            if (east <= west) {
+                alert('East longitude must be greater than west longitude.');
+                return;
+            }
+            
+            // Create polygon coordinates (clockwise)
+            const polygon = [
+                [west, north],  // Northwest
+                [east, north],  // Northeast
+                [east, south],  // Southeast
+                [west, south],  // Southwest
+                [west, north]   // Close polygon
+            ];
+            
+            // Update the coordinates textarea
+            const coordinatesField = document.getElementById(prefix + 'AoiCoordinates');
+            coordinatesField.value = JSON.stringify(polygon, null, 2);
+            
+            // Show success message
+            const button = event.target;
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-check"></i> Generated!';
+            button.classList.remove('btn-info');
+            button.classList.add('btn-success');
+            
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.classList.remove('btn-success');
+                button.classList.add('btn-info');
+            }, 2000);
+        };
+
+        // Load datasets for building filtering
+        function loadDatasetsForBuildings(prefix) {
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    url: '/api/admin/datasets',
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + '{{ session("admin_token") }}',
+                        'Accept': 'application/json'
+                    },
+                    success: function(response) {
+                        const select = $(`#${prefix}BuildingDataset`);
+                        select.html('<option value="">Select Dataset</option>');
+                        
+                        if (response.data) {
+                            response.data.forEach(dataset => {
+                                const option = `<option value="${dataset.id}">${dataset.name}</option>`;
+                                select.append(option);
+                            });
+                        }
+                        
+                        // For create modal, ensure buildings are not loaded initially
+                        if (prefix === 'create') {
+                            $(`#${prefix}BuildingList`).html('<p class="text-muted text-center">Select a dataset to view buildings</p>');
+                            $(`#${prefix}SelectedCount`).text('0');
+                            $(`#${prefix}BuildingPagination`).hide();
+                        }
+                        
+                        resolve(response);
+                    },
+                    error: function(error) {
+                        console.error('Error loading datasets:', error);
+                        reject(error);
+                    }
+                });
+            });
+        }
+
+
+
+        // Load buildings for selection
+        window.loadBuildingsForSelection = function(prefix, preSelectedGids = [], page = 1) {
+            const datasetFilter = $(`#${prefix}BuildingDataset`).val();
+            const searchTerm = $(`#${prefix}BuildingSearch`).val();
+            const buildingList = $(`#${prefix}BuildingList`);
+            
+            // Initialize global selection state with pre-selected GIDs if provided
+            if (preSelectedGids && preSelectedGids.length > 0) {
+                window.globalBuildingSelection[prefix].clear();
+                preSelectedGids.forEach(gid => {
+                    window.globalBuildingSelection[prefix].add(gid);
+                });
+            }
+            
+            // Show loading state
+            buildingList.html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading buildings...</div>');
+            
+            let url = '/api/admin/buildings';
+            const params = new URLSearchParams();
+            
+            if (datasetFilter) {
+                params.append('dataset_id', datasetFilter);
+            }
+            if (searchTerm) {
+                params.append('search', searchTerm);
+            }
+            
+            // Use different endpoints based on modal type (create vs edit)
+            if (prefix === 'edit' && preSelectedGids && preSelectedGids.length > 0) {
+                // Edit modal with pre-selected buildings: Use POST endpoint with priority sorting
+                const postData = {
+                    dataset_id: datasetFilter || null,
+                    search: searchTerm || null,
+                    priority_gids: preSelectedGids,
+                    per_page: window.buildingPagination[prefix].perPage,
+                    page: page
+                };
+                
+                $.ajax({
+                    url: '/api/admin/buildings/with-priority',
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + '{{ session("admin_token") }}',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify(postData),
+                    success: function(response) {
+                        handleBuildingsResponse(response, prefix, page);
+                    },
+                    error: function(error) {
+                        console.error('Error loading buildings:', error);
+                        buildingList.html('<p class="text-danger text-center">Error loading buildings</p>');
+                    }
+                });
+            } else {
+                // Create modal OR edit modal without pre-selected buildings: Use GET endpoint for normal pagination
+                if (datasetFilter) {
+                    params.append('dataset_id', datasetFilter);
+                }
+                if (searchTerm) {
+                    params.append('search', searchTerm);
+                }
+                
+                // Add pagination parameters (Laravel format)
+                const perPage = window.buildingPagination[prefix].perPage;
+                params.append('per_page', perPage.toString());
+                params.append('page', page.toString());
+                
+                if (params.toString()) {
+                    url += '?' + params.toString();
+                }
+                
+                $.ajax({
+                    url: url,
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + '{{ session("admin_token") }}',
+                        'Accept': 'application/json'
+                    },
+                    success: function(response) {
+                        handleBuildingsResponse(response, prefix, page);
+                    },
+                    error: function(error) {
+                        console.error('Error loading buildings:', error);
+                        buildingList.html('<p class="text-danger text-center">Error loading buildings</p>');
+                    }
+                });
+            }
+        };
+        
+        // Handle buildings response (extracted to avoid code duplication)
+        function handleBuildingsResponse(response, prefix, page) {
+            const buildingList = $(`#${prefix}BuildingList`);
+            buildingList.html('');
+            
+            // Update pagination state using Laravel pagination meta
+            const meta = response.meta || {};
+            const totalCount = meta.total || response.data?.length || 0;
+            window.buildingPagination[prefix].currentPage = meta.current_page || page;
+            window.buildingPagination[prefix].totalPages = meta.last_page || 1;
+            window.buildingPagination[prefix].perPage = meta.per_page || window.buildingPagination[prefix].perPage;
+            
+            if (response.data && response.data.length > 0) {
+                // Buildings are already sorted by the backend (priority GIDs first, then by GID)
+                let buildings = response.data;
+                const globalSelection = window.globalBuildingSelection[prefix];
+                
+                buildings.forEach(building => {
+                    const isSelected = globalSelection.has(building.gid);
+                    const checkboxDiv = $(`
+                        <div class="form-check">
+                            <input class="form-check-input building-checkbox" type="checkbox" 
+                                   value="${building.gid}" id="${prefix}Building${building.id}" ${isSelected ? 'checked' : ''}>
+                            <label class="form-check-label" for="${prefix}Building${building.id}">
+                                ${building.gid}
+                            </label>
+                        </div>
+                    `);
+                    buildingList.append(checkboxDiv);
+                });
+                
+                // Add event listeners to update global selection
+                buildingList.find('.building-checkbox').on('change', function() {
+                    const gid = $(this).val();
+                    if ($(this).is(':checked')) {
+                        globalSelection.add(gid);
+                    } else {
+                        globalSelection.delete(gid);
+                    }
+                    updateSelectedCount(prefix);
+                });
+                
+                updateSelectedCount(prefix);
+                
+                // Update pagination controls
+                updateBuildingPagination(prefix, totalCount);
+            } else {
+                buildingList.html('<p class="text-muted text-center">No buildings found</p>');
+                $(`#${prefix}BuildingPagination`).hide();
+            }
+        }
+
+        // Update building pagination controls
+        function updateBuildingPagination(prefix, totalCount) {
+            const pagination = window.buildingPagination[prefix];
+            const paginationDiv = $(`#${prefix}BuildingPagination`);
+            
+            if (pagination.totalPages <= 1) {
+                paginationDiv.hide();
+                return;
+            }
+            
+            paginationDiv.show();
+            
+            // Update page info
+            const startItem = ((pagination.currentPage - 1) * pagination.perPage) + 1;
+            const endItem = Math.min(pagination.currentPage * pagination.perPage, totalCount);
+            $(`#${prefix}BuildingPageInfo`).text(`${startItem}-${endItem} of ${totalCount}`);
+            
+            // Update buttons
+            const prevBtn = $(`#${prefix}BuildingPrevBtn`);
+            const nextBtn = $(`#${prefix}BuildingNextBtn`);
+            
+            prevBtn.prop('disabled', pagination.currentPage <= 1);
+            nextBtn.prop('disabled', pagination.currentPage >= pagination.totalPages);
+            
+            // Update page number
+            $(`#${prefix}BuildingCurrentPage`).text(pagination.currentPage);
+            $(`#${prefix}BuildingTotalPages`).text(pagination.totalPages);
+        }
+
+        // Change building page function
+        window.changeBuildingPage = function(prefix, direction) {
+            const pagination = window.buildingPagination[prefix];
+            let newPage = pagination.currentPage;
+            
+            if (direction === 'prev' && pagination.currentPage > 1) {
+                newPage = pagination.currentPage - 1;
+            } else if (direction === 'next' && pagination.currentPage < pagination.totalPages) {
+                newPage = pagination.currentPage + 1;
+            }
+            
+            if (newPage !== pagination.currentPage) {
+                // Use global selection state (no need to parse from textarea)
+                const globalSelection = window.globalBuildingSelection[prefix];
+                const preSelectedGids = Array.from(globalSelection);
+                
+                loadBuildingsForSelection(prefix, preSelectedGids, newPage);
+            }
+        };
+
+
+
+        // Update selected building count
+        function updateSelectedCount(prefix) {
+            const globalSelection = window.globalBuildingSelection[prefix];
+            const countSpan = $(`#${prefix}SelectedCount`);
+            countSpan.text(globalSelection.size);
+            
+            // Update the hidden textarea with selected GIDs from global selection
+            const selectedGids = Array.from(globalSelection);
+            const gidsField = $(`#${prefix}BuildingGids`);
+            gidsField.val(JSON.stringify(selectedGids, null, 2));
+        }
+
+        // Select all buildings (on current page)
+        window.selectAllBuildings = function(prefix) {
+            const checkboxes = $(`#${prefix}BuildingList .building-checkbox`);
+            const globalSelection = window.globalBuildingSelection[prefix];
+            
+            checkboxes.each(function() {
+                const gid = $(this).val();
+                $(this).prop('checked', true);
+                globalSelection.add(gid);
+            });
+            
+            updateSelectedCount(prefix);
+        };
+
+        // Clear building selection (on current page only)
+        window.clearBuildingSelection = function(prefix) {
+            const checkboxes = $(`#${prefix}BuildingList .building-checkbox`);
+            const globalSelection = window.globalBuildingSelection[prefix];
+            
+            // Only remove the GIDs of buildings on the current page from global selection
+            checkboxes.each(function() {
+                const gid = $(this).val();
+                globalSelection.delete(gid);
+                $(this).prop('checked', false);
+            });
+            
+            updateSelectedCount(prefix);
+        };
+
+        // Note: Method toggle handlers removed as we now only support bounding box for AOI and building selection for DS-BLD
+
+        // Handle dataset filter change for buildings
+        $(document).on('change', '#createBuildingDataset, #editBuildingDataset', function() {
+            const prefix = $(this).attr('id').replace('BuildingDataset', '');
+            const selectedDataset = $(this).val();
+            
+            // Only load buildings if a valid dataset ID is selected (not empty string or placeholder)
+            if (selectedDataset && selectedDataset !== '' && selectedDataset !== 'Select Dataset') {
+                // Use global selection state
+                const globalSelection = window.globalBuildingSelection[prefix];
+                const preSelectedGids = Array.from(globalSelection);
+                
+                // Auto-load buildings for the selected dataset
+                loadBuildingsForSelection(prefix, preSelectedGids, 1);
+            } else {
+                // Clear the building list when no dataset is selected
+                $(`#${prefix}BuildingList`).html('<p class="text-muted text-center">Select a dataset to view buildings</p>');
+                $(`#${prefix}SelectedCount`).text('0');
+                $(`#${prefix}BuildingPagination`).hide();
+                // Clear the hidden field
+                $(`#${prefix}BuildingGids`).val('');
+            }
+        });
+
+        // Handle search input for buildings
+        $(document).on('keyup', '#createBuildingSearch, #editBuildingSearch', function() {
+            const prefix = $(this).attr('id').replace('BuildingSearch', '');
+            const selectedDataset = $(`#${prefix}BuildingDataset`).val();
+            
+            // Only search buildings if a valid dataset ID is selected (not empty string or placeholder)
+            if (selectedDataset && selectedDataset !== '' && selectedDataset !== 'Select Dataset') {
+                // Use global selection state
+                const globalSelection = window.globalBuildingSelection[prefix];
+                const preSelectedGids = Array.from(globalSelection);
+                
+                // Auto-load buildings with search filter
+                loadBuildingsForSelection(prefix, preSelectedGids, 1);
+            } else {
+                // Clear the building list when no dataset is selected
+                $(`#${prefix}BuildingList`).html('<p class="text-muted text-center">Select a dataset to view buildings</p>');
+                $(`#${prefix}SelectedCount`).text('0');
+            }
+        });
+
+        // Reset create modal when closed
+        $('#createEntitlementModal').on('hidden.bs.modal', function() {
+            $('#createEntitlementForm')[0].reset();
+            // Clear all create modal fields and reset UI
+            $('#createBuildingDataset, #createBuildingSearch').val('');
+            $('#createBuildingGids, #createAoiCoordinates').val('');
+            $('#createSelectedCount').text('0');
+            $('#createBuildingList').html('<p class="text-muted text-center">Select a dataset to view buildings</p>');
+            $('#createBuildingPagination').hide();
+            // Clear global selection state
+            window.globalBuildingSelection.create.clear();
+            toggleEntitlementFields('create');
+        });
 
         // Create entitlement form
         $('#createEntitlementForm').on('submit', function(e) {
@@ -749,18 +1383,34 @@
             }
 
             // Handle type-specific fields
-            if (formData.type === 'DS-AOI' || formData.type === 'TILES') {
-                try {
-                    formData.aoi_coordinates = JSON.parse($('#createAoiCoordinates').val());
-                } catch (e) {
-                    showModalAlert('createEntitlementModal', 'danger', 'Invalid AOI coordinates format. Please check your JSON syntax.');
+            if (formData.type === 'DS-AOI') {
+                const aoiCoordinatesText = $('#createAoiCoordinates').val().trim();
+                if (aoiCoordinatesText) {
+                    try {
+                        formData.aoi_coordinates = JSON.parse(aoiCoordinatesText);
+                    } catch (e) {
+                        showModalAlert('createEntitlementModal', 'danger', 'Invalid AOI coordinates format. Please check your JSON syntax or generate coordinates from bounds.');
+                        return;
+                    }
+                } else {
+                    showModalAlert('createEntitlementModal', 'danger', 'AOI coordinates are required for this entitlement type.');
                     return;
                 }
             } else if (formData.type === 'DS-BLD') {
-                try {
-                    formData.building_gids = JSON.parse($('#createBuildingGids').val());
-                } catch (e) {
-                    showModalAlert('createEntitlementModal', 'danger', 'Invalid building GIDs format. Please check your JSON syntax.');
+                const buildingGidsText = $('#createBuildingGids').val().trim();
+                if (buildingGidsText) {
+                    try {
+                        formData.building_gids = JSON.parse(buildingGidsText);
+                        if (!Array.isArray(formData.building_gids) || formData.building_gids.length === 0) {
+                            showModalAlert('createEntitlementModal', 'danger', 'Please select at least one building or enter valid building GIDs.');
+                            return;
+                        }
+                    } catch (e) {
+                        showModalAlert('createEntitlementModal', 'danger', 'Invalid building GIDs format. Please check your JSON syntax or select buildings from the list.');
+                        return;
+                    }
+                } else {
+                    showModalAlert('createEntitlementModal', 'danger', 'Building GIDs are required for this entitlement type.');
                     return;
                 }
             }
@@ -777,6 +1427,14 @@
                 success: function(response) {
                     $('#createEntitlementModal').modal('hide');
                     $('#createEntitlementForm')[0].reset();
+                    // Clear all create modal fields and reset UI
+                    $('#createBuildingDataset, #createBuildingSearch').val('');
+                    $('#createBuildingGids, #createAoiCoordinates').val('');
+                    $('#createSelectedCount').text('0');
+                    $('#createBuildingList').html('<p class="text-muted text-center">Select a dataset to view buildings</p>');
+                    $('#createBuildingPagination').hide();
+                    // Clear global selection state
+                    window.globalBuildingSelection.create.clear();
                     toggleEntitlementFields('create');
                     // Force reload by clearing any potential cache
                     setTimeout(function() {
@@ -828,7 +1486,7 @@
 
                     if (entitlement.type === 'DS-BLD' && entitlement.building_gids) {
                         html += `<p><strong>Building GIDs:</strong> ${entitlement.building_gids.length} buildings</p>`;
-                    } else if ((entitlement.type === 'DS-AOI' || entitlement.type === 'TILES') && entitlement.aoi_geom) {
+                    } else if (entitlement.type === 'DS-AOI' && entitlement.aoi_geom) {
                         html += `<p><strong>AOI:</strong> Polygon defined</p>`;
                     }
 
@@ -902,10 +1560,35 @@
                     // Clear type-specific fields first
                     $('#editBuildingGids').val('');
                     $('#editAoiCoordinates').val('');
+                    
+                    // Clear bounding box fields
+                    $('#editNorthBound, #editSouthBound, #editEastBound, #editWestBound').val('');
+                    
+                    // Clear building selection UI
+                    $('#editBuildingDataset').val('');
+                    $('#editBuildingSearch').val('');
+                    $('#editBuildingList').html('<p class="text-muted text-center mb-0">Loading buildings...</p>');
+                    $('#editSelectedCount').text('0');
+                    // Clear global selection state
+                    window.globalBuildingSelection.edit.clear();
 
                     // Handle type-specific field values
                     if (entitlement.building_gids) {
                         $('#editBuildingGids').val(JSON.stringify(entitlement.building_gids, null, 2));
+                        // Auto-load buildings with pre-selection for DS-BLD type
+                        if (entitlement.type === 'DS-BLD') {
+                            // Load datasets first, then set the dataset filter and load buildings
+                            loadDatasetsForBuildings('edit').then(() => {
+                                // Set the dataset filter after datasets are loaded
+                                if (entitlement.dataset_id) {
+                                    $('#editBuildingDataset').val(entitlement.dataset_id);
+                                }
+                                // Load buildings with pre-selection
+                                setTimeout(() => {
+                                    loadBuildingsForSelection('edit', entitlement.building_gids);
+                                }, 100);
+                            });
+                        }
                     }
 
                     // Handle AOI coordinates - check both aoi_coordinates and aoi_geom
@@ -973,25 +1656,35 @@
             }
 
             // Handle type-specific fields
-            if (formData.type === 'DS-AOI' || formData.type === 'TILES') {
-                const aoiText = $('#editAoiCoordinates').val();
-                if (aoiText) {
+            if (formData.type === 'DS-AOI') {
+                const aoiCoordinatesText = $('#editAoiCoordinates').val().trim();
+                if (aoiCoordinatesText) {
                     try {
-                        formData.aoi_coordinates = JSON.parse(aoiText);
+                        formData.aoi_coordinates = JSON.parse(aoiCoordinatesText);
                     } catch (e) {
-                        showModalAlert('editEntitlementModal', 'danger', 'Invalid AOI coordinates format. Please check your JSON syntax.');
+                        showModalAlert('editEntitlementModal', 'danger', 'Invalid AOI coordinates format. Please check your JSON syntax or generate coordinates from bounds.');
                         return;
                     }
+                } else {
+                    showModalAlert('editEntitlementModal', 'danger', 'AOI coordinates are required for this entitlement type.');
+                    return;
                 }
             } else if (formData.type === 'DS-BLD') {
-                const buildingText = $('#editBuildingGids').val();
-                if (buildingText) {
+                const buildingGidsText = $('#editBuildingGids').val().trim();
+                if (buildingGidsText) {
                     try {
-                        formData.building_gids = JSON.parse(buildingText);
+                        formData.building_gids = JSON.parse(buildingGidsText);
+                        if (!Array.isArray(formData.building_gids) || formData.building_gids.length === 0) {
+                            showModalAlert('editEntitlementModal', 'danger', 'Please select at least one building or enter valid building GIDs.');
+                            return;
+                        }
                     } catch (e) {
-                        showModalAlert('editEntitlementModal', 'danger', 'Invalid building GIDs format. Please check your JSON syntax.');
+                        showModalAlert('editEntitlementModal', 'danger', 'Invalid building GIDs format. Please check your JSON syntax or select buildings from the list.');
                         return;
                     }
+                } else {
+                    showModalAlert('editEntitlementModal', 'danger', 'Building GIDs are required for this entitlement type.');
+                    return;
                 }
             }
 

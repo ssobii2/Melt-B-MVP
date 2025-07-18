@@ -145,6 +145,7 @@ Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(functi
     Route::get('/buildings/within/bounds', [\App\Http\Controllers\Admin\BuildingController::class, 'withinBounds']);
     Route::get('/buildings/{gid}/find-page', [\App\Http\Controllers\Admin\BuildingController::class, 'findPage']);
     Route::get('/buildings', [\App\Http\Controllers\Admin\BuildingController::class, 'index']);
+    Route::post('/buildings/with-priority', [\App\Http\Controllers\Admin\BuildingController::class, 'withPriority']);
     Route::get('/buildings/{gid}', [\App\Http\Controllers\Admin\BuildingController::class, 'show']);
     Route::get('/buildings/export', [\App\Http\Controllers\Admin\BuildingController::class, 'export']);
 
