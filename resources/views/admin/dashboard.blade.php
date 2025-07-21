@@ -227,12 +227,5 @@
 @stop
 
 @push('js')
-<script>
-    console.log('MELT-B Admin Dashboard loaded');
-
-    // Auto-refresh dashboard every 5 minutes
-    setTimeout(function() {
-        location.reload();
-    }, 300000);
-</script>
+@vite(['resources/js/admin/dashboard.js'])
 @endpush
