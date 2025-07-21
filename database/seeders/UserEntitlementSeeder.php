@@ -38,19 +38,21 @@ class UserEntitlementSeeder extends Seeder
                 ['type' => 'DS-ALL',  'dataset' => 'Paris Building Anomalies Analysis 2025-Q1'],
             ],
 
-            // Researcher – specific Paris buildings access (200 buildings)
+            // Researcher – specific Paris buildings access (200 buildings) + admin access
             'researcher@sorbonne.fr' => [
-                ['type' => 'DS-BLD', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1', 'index' => 0], // First DS-BLD entitlement
+                ['type' => 'DS-BLD', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1', 'index' => 0], // First DS-BLD entitlement (researcher buildings)
             ],
 
-            // Contractor gets limited building access (150 buildings)
+            // Contractor gets limited building access (150 buildings) + AOI access + admin access
             'contractor@energieparis.fr' => [
-                ['type' => 'DS-BLD', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1', 'index' => 1], // Second DS-BLD entitlement
+                ['type' => 'DS-BLD', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1', 'index' => 1], // Second DS-BLD entitlement (contractor buildings)
+                ['type' => 'DS-AOI', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1', 'index' => 1], // Contractor AOI entitlement
             ],
 
-            // Test user gets basic access (50 buildings)
+            // Test user gets basic access (50 buildings) + AOI access + admin access
             'user@test.com' => [
-                ['type' => 'DS-BLD', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1', 'index' => 2], // Third DS-BLD entitlement
+                ['type' => 'DS-BLD', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1', 'index' => 2], // Third DS-BLD entitlement (test user buildings)
+                ['type' => 'DS-AOI', 'dataset' => 'Paris Building Anomalies Analysis 2025-Q1', 'index' => 0], // Test user AOI entitlement
             ],
         ];
 
