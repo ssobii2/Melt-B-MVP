@@ -105,8 +105,39 @@
                 }
             });
         };
+
+        // Global AJAX setup for handling authentication errors
+        $(document).ajaxError(function(event, xhr, settings, thrownError) {
+            // Handle 401 Unauthorized errors globally
+            if (xhr.status === 401) {
+                // Automatically logout and redirect to admin login
+                $.ajax({
+                    url: '/admin/logout',
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    complete: function() {
+                        // Redirect to admin login regardless of logout response
+                        window.location.href = '/admin/login';
+                    }
+                });
+            }
+            // Handle 403 Forbidden errors
+            else if (xhr.status === 403) {
+                toastr.error('Access denied. You do not have permission to perform this action.');
+            }
+            // Handle 500 Internal Server Error
+            else if (xhr.status === 500) {
+                toastr.error('Internal server error. Please try again later.');
+            }
+            // Handle network errors
+            else if (xhr.status === 0 && thrownError !== 'abort') {
+                toastr.error('Network error. Please check your connection.');
+            }
+        });
     </script>
     
     {{-- Additional JavaScript can be added here --}}
     @stack('js')
-@stop 
+@stop

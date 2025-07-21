@@ -179,7 +179,7 @@
                                         <button type="button" class="btn btn-info btn-sm" onclick="generatePolygonFromBounds('create')">
                                             <i class="fas fa-magic"></i> Generate Polygon from Bounds
                                         </button>
-                                        <small class="form-text text-muted mt-2">Enter the bounding box coordinates and click the button to generate polygon coordinates automatically.</small>
+                                        <small class="form-text text-muted d-block mt-2">Enter the bounding box coordinates and click the button to generate polygon coordinates automatically.</small>
                                     </div>
                                     <!-- Hidden field to store generated coordinates -->
                                     <input type="hidden" id="createAoiCoordinates" name="aoi_coordinates">
@@ -364,7 +364,7 @@
                                         <button type="button" class="btn btn-info btn-sm" onclick="generatePolygonFromBounds('edit')">
                                             <i class="fas fa-magic"></i> Generate Polygon from Bounds
                                         </button>
-                                        <small class="form-text text-muted mt-2">Enter the bounding box coordinates and click the button to generate polygon coordinates automatically.</small>
+                                        <small class="form-text text-muted d-block mt-2">Enter the bounding box coordinates and click the button to generate polygon coordinates automatically.</small>
                                     </div>
                                     <!-- Hidden field to store generated coordinates -->
                                     <input type="hidden" id="editAoiCoordinates" name="aoi_coordinates">

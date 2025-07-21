@@ -80,6 +80,12 @@ $(document).ready(function() {
         $('#createSelectedCount').text('0');
         // Clear global selection state
         window.globalBuildingSelection.create.clear();
+        
+        // Remove any existing polygon info displays
+        const existingInfo = document.querySelector('#createPolygonInfo');
+        if (existingInfo) {
+            existingInfo.remove();
+        }
     }
     
     // Load data on page load
@@ -382,6 +388,114 @@ $(document).ready(function() {
     };
 
     // Generate polygon from bounding box coordinates
+    // Function to extract bounds from polygon coordinates
+    // Helper function to extract bounds from coordinates
+    function extractBoundsFromCoordinates(coordinates) {
+        if (!coordinates || !Array.isArray(coordinates) || coordinates.length === 0) {
+            return null;
+        }
+        
+        let minLat = Infinity, maxLat = -Infinity;
+        let minLng = Infinity, maxLng = -Infinity;
+        
+        coordinates.forEach(coord => {
+            if (Array.isArray(coord) && coord.length >= 2) {
+                const [lng, lat] = coord;
+                if (!isNaN(lng) && !isNaN(lat)) {
+                    minLat = Math.min(minLat, lat);
+                    maxLat = Math.max(maxLat, lat);
+                    minLng = Math.min(minLng, lng);
+                    maxLng = Math.max(maxLng, lng);
+                }
+            }
+        });
+        
+        if (minLat === Infinity) {
+            return null;
+        }
+        
+        return {
+            north: maxLat,
+            south: minLat,
+            east: maxLng,
+            west: minLng
+        };
+    }
+    
+    // Function to populate bounding box fields from coordinates
+    function populateBoundsFromCoordinates(prefix) {
+        const coordinatesField = document.getElementById(prefix + 'AoiCoordinates');
+        const coordinatesText = coordinatesField.value.trim();
+        
+        if (!coordinatesText) {
+            return;
+        }
+        
+        try {
+            const coordinates = JSON.parse(coordinatesText);
+            const bounds = extractBoundsFromCoordinates(coordinates);
+            
+            if (bounds) {
+                document.getElementById(prefix + 'NorthBound').value = bounds.north.toFixed(6);
+                document.getElementById(prefix + 'SouthBound').value = bounds.south.toFixed(6);
+                document.getElementById(prefix + 'EastBound').value = bounds.east.toFixed(6);
+                document.getElementById(prefix + 'WestBound').value = bounds.west.toFixed(6);
+            }
+        } catch (e) {
+            console.warn('Could not parse coordinates for bounds:', e);
+        }
+    }
+
+    // Function to display polygon coordinates in a readable format
+    window.displayPolygonInfo = function(prefix) {
+        const coordinatesField = document.getElementById(prefix + 'AoiCoordinates');
+        const coordinatesText = coordinatesField.value.trim();
+        
+        if (!coordinatesText) {
+            // Remove existing info if no coordinates
+            const existingInfo = document.querySelector(`#${prefix}PolygonInfo`);
+            if (existingInfo) {
+                existingInfo.remove();
+            }
+            return;
+        }
+        
+        try {
+            const coordinates = JSON.parse(coordinatesText);
+            const bounds = extractBoundsFromCoordinates(coordinates);
+            
+            // Populate bounding box fields
+            populateBoundsFromCoordinates(prefix);
+            
+            let infoHtml = '<div class="alert alert-info mt-3"><h6><i class="fas fa-info-circle"></i> Generated Polygon Information</h6>';
+            
+            if (bounds) {
+                infoHtml += `<p><strong>Bounding Box:</strong><br>`;
+                infoHtml += `North: ${bounds.north.toFixed(6)}°, South: ${bounds.south.toFixed(6)}°<br>`;
+                infoHtml += `East: ${bounds.east.toFixed(6)}°, West: ${bounds.west.toFixed(6)}°</p>`;
+            }
+            
+            infoHtml += `<p><strong>Polygon Points:</strong> ${coordinates.length} coordinates</p>`;
+            infoHtml += `<details><summary>View Coordinates</summary><pre class="mt-2">${JSON.stringify(coordinates, null, 2)}</pre></details>`;
+            infoHtml += '</div>';
+            
+            // Remove existing info if present
+            const existingInfo = document.querySelector(`#${prefix}PolygonInfo`);
+            if (existingInfo) {
+                existingInfo.remove();
+            }
+            
+            // Add new info after the coordinates field
+            const infoDiv = document.createElement('div');
+            infoDiv.id = prefix + 'PolygonInfo';
+            infoDiv.innerHTML = infoHtml;
+            coordinatesField.parentNode.appendChild(infoDiv);
+            
+        } catch (e) {
+            console.warn('Could not parse coordinates for display:', e);
+        }
+    };
+
     window.generatePolygonFromBounds = function(prefix) {
         const north = parseFloat(document.getElementById(prefix + 'NorthBound').value);
         const south = parseFloat(document.getElementById(prefix + 'SouthBound').value);
@@ -424,9 +538,12 @@ $(document).ready(function() {
             [west, north]   // Close polygon
         ];
         
-        // Update the coordinates textarea
+        // Update the hidden coordinates field
         const coordinatesField = document.getElementById(prefix + 'AoiCoordinates');
-        coordinatesField.value = JSON.stringify(polygon, null, 2);
+        coordinatesField.value = JSON.stringify(polygon);
+        
+        // Display polygon information automatically
+        window.displayPolygonInfo(prefix);
         
         // Show success message
         const button = event.target;
@@ -1012,6 +1129,12 @@ $(document).ready(function() {
                 $('#editSelectedCount').text('0');
                 // Clear global selection state
                 window.globalBuildingSelection.edit.clear();
+                
+                // Remove any existing polygon info displays
+                const existingEditInfo = document.querySelector('#editPolygonInfo');
+                if (existingEditInfo) {
+                    existingEditInfo.remove();
+                }
 
                 // Handle type-specific field values
                 if (entitlement.building_gids) {
@@ -1034,11 +1157,19 @@ $(document).ready(function() {
 
                 // Handle AOI coordinates - check both aoi_coordinates and aoi_geom
                 if (entitlement.aoi_coordinates) {
-                    $('#editAoiCoordinates').val(JSON.stringify(entitlement.aoi_coordinates, null, 2));
+                    $('#editAoiCoordinates').val(JSON.stringify(entitlement.aoi_coordinates));
+                    // Display polygon information automatically
+                    setTimeout(() => {
+                        window.displayPolygonInfo('edit');
+                    }, 100);
                 } else if (entitlement.aoi_geom && entitlement.aoi_geom.coordinates) {
                     // Extract coordinates from GeoJSON format
                     const coordinates = entitlement.aoi_geom.coordinates[0];
-                    $('#editAoiCoordinates').val(JSON.stringify(coordinates, null, 2));
+                    $('#editAoiCoordinates').val(JSON.stringify(coordinates));
+                    // Display polygon information automatically
+                    setTimeout(() => {
+                        window.displayPolygonInfo('edit');
+                    }, 100);
                 }
 
                 // Handle download formats
