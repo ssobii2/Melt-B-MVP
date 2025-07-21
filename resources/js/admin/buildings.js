@@ -68,7 +68,7 @@ $(document).ready(function() {
             per_page: $('#perPage').val(),
             search: $('#searchBuildings').val(),
             dataset_id: $('#datasetFilter').val(),
-            is_anomaly: $('#anomalyFilter').val()
+            anomaly_filter: $('#anomalyFilter').val()
         };
 
         lastSearchParams = {

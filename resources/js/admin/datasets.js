@@ -385,13 +385,13 @@ $(document).ready(function() {
                         <p><strong>Storage Location:</strong> ${dataset.storage_location || 'None'}</p>
                         <p><strong>Version:</strong> ${dataset.version || 'None'}</p>
                         <p><strong>Created:</strong> ${formatDateTime(dataset.created_at)}</p>
-                        <p><strong>Users with Access:</strong> ${response.users_with_access}</p>
+                        <p><strong>Users with Access:</strong> ${dataset.users_with_access}</p>
                     </div>
                     <div class="col-md-6">
                         <h5>Metadata</h5>
                         <pre class="bg-light p-3">${dataset.metadata ? JSON.stringify(dataset.metadata, null, 2) : 'None'}</pre>
                         
-                        <h5>Entitlements (${response.entitlements_count})</h5>
+                        <h5>Entitlements (${dataset.entitlements_count})</h5>
                         <div class="list-group">
             `;
 
@@ -514,4 +514,4 @@ $(document).ready(function() {
             }
         });
     });
-}); 
+});
