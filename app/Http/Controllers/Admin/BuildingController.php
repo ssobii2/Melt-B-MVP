@@ -35,7 +35,8 @@ class BuildingController extends Controller
         'type' => 'Filter by building type',
         'sort_by' => 'Sort field (gid, is_anomaly, confidence, average_heatloss, co2_savings_estimate, building_type_classification)',
         'sort_order' => 'Sort order (asc/desc)',
-        'per_page' => 'Number of items per page (max: 100)'
+        'per_page' => 'Number of items per page (max: 100)',
+        'priority_gids' => 'Array of GIDs to prioritize in sorting (optional)'
     ])]
     #[Response(200, 'Buildings list', [
         'data' => [
@@ -107,14 +108,41 @@ class BuildingController extends Controller
             $query->byType($type);
         }
 
-        // Apply same sorting as findPage method
-        $sortBy = $request->input('sort_by', 'gid');
-        $sortOrder = $request->input('sort_order', 'asc');
+        // Check if priority GIDs are provided for custom sorting
+        $priorityGids = $request->input('priority_gids');
+        
+        // Also check for priority_gids in JSON body (for POST requests)
+        if (!$priorityGids && $request->isMethod('POST')) {
+            $priorityGids = $request->json('priority_gids');
+        }
+        
+        if ($priorityGids && is_array($priorityGids) && !empty($priorityGids)) {
+            // Convert GIDs to placeholders for the IN clause
+            $placeholders = str_repeat('?,', count($priorityGids) - 1) . '?';
+            
+            // Order by priority GIDs first, then by the regular sort field
+            $query->orderByRaw("CASE WHEN gid IN ($placeholders) THEN 0 ELSE 1 END", $priorityGids);
+            
+            // Apply the regular sorting as secondary
+            $sortBy = $request->input('sort_by', 'gid');
+            $sortOrder = $request->input('sort_order', 'asc');
+            
+            if (in_array($sortBy, ['gid', 'is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
+                $query->orderBy($sortBy, $sortOrder);
+                if ($sortBy !== 'gid') {
+                    $query->orderBy('gid', 'asc'); // Add secondary sort for stability
+                }
+            }
+        } else {
+            // Apply same sorting as findPage method (default behavior)
+            $sortBy = $request->input('sort_by', 'gid');
+            $sortOrder = $request->input('sort_order', 'asc');
 
-        if (in_array($sortBy, ['gid', 'is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
-            $query->orderBy($sortBy, $sortOrder);
-            if ($sortBy !== 'gid') {
-                $query->orderBy('gid', 'asc'); // Add secondary sort for stability
+            if (in_array($sortBy, ['gid', 'is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
+                $query->orderBy($sortBy, $sortOrder);
+                if ($sortBy !== 'gid') {
+                    $query->orderBy('gid', 'asc'); // Add secondary sort for stability
+                }
             }
         }
 
@@ -131,6 +159,40 @@ class BuildingController extends Controller
                 'total' => $buildings->total(),
             ]
         ]);
+    }
+
+    /**
+     * Get buildings with priority sorting (POST endpoint for large priority lists).
+     */
+    #[OperationId('admin.buildings.with-priority')]
+    #[Summary('Get buildings with priority sorting')]
+    #[Description('Get a paginated list of buildings with priority GIDs sorted first. Use this endpoint when you have many priority GIDs to avoid URL length limits.')]
+    #[Response(200, 'Buildings list with priority sorting', [
+        'data' => [
+            [
+                'gid' => 'BLD_001',
+                'is_anomaly' => true,
+                'confidence' => 0.85,
+                'average_heatloss' => 125.5,
+                'co2_savings_estimate' => 2.3,
+                'building_type_classification' => 'residential',
+                'dataset' => [
+                    'id' => 1,
+                    'name' => 'Thermal Dataset 2024',
+                    'data_type' => 'thermal_raster'
+                ]
+            ]
+        ],
+        'meta' => [
+            'current_page' => 1,
+            'last_page' => 10,
+            'per_page' => 15,
+            'total' => 150
+        ]
+    ])]
+    public function withPriority(Request $request): JsonResponse
+    {
+        return $this->getBuildings($request);
     }
 
     /**
@@ -182,7 +244,8 @@ class BuildingController extends Controller
         'type' => 'Filter by building type',
         'sort_by' => 'Sort field (gid, is_anomaly, confidence, average_heatloss, co2_savings_estimate, building_type_classification)',
         'sort_order' => 'Sort order (asc/desc)',
-        'per_page' => 'Number of items per page (max: 100)'
+        'per_page' => 'Number of items per page (max: 100)',
+        'priority_gids' => 'Array of GIDs to prioritize in sorting (optional)'
     ])]
     #[Response(200, 'Building page information', [
         'page' => 3,
@@ -219,14 +282,35 @@ class BuildingController extends Controller
             $query->byType($type);
         }
 
-        // Apply same sorting as main listing
-        $sortBy = $request->input('sort_by', 'gid');
-        $sortOrder = $request->input('sort_order', 'asc');
+        // Check if priority GIDs are provided for custom sorting (same as main listing)
+        $priorityGids = $request->input('priority_gids');
+        if ($priorityGids && is_array($priorityGids) && !empty($priorityGids)) {
+            // Convert GIDs to placeholders for the IN clause
+            $placeholders = str_repeat('?,', count($priorityGids) - 1) . '?';
+            
+            // Order by priority GIDs first, then by the regular sort field
+            $query->orderByRaw("CASE WHEN gid IN ($placeholders) THEN 0 ELSE 1 END", $priorityGids);
+            
+            // Apply the regular sorting as secondary
+            $sortBy = $request->input('sort_by', 'gid');
+            $sortOrder = $request->input('sort_order', 'asc');
+            
+            if (in_array($sortBy, ['gid', 'is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
+                $query->orderBy($sortBy, $sortOrder);
+                if ($sortBy !== 'gid') {
+                    $query->orderBy('gid', 'asc'); // Add secondary sort for stability
+                }
+            }
+        } else {
+            // Apply same sorting as main listing (default behavior)
+            $sortBy = $request->input('sort_by', 'gid');
+            $sortOrder = $request->input('sort_order', 'asc');
 
-        if (in_array($sortBy, ['gid', 'is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
-            $query->orderBy($sortBy, $sortOrder);
-            if ($sortBy !== 'gid') {
-                $query->orderBy('gid', 'asc'); // Add secondary sort for stability
+            if (in_array($sortBy, ['gid', 'is_anomaly', 'confidence', 'average_heatloss', 'co2_savings_estimate', 'building_type_classification'])) {
+                $query->orderBy($sortBy, $sortOrder);
+                if ($sortBy !== 'gid') {
+                    $query->orderBy('gid', 'asc'); // Add secondary sort for stability
+                }
             }
         }
 

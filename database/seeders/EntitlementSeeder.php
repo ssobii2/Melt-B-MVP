@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use App\Models\Dataset;
 use App\Models\Entitlement;
 use MatanYadaev\EloquentSpatial\Objects\Polygon;
@@ -43,21 +44,21 @@ class EntitlementSeeder extends Seeder
                 'expires_at' => now()->addYear(),
             ],
 
-            // ──────────── Paris Central Districts (AOI) ────────────
+            // ──────────── Test User AOI (Working coordinates) ────────────
             [
                 'type' => 'DS-AOI',
                 'dataset_id' => $parisDataset->id,
-                'aoi_geom' => $this->parisCentralDistricts(),
+                'aoi_geom' => $this->testUserAOI(),
                 'building_gids' => null,
                 'download_formats' => ['csv', 'geojson'],
                 'expires_at' => now()->addMonths(6),
             ],
 
-            // ──────────── Paris Research Zone (Smaller AOI) ────────────
+            // ──────────── Contractor AOI (Working coordinates) ────────────
             [
                 'type' => 'DS-AOI',
                 'dataset_id' => $parisDataset->id,
-                'aoi_geom' => $this->parisResearchZone(),
+                'aoi_geom' => $this->contractorAOI(),
                 'building_gids' => null,
                 'download_formats' => ['csv'],
                 'expires_at' => now()->addMonths(3),
@@ -94,81 +95,54 @@ class EntitlementSeeder extends Seeder
             ],
         ];
 
+        // Clear existing user entitlements and entitlements to avoid duplicates
+        DB::table('user_entitlements')
+            ->whereIn('entitlement_id', function($query) use ($parisDataset) {
+                $query->select('id')
+                      ->from('entitlements')
+                      ->where('dataset_id', $parisDataset->id);
+            })
+            ->delete();
+        
+        Entitlement::where('dataset_id', $parisDataset->id)->delete();
+        
         foreach ($entitlements as $entitlementData) {
-            // For DS-BLD type, check if entitlement with same type, dataset_id and building_gids exists
-            if ($entitlementData['type'] === 'DS-BLD' && !empty($entitlementData['building_gids'])) {
-                $existing = Entitlement::where('type', $entitlementData['type'])
-                    ->where('dataset_id', $entitlementData['dataset_id'])
-                    ->whereJsonContains('building_gids', $entitlementData['building_gids'])
-                    ->first();
-                    
-                if ($existing) {
-                    $existing->update($entitlementData);
-                } else {
-                    Entitlement::create($entitlementData);
-                }
-            }
-            // For DS-AOI type, use simpler unique key without geometry comparison
-            elseif ($entitlementData['type'] === 'DS-AOI') {
-                $uniqueKey = [
-                    'type' => $entitlementData['type'],
-                    'dataset_id' => $entitlementData['dataset_id']
-                ];
-                
-                // Find existing AOI entitlement and update, or create new one
-                $existing = Entitlement::where($uniqueKey)->first();
-                if ($existing) {
-                    $existing->update($entitlementData);
-                } else {
-                    Entitlement::create($entitlementData);
-                }
-            }
-            // For DS-ALL type, simple unique key
-            else {
-                $uniqueKey = [
-                    'type' => $entitlementData['type'],
-                    'dataset_id' => $entitlementData['dataset_id']
-                ];
-                
-                Entitlement::updateOrCreate($uniqueKey, $entitlementData);
-            }
+            Entitlement::create($entitlementData);
         }
 
         $this->command->info('✅ Created/updated ' . count($entitlements) . ' anomaly detection entitlements (TILES removed)');
     }
 
     /**
-     * Create Paris central districts polygon (1st-4th arrondissements)
+     * Create test user AOI polygon (verified to contain buildings)
      */
-    private function parisCentralDistricts(): Polygon
+    private function testUserAOI(): Polygon
     {
-        // Central Paris area including Louvre, Châtelet, Marais (1st-4th arrondissements)
-        // Testing: Point constructor might expect (latitude, longitude) instead
+        // AOI coordinates that contain actual buildings for testing
         return new Polygon([
             new LineString([
-                new Point(48.850, 2.320), // Southwest: Latitude 48.850, Longitude 2.320
-                new Point(48.850, 2.370), // Southeast: Latitude 48.850, Longitude 2.370
-                new Point(48.875, 2.370), // Northeast: Latitude 48.875, Longitude 2.370
-                new Point(48.875, 2.320), // Northwest: Latitude 48.875, Longitude 2.320
-                new Point(48.850, 2.320), // Close polygon
+                new Point(48.825, 2.245), // Southwest: Latitude 48.825, Longitude 2.245
+                new Point(48.825, 2.270), // Southeast: Latitude 48.825, Longitude 2.270
+                new Point(48.835, 2.270), // Northeast: Latitude 48.835, Longitude 2.270
+                new Point(48.835, 2.245), // Northwest: Latitude 48.835, Longitude 2.245
+                new Point(48.825, 2.245), // Close polygon
             ])
         ]);
     }
 
     /**
-     * Create Paris research zone (smaller area for testing)
+     * Create contractor AOI polygon (verified to contain buildings, separate from test user)
      */
-    private function parisResearchZone(): Polygon
+    private function contractorAOI(): Polygon
     {
-        // Northern Paris area around Montmartre (18th arrondissement)
-        // Testing: Point constructor might expect (latitude, longitude) instead
+        // AOI coordinates north of test user area that contain actual buildings
         return new Polygon([
             new LineString([
-                new Point(48.880, 2.330), // Southwest: Latitude 48.880, Longitude 2.330
-                new Point(48.880, 2.360), // Southeast: Latitude 48.880, Longitude 2.360
-                new Point(48.900, 2.360), // Northeast: Latitude 48.900, Longitude 2.360
-                new Point(48.900, 2.330), // Northwest: Latitude 48.900, Longitude 2.330
-                new Point(48.880, 2.330), // Close polygon
+                new Point(48.835, 2.245), // Southwest: Latitude 48.835, Longitude 2.245
+                new Point(48.835, 2.270), // Southeast: Latitude 48.835, Longitude 2.270
+                new Point(48.845, 2.270), // Northeast: Latitude 48.845, Longitude 2.270
+                new Point(48.845, 2.245), // Northwest: Latitude 48.845, Longitude 2.245
+                new Point(48.835, 2.245), // Close polygon
             ])
         ]);
     }

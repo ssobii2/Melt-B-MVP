@@ -1,4 +1,4 @@
-@extends('adminlte::page')
+@extends('admin.layouts.app')
 
 @section('title', 'MELT-B Admin Dashboard')
 
@@ -226,30 +226,10 @@
 </div>
 @stop
 
-@section('css')
-<style>
-    .small-box .inner h3 {
-        font-size: 2.2rem;
-        font-weight: bold;
-    }
-
-    .table th {
-        border-top: none;
-    }
-
-    .badge {
-        font-size: 0.8rem;
-    }
-</style>
-@stop
-
-@section('js')
+@push('js')
 <script>
-    console.log('MELT-B Admin Dashboard loaded');
-
-    // Auto-refresh dashboard every 5 minutes
-    setTimeout(function() {
-        location.reload();
-    }, 300000);
+    // Set admin token for use in external JS file
+    window.adminToken = '{{ session("admin_token") }}';
 </script>
-@stop
+@vite(['resources/js/admin/dashboard.js'])
+@endpush

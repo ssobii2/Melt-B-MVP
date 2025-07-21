@@ -102,7 +102,9 @@ class DatasetController extends Controller
     #[Response(404, 'Dataset not found', ['message' => 'Dataset not found'])]
     public function show(string $id): JsonResponse
     {
-        $dataset = Dataset::with(['entitlements.users'])->find($id);
+        $dataset = Dataset::with(['entitlements.users'])
+            ->withCount('entitlements')
+            ->find($id);
 
         if (!$dataset) {
             return response()->json(['message' => 'Dataset not found'], 404);
@@ -411,10 +413,6 @@ class DatasetController extends Controller
     #[Description('Get a list of all available data types for filtering datasets.')]
     #[Response(200, 'Available data types', [
         'data_types' => [
-            'thermal_raster' => 'Thermal Raster',
-            'building_data' => 'Building Data',
-            'thermal_analysis' => 'Thermal Analysis',
-            'heat_map' => 'Heat Map',
             'building_anomalies' => 'Building Anomalies'
         ]
     ])]
@@ -431,10 +429,6 @@ class DatasetController extends Controller
         
         // Add common data types if not present
         $commonTypes = [
-            'thermal_raster' => 'Thermal Raster',
-            'building_data' => 'Building Data', 
-            'thermal_analysis' => 'Thermal Analysis',
-            'heat_map' => 'Heat Map',
             'building_anomalies' => 'Building Anomalies'
         ];
         

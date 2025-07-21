@@ -34,6 +34,9 @@ class DatasetResource extends JsonResource
             
             'entitlements_count' => $this->whenCounted('entitlements'),
             'buildings_count' => $this->whenCounted('buildings'),
+            'users_with_access' => $this->whenLoaded('entitlements', function () {
+                return $this->entitlements->pluck('users')->flatten()->unique('id')->count();
+            }),
             
             // Timestamps
             'created_at' => $this->created_at?->toISOString(),
