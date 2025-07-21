@@ -191,6 +191,7 @@
 @stop
 
 @section('css')
+@include('admin.partials.toastr-config')
 <style>
     .table td {
         vertical-align: middle;
@@ -221,6 +222,7 @@
 @stop
 
 @section('js')
+@include('admin.partials.toastr-config')
 <script>
     // Global timezone handling functions
     window.formatDateTime = function(dateString, options = {}) {
@@ -533,7 +535,7 @@
                     $('#jobDetailsModal').modal('show');
                 },
                 error: function(xhr) {
-                    alert('Error loading job details');
+                    toastr.error('Error loading job details: ' + (xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : xhr.statusText));
                 }
             });
         };

@@ -192,7 +192,14 @@
 @stop
 
 @section('css')
+@include('admin.partials.toastr-config')
 <style>
+    .anomaly-badge {
+        font-size: 0.8em;
+        padding: 0.25em 0.6em;
+        border-radius: 0.25rem;
+    }
+
     .table td {
         vertical-align: middle;
     }
@@ -208,6 +215,7 @@
 @stop
 
 @section('js')
+@include('admin.partials.toastr-config')
 <script>
     // Global timezone handling functions
     window.formatDateTime = function(dateString, options = {}) {
@@ -439,7 +447,7 @@
                     $('#buildingDetailsModal').modal('show');
                 },
                 error: function(xhr) {
-                    alert('Failed to load building details: ' + (xhr.responseJSON?.message || 'Unknown error'));
+                    toastr.error('Failed to load building details: ' + (xhr.responseJSON?.message || 'Unknown error'));
                 }
             });
         };

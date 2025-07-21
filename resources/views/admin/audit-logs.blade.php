@@ -7,7 +7,7 @@
     <h1>
         <i class="fas fa-history text-primary"></i>
         Audit Logs
-        <small class="text-muted">System activity monitoring</small>
+        <small class="text-muted">System activity and change tracking</small>
     </h1>
     <button id="viewStats" class="btn btn-outline-info" data-toggle="modal" data-target="#statsModal">
         <i class="fas fa-chart-bar"></i> Statistics
@@ -136,11 +136,12 @@
 @stop
 
 @section('css')
+@include('admin.partials.toastr-config')
 <style>
     .action-badge {
-        font-size: 0.7em;
-        padding: 0.2em 0.5em;
-        border-radius: 0.2rem;
+        font-size: 0.8em;
+        padding: 0.25em 0.6em;
+        border-radius: 0.25rem;
     }
 
     .table td {
@@ -173,18 +174,18 @@
         background-color: #f8f9fa;
         border: 1px solid #dee2e6;
         border-radius: 0.25rem;
-        padding: 1rem;
-        margin-bottom: 1rem;
+        padding: 0.75rem;
         font-family: 'Courier New', monospace;
-        font-size: 0.9em;
-        white-space: pre-wrap;
-        max-height: 300px;
+        font-size: 0.875rem;
+        max-height: 200px;
         overflow-y: auto;
+        white-space: pre-wrap;
     }
 </style>
 @stop
 
 @section('js')
+@include('admin.partials.toastr-config')
 <script>
     // Global timezone handling functions
     window.formatDateTime = function(dateString, options = {}) {
@@ -601,26 +602,10 @@ ${log.new_values ? JSON.stringify(log.new_values, null, 2) : 'None'}
                     $('#auditLogDetailsModal').modal('show');
                 },
                 error: function(xhr) {
-                    showAlert('danger', 'Error loading audit log details');
+                    toastr.error('Error loading audit log details');
                 }
             });
         };
-
-        function showAlert(type, message) {
-            const alertHtml = `
-            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        `;
-            $('.content-header').after(alertHtml);
-
-            setTimeout(function() {
-                $('.alert').alert('close');
-            }, 5000);
-        }
     });
 </script>
 @stop

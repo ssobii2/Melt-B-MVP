@@ -331,6 +331,7 @@
 @stop
 
 @section('css')
+@include('admin.partials.toastr-config')
 <style>
     .data-type-badge {
         font-size: 0.8em;
@@ -356,6 +357,7 @@
 @stop
 
 @section('js')
+@include('admin.partials.toastr-config')
 <script>
     // Global timezone handling functions
     window.formatDateTime = function(dateString, options = {}) {
@@ -700,7 +702,7 @@
                     $('#createDatasetModal').modal('hide');
                     $('#createDatasetForm')[0].reset();
                     loadDatasets();
-                    showAlert('success', 'Dataset created successfully!');
+                    toastr.success('Dataset created successfully!');
                 },
                 error: function(xhr) {
                     const errors = xhr.responseJSON?.errors;
@@ -709,9 +711,9 @@
                         Object.keys(errors).forEach(key => {
                             errorMessage += `• ${errors[key][0]}<br>`;
                         });
-                        showModalAlert('createDatasetModal', 'danger', errorMessage);
+                        toastr.error(errorMessage);
                     } else {
-                        showModalAlert('createDatasetModal', 'danger', xhr.responseJSON?.message || 'Error creating dataset');
+                        toastr.error(xhr.responseJSON?.message || 'Error creating dataset');
                     }
                 }
             });
@@ -808,7 +810,7 @@
         };
 
         window.deleteDataset = function(datasetId, datasetName) {
-            if (confirm(`Are you sure you want to delete dataset "${datasetName}"?`)) {
+            showDeleteConfirm(datasetName, function() {
                 $.ajax({
                     url: `/api/admin/datasets/${datasetId}`,
                     method: 'DELETE',
@@ -818,13 +820,13 @@
                     },
                     success: function(response) {
                         loadDatasets();
-                        showAlert('success', 'Dataset deleted successfully!');
+                        toastr.success('Dataset deleted successfully!');
                     },
                     error: function(xhr) {
-                        showAlert('danger', xhr.responseJSON?.message || 'Error deleting dataset');
+                        toastr.error(xhr.responseJSON?.message || 'Error deleting dataset');
                     }
                 });
-            }
+            });
         };
 
         // Edit dataset form
@@ -857,7 +859,7 @@
                 success: function(response) {
                     $('#editDatasetModal').modal('hide');
                     loadDatasets();
-                    showAlert('success', 'Dataset updated successfully!');
+                    toastr.success('Dataset updated successfully!');
                 },
                 error: function(xhr) {
                     const errors = xhr.responseJSON?.errors;
@@ -866,50 +868,13 @@
                         Object.keys(errors).forEach(key => {
                             errorMessage += `• ${errors[key][0]}<br>`;
                         });
-                        showModalAlert('editDatasetModal', 'danger', errorMessage);
+                        toastr.error(errorMessage);
                     } else {
-                        showModalAlert('editDatasetModal', 'danger', xhr.responseJSON?.message || 'Error updating dataset');
+                        toastr.error(xhr.responseJSON?.message || 'Error updating dataset');
                     }
                 }
             });
         });
-
-        function showAlert(type, message) {
-            const alertHtml = `
-            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        `;
-            $('.content-header').after(alertHtml);
-
-            // Auto-hide after 5 seconds
-            setTimeout(function() {
-                $('.alert').alert('close');
-            }, 5000);
-        }
-
-        function showModalAlert(modalId, type, message) {
-            // Remove existing alerts in this modal
-            $(`#${modalId} .modal-alert`).remove();
-
-            const alertHtml = `
-            <div class="alert alert-${type} alert-dismissible fade show modal-alert" role="alert">
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        `;
-            $(`#${modalId} .modal-body`).prepend(alertHtml);
-
-            // Auto-dismiss after 8 seconds
-            setTimeout(function() {
-                $(`#${modalId} .modal-alert`).alert('close');
-            }, 8000);
-        }
     });
 </script>
 @stop

@@ -7,10 +7,10 @@
     <h1>
         <i class="fas fa-users text-primary"></i>
         User Management
-        <small class="text-muted">Manage system users and roles</small>
+        <small class="text-muted">Manage system users and their access</small>
     </h1>
     <button class="btn btn-primary" data-toggle="modal" data-target="#createUserModal">
-        <i class="fas fa-user-plus"></i> Add New User
+        <i class="fas fa-plus"></i> Add New User
     </button>
 </div>
 @stop
@@ -350,8 +350,9 @@
 @stop
 
 @section('css')
+@include('admin.partials.toastr-config')
 <style>
-    .role-badge {
+    .user-role-badge {
         font-size: 0.8em;
         padding: 0.25em 0.6em;
         border-radius: 0.25rem;
@@ -368,6 +369,7 @@
 @stop
 
 @section('js')
+@include('admin.partials.toastr-config')
 <script>
     // Global timezone handling functions
     window.formatDateTime = function(dateString, options = {}) {
@@ -562,7 +564,7 @@
                     $('#createUserModal').modal('hide');
                     $('#createUserForm')[0].reset();
                     loadUsers();
-                    showAlert('success', 'User created successfully!');
+                    toastr.success('User created successfully!');
                 },
                 error: function(xhr) {
                     const errors = xhr.responseJSON?.errors;
@@ -571,9 +573,9 @@
                         Object.keys(errors).forEach(key => {
                             errorMessage += `- ${errors[key][0]}\n`;
                         });
-                        showAlert('danger', errorMessage);
+                        toastr.error(errorMessage);
                     } else {
-                        showAlert('danger', 'Error creating user');
+                        toastr.error('Error creating user');
                     }
                 }
             });
@@ -693,7 +695,7 @@
         };
 
         window.deleteUser = function(userId, userName) {
-            if (confirm(`Are you sure you want to delete user "${userName}"?`)) {
+            showDeleteConfirm(userName, function() {
                 $.ajax({
                     url: `/api/admin/users/${userId}`,
                     method: 'DELETE',
@@ -703,13 +705,13 @@
                     },
                     success: function(response) {
                         loadUsers();
-                        showAlert('success', 'User deleted successfully!');
+                        toastr.success('User deleted successfully!');
                     },
                     error: function(xhr) {
-                        showAlert('danger', xhr.responseJSON?.message || 'Error deleting user');
+                        toastr.error(xhr.responseJSON?.message || 'Error deleting user');
                     }
                 });
-            }
+            });
         };
 
         // Edit user form
@@ -743,7 +745,7 @@
                 success: function(response) {
                     $('#editUserModal').modal('hide');
                     loadUsers();
-                    showAlert('success', 'User updated successfully!');
+                    toastr.success('User updated successfully!');
                 },
                 error: function(xhr) {
                     const errors = xhr.responseJSON?.errors;
@@ -752,50 +754,13 @@
                         Object.keys(errors).forEach(key => {
                             errorMessage += `• ${errors[key][0]}<br>`;
                         });
-                        showModalAlert('editUserModal', 'danger', errorMessage);
+                        toastr.error(errorMessage);
                     } else {
-                        showModalAlert('editUserModal', 'danger', 'Error updating user');
+                        toastr.error('Error updating user');
                     }
                 }
             });
         });
-
-        function showAlert(type, message) {
-            const alertHtml = `
-            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        `;
-            $('.content-header').after(alertHtml);
-
-            // Auto-hide after 5 seconds
-            setTimeout(function() {
-                $('.alert').alert('close');
-            }, 5000);
-        }
-
-        function showModalAlert(modalId, type, message) {
-            // Remove any existing alerts in the modal
-            $(`#${modalId} .modal-alert`).remove();
-
-            const alertHtml = `
-            <div class="alert alert-${type} alert-dismissible fade show modal-alert" role="alert">
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        `;
-            $(`#${modalId} .modal-body`).prepend(alertHtml);
-
-            // Auto-hide after 8 seconds
-            setTimeout(function() {
-                $(`#${modalId} .modal-alert`).alert('close');
-            }, 8000);
-        }
 
         // User entitlement management functions
         window.manageUserEntitlements = function(userId) {
@@ -887,7 +852,7 @@
             const entitlementId = $('#availableEntitlements').val();
 
             if (!entitlementId) {
-                showModalAlert('userEntitlementsModal', 'warning', 'Please select an entitlement to assign.');
+                toastr.warning('Please select an entitlement to assign.');
                 return;
             }
 
@@ -899,19 +864,19 @@
                     'Accept': 'application/json'
                 },
                 success: function(response) {
-                    showAlert('success', 'Entitlement assigned successfully!');
+                    toastr.success('Entitlement assigned successfully!');
                     loadAvailableEntitlements(userId);
                     loadCurrentUserEntitlements(userId);
                     loadUsers(); // Refresh the main table
                 },
                 error: function(xhr) {
-                    showAlert('danger', xhr.responseJSON?.message || 'Error assigning entitlement');
+                    toastr.error(xhr.responseJSON?.message || 'Error assigning entitlement');
                 }
             });
         };
 
         window.removeUserEntitlement = function(userId, entitlementId) {
-            if (confirm('Are you sure you want to remove this entitlement from the user?')) {
+            showRemoveConfirm('this entitlement from the user', function() {
                 $.ajax({
                     url: `/api/admin/users/${userId}/entitlements/${entitlementId}`,
                     method: 'DELETE',
@@ -920,7 +885,7 @@
                         'Accept': 'application/json'
                     },
                     success: function(response) {
-                        showAlert('success', 'Entitlement removed successfully!');
+                        toastr.success('Entitlement removed successfully!');
                         loadUsers(); // Refresh the main table
 
                         // If user details modal is open, refresh it
@@ -929,14 +894,14 @@
                         }
                     },
                     error: function(xhr) {
-                        showAlert('danger', xhr.responseJSON?.message || 'Error removing entitlement');
+                        toastr.error(xhr.responseJSON?.message || 'Error removing entitlement');
                     }
                 });
-            }
+            });
         };
 
         window.removeUserEntitlementFromModal = function(userId, entitlementId) {
-            if (confirm('Are you sure you want to remove this entitlement from the user?')) {
+            showRemoveConfirm('this entitlement from the user', function() {
                 $.ajax({
                     url: `/api/admin/users/${userId}/entitlements/${entitlementId}`,
                     method: 'DELETE',
@@ -945,16 +910,16 @@
                         'Accept': 'application/json'
                     },
                     success: function(response) {
-                        showAlert('success', 'Entitlement removed successfully!');
+                        toastr.success('Entitlement removed successfully!');
                         loadAvailableEntitlements(userId);
                         loadCurrentUserEntitlements(userId);
                         loadUsers(); // Refresh the main table
                     },
                     error: function(xhr) {
-                        showAlert('danger', xhr.responseJSON?.message || 'Error removing entitlement');
+                        toastr.error(xhr.responseJSON?.message || 'Error removing entitlement');
                     }
                 });
-            }
+            });
         };
     });
 </script>
