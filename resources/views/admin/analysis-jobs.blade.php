@@ -1,4 +1,4 @@
-@extends('adminlte::page')
+@extends('admin.layouts.app')
 
 @section('title', 'Analysis Jobs - MELT-B Admin')
 
@@ -190,39 +190,9 @@
 </div>
 @stop
 
-@section('css')
-@include('admin.partials.toastr-config')
-<style>
-    .table td {
-        vertical-align: middle;
-    }
 
-    .pagination {
-        justify-content: center;
-    }
 
-    .badge {
-        font-size: 0.8em;
-    }
-
-    .input-source-cell {
-        max-width: 150px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .metadata-content {
-        max-height: 200px;
-        overflow-y: auto;
-        font-family: monospace;
-        font-size: 0.9em;
-    }
-</style>
-@stop
-
-@section('js')
-@include('admin.partials.toastr-config')
+@push('js')
 <script>
     // Global timezone handling functions
     window.formatDateTime = function(dateString, options = {}) {
@@ -372,7 +342,7 @@
                     <td><strong>#${job.id}</strong></td>
                     <td>${statusBadge}</td>
                     <td><code>${job.external_job_id || 'N/A'}</code></td>
-                    <td class="input-source-cell" title="${inputSource}">${truncatedInput}</td>
+                    <td class="text-truncate" style="max-width: 150px;" title="${inputSource}">${truncatedInput}</td>
                     <td>${outputCsv}</td>
                     <td><small>${formatDateTime(job.started_at)}</small></td>
                     <td><small>${formatDateTime(job.completed_at)}</small></td>
@@ -519,7 +489,7 @@
                     
                     // Metadata
                     if (job.metadata) {
-                        $('#detailMetadata').html(`<pre class="metadata-content">${JSON.stringify(job.metadata, null, 2)}</pre>`);
+                        $('#detailMetadata').html(`<pre class="font-monospace small" style="max-height: 200px; overflow-y: auto;">${JSON.stringify(job.metadata, null, 2)}</pre>`);
                     } else {
                         $('#detailMetadata').html('<small class="text-muted">No metadata available</small>');
                     }
@@ -541,4 +511,4 @@
         };
     });
 </script>
-@stop
+@endpush

@@ -1,4 +1,4 @@
-@extends('adminlte::page')
+@extends('admin.layouts.app')
 
 @section('title', 'Dataset Management - MELT-B Admin')
 
@@ -330,34 +330,7 @@
 </div>
 @stop
 
-@section('css')
-@include('admin.partials.toastr-config')
-<style>
-    .data-type-badge {
-        font-size: 0.8em;
-        padding: 0.25em 0.6em;
-        border-radius: 0.25rem;
-    }
-
-    .table td {
-        vertical-align: middle;
-    }
-
-    .pagination {
-        justify-content: center;
-    }
-
-    .description-cell {
-        max-width: 200px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-</style>
-@stop
-
-@section('js')
-@include('admin.partials.toastr-config')
+@push('js')
 <script>
     // Global timezone handling functions
     window.formatDateTime = function(dateString, options = {}) {
@@ -539,7 +512,7 @@
                 <tr>
                     <td><strong>${dataset.name}</strong></td>
                     <td><span class="badge badge-${dataTypeColor}">${formatDataType(dataset.data_type)}</span></td>
-                    <td class="description-cell" title="${description}">${truncatedDescription}</td>
+                    <td class="text-truncate" style="max-width: 200px;" title="${description}">${truncatedDescription}</td>
                     <td><span class="badge badge-info">${entitlementsCount}</span></td>
                     <td><small>${formatDate(dataset.created_at)}</small></td>
                     <td>
@@ -877,4 +850,4 @@
         });
     });
 </script>
-@stop
+@endpush

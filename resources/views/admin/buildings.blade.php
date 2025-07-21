@@ -1,4 +1,4 @@
-@extends('adminlte::page')
+@extends('admin.layouts.app')
 
 @section('title', 'Buildings View - MELT-B Admin')
 
@@ -191,31 +191,7 @@
 </div>
 @stop
 
-@section('css')
-@include('admin.partials.toastr-config')
-<style>
-    .anomaly-badge {
-        font-size: 0.8em;
-        padding: 0.25em 0.6em;
-        border-radius: 0.25rem;
-    }
-
-    .table td {
-        vertical-align: middle;
-    }
-
-    .pagination {
-        justify-content: center;
-    }
-
-    .badge {
-        font-size: 0.8em;
-    }
-</style>
-@stop
-
-@section('js')
-@include('admin.partials.toastr-config')
+@push('js')
 <script>
     // Global timezone handling functions
     window.formatDateTime = function(dateString, options = {}) {
@@ -468,4 +444,4 @@
         }
     });
 </script>
-@stop
+@endpush

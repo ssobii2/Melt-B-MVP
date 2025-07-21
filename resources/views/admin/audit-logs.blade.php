@@ -1,4 +1,4 @@
-@extends('adminlte::page')
+@extends('admin.layouts.app')
 
 @section('title', 'Audit Logs - MELT-B Admin')
 
@@ -135,57 +135,9 @@
 </div>
 @stop
 
-@section('css')
-@include('admin.partials.toastr-config')
-<style>
-    .action-badge {
-        font-size: 0.8em;
-        padding: 0.25em 0.6em;
-        border-radius: 0.25rem;
-    }
 
-    .table td {
-        vertical-align: middle;
-    }
 
-    .table-sm td {
-        padding: 0.3rem;
-    }
-
-    .pagination {
-        justify-content: center;
-    }
-
-    .user-agent-cell {
-        max-width: 150px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .target-cell {
-        max-width: 100px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .json-container {
-        background-color: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 0.25rem;
-        padding: 0.75rem;
-        font-family: 'Courier New', monospace;
-        font-size: 0.875rem;
-        max-height: 200px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-    }
-</style>
-@stop
-
-@section('js')
-@include('admin.partials.toastr-config')
+@push('js')
 <script>
     // Global timezone handling functions
     window.formatDateTime = function(dateString, options = {}) {
@@ -383,15 +335,15 @@
                         ${userEmail ? `<br><small class="text-muted">${userEmail}</small>` : ''}
                     </td>
                     <td>
-                        <span class="badge action-badge badge-${actionColor}">${formattedAction}</span>
+                        <span class="badge badge-${actionColor}">${formattedAction}</span>
                     </td>
-                    <td class="target-cell" title="${targetInfo.full}">
+                    <td class="text-truncate" style="max-width: 100px;" title="${targetInfo.full}">
                         ${targetInfo.short}
                     </td>
                     <td>
                         <small>${log.ip_address || 'N/A'}</small>
                     </td>
-                    <td class="user-agent-cell" title="${log.user_agent || 'N/A'}">
+                    <td class="text-truncate" style="max-width: 150px;" title="${log.user_agent || 'N/A'}">
                         <small>${userAgentShort}</small>
                     </td>
                     <td>
@@ -572,7 +524,7 @@
                         </div>
                         <div class="col-md-6">
                             <h5>User Agent</h5>
-                            <div class="json-container">
+                            <div class="bg-light border rounded p-3 font-monospace small" style="max-height: 200px; overflow-y: auto; white-space: pre-wrap;">
 ${log.user_agent || 'N/A'}
                             </div>
                         </div>
@@ -584,13 +536,13 @@ ${log.user_agent || 'N/A'}
                         <div class="row">
                             <div class="col-md-6">
                                 <h5>Old Values</h5>
-                                <div class="json-container">
+                                <div class="bg-light border rounded p-3 font-monospace small" style="max-height: 200px; overflow-y: auto; white-space: pre-wrap;">
 ${log.old_values ? JSON.stringify(log.old_values, null, 2) : 'None'}
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <h5>New Values</h5>
-                                <div class="json-container">
+                                <div class="bg-light border rounded p-3 font-monospace small" style="max-height: 200px; overflow-y: auto; white-space: pre-wrap;">
 ${log.new_values ? JSON.stringify(log.new_values, null, 2) : 'None'}
                                 </div>
                             </div>
@@ -608,4 +560,4 @@ ${log.new_values ? JSON.stringify(log.new_values, null, 2) : 'None'}
         };
     });
 </script>
-@stop
+@endpush
