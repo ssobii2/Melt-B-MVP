@@ -26,7 +26,7 @@ Core responsibilities:
 
 • Laravel 11 (API-only)  
 • React 18 + Vite  
-• PostgreSQL 16 + PostGIS 3  
+• PostgreSQL 16 + PostGIS 3.4+  
 • Laravel Sanctum (session & token auth)  
 • AdminLTE 3 (Blade-based admin)  
 • MapLibre GL for map rendering
@@ -54,7 +54,7 @@ Prerequisites: **PHP ≥ 8.3**, **Composer**, **Node.js ≥ 20**, **PostgreSQL +
 
 ```bash
 # 1. Clone & install PHP deps
-git clone <repo> melt-b && cd melt-b
+git clone https://github.com/ssobii2/Melt-B-MVP.git melt-b && cd melt-b
 composer install
 
 # 2. Environment & key
@@ -72,7 +72,7 @@ npm run dev
 php artisan serve  # http://127.0.0.1:8000
 ```
 
-Login with the seeded **admin** account (`admin@example.com` / `password`) and change credentials immediately.
+After seeding, an admin account will be created. Check the database seeder files for the default credentials and **change them immediately** for security.
 
 ---
 

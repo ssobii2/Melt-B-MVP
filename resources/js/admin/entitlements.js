@@ -3,6 +3,12 @@ window.formatDateTime = function(dateString, options = {}) {
     if (!dateString) return 'Never';
 
     const date = new Date(dateString);
+    // Validate if the parsed date is valid
+    if (isNaN(date.getTime())) {
+        console.warn('Invalid date string provided:', dateString);
+        return 'Invalid Date';
+    }
+    
     const defaultOptions = {
         year: 'numeric',
         month: 'short',
@@ -22,6 +28,12 @@ window.formatDate = function(dateString, options = {}) {
     if (!dateString) return 'Never';
 
     const date = new Date(dateString);
+    // Validate if the parsed date is valid
+    if (isNaN(date.getTime())) {
+        console.warn('Invalid date string provided:', dateString);
+        return 'Invalid Date';
+    }
+    
     const defaultOptions = {
         year: 'numeric',
         month: 'short',
@@ -38,6 +50,12 @@ window.formatDateTimeForInput = function(dateString) {
     if (!dateString) return '';
 
     const date = new Date(dateString);
+    // Validate if the parsed date is valid
+    if (isNaN(date.getTime())) {
+        console.warn('Invalid date string provided:', dateString);
+        return '';
+    }
+    
     // Convert to local time for datetime-local input
     const offset = date.getTimezoneOffset();
     const localDate = new Date(date.getTime() - (offset * 60 * 1000));
@@ -49,6 +67,12 @@ window.parseDateTimeFromInput = function(inputValue) {
 
     // Parse the datetime-local input and convert to UTC for server
     const localDate = new Date(inputValue);
+    // Validate if the parsed date is valid
+    if (isNaN(localDate.getTime())) {
+        console.warn('Invalid date input provided:', inputValue);
+        return null;
+    }
+    
     return localDate.toISOString();
 };
 
@@ -436,11 +460,16 @@ $(document).ready(function() {
         coordinates.forEach(coord => {
             if (Array.isArray(coord) && coord.length >= 2) {
                 const [lng, lat] = coord;
-                if (!isNaN(lng) && !isNaN(lat)) {
+                // Validate coordinate ranges: latitude [-90, 90], longitude [-180, 180]
+                if (!isNaN(lng) && !isNaN(lat) && 
+                    lat >= -90 && lat <= 90 && 
+                    lng >= -180 && lng <= 180) {
                     minLat = Math.min(minLat, lat);
                     maxLat = Math.max(maxLat, lat);
                     minLng = Math.min(minLng, lng);
                     maxLng = Math.max(maxLng, lng);
+                } else if (!isNaN(lng) && !isNaN(lat)) {
+                    console.warn('Invalid coordinate values detected:', { lng, lat });
                 }
             }
         });
@@ -1034,7 +1063,7 @@ $(document).ready(function() {
         }
 
         // Handle type-specific fields
-        if (entitlementType === 'DS-AOI') {
+        if (formData.type === 'DS-AOI') {
             const aoiCoordinatesText = $('#createAoiCoordinates').val().trim();
             if (aoiCoordinatesText) {
                 try {
@@ -1055,7 +1084,7 @@ $(document).ready(function() {
                 });
                 return;
             }
-        } else if (entitlementType === 'DS-BLD') {
+        } else if (formData.type === 'DS-BLD') {
             const buildingGidsText = $('#createBuildingGids').val().trim();
             if (buildingGidsText) {
                 try {

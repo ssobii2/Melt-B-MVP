@@ -102,7 +102,15 @@ class DatasetController extends Controller
     #[Response(404, 'Dataset not found', ['message' => 'Dataset not found'])]
     public function show(string $id): JsonResponse
     {
-        $dataset = Dataset::with(['entitlements.users'])
+        // Optimize query to prevent N+1 issues and limit data loading
+        $dataset = Dataset::with([
+                'entitlements' => function ($query) {
+                    // Only load essential entitlement fields
+                    $query->select('id', 'type', 'dataset_id', 'expires_at')
+                          ->with(['users:id,name,email']) // Only load essential user fields
+                          ->limit(100); // Prevent loading too many entitlements at once
+                }
+            ])
             ->withCount('entitlements')
             ->find($id);
 

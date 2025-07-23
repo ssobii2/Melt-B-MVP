@@ -185,7 +185,8 @@
                             </div>
                             <div class="card-body">
                                 <div class="row">
-                                    <div class="col-md-6">                                        <div class="form-group">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
                                             <label for="createBuildingDataset">Filter by Dataset</label>
                                             <select class="form-control" id="createBuildingDataset">
                                                 <option value="">All Datasets</option>
@@ -362,6 +363,9 @@
                                                 <!-- Populated dynamically -->
                                             </select>
                                         </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <!-- Additional column for future use -->
                                     </div>
                                 </div>
                                 
