@@ -15,7 +15,8 @@ export default defineConfig({
                 'resources/js/admin/buildings.js',
                 'resources/js/admin/audit-logs.js',
                 'resources/js/admin/analysis-jobs.js',
-                'resources/js/admin/entitlements.js'
+                'resources/js/admin/entitlements.js',
+                'resources/js/admin/aoi-map-editor.js',
             ],
             refresh: true,
         }),

@@ -147,43 +147,30 @@
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <!-- Bounding Box Method -->
-                                <div id="createAoiBounds">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="createNorthBound">North Latitude <span class="text-danger">*</span></label>
-                                                <input type="number" class="form-control" id="createNorthBound" step="0.000001" placeholder="48.8566">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="createSouthBound">South Latitude <span class="text-danger">*</span></label>
-                                                <input type="number" class="form-control" id="createSouthBound" step="0.000001" placeholder="48.8466">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="createEastBound">East Longitude <span class="text-danger">*</span></label>
-                                                <input type="number" class="form-control" id="createEastBound" step="0.000001" placeholder="2.3522">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="createWestBound">West Longitude <span class="text-danger">*</span></label>
-                                                <input type="number" class="form-control" id="createWestBound" step="0.000001" placeholder="2.3422">
-                                            </div>
+                                <!-- Interactive Map Editor -->
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="mb-0">Draw Area of Interest <span class="text-danger">*</span></label>
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" id="drawRectangleBtn" class="btn btn-outline-primary" onclick="startDrawingRectangle('create')">
+                                                <i class="fas fa-square"></i> Draw Rectangle
+                                            </button>
+                                            <button type="button" id="clearAOIBtn" class="btn btn-outline-danger" onclick="clearAOI('create')" disabled>
+                                                <i class="fas fa-trash"></i> Clear
+                                            </button>
                                         </div>
                                     </div>
-                                    <div class="bg-light p-3 rounded mb-3">
-                                        <button type="button" class="btn btn-info btn-sm" onclick="generatePolygonFromBounds('create')">
-                                            <i class="fas fa-magic"></i> Generate Polygon from Bounds
-                                        </button>
-                                        <small class="form-text text-muted d-block mt-2">Enter the bounding box coordinates and click the button to generate polygon coordinates automatically.</small>
-                                    </div>
-                                    <!-- Hidden field to store generated coordinates -->
-                                    <input type="hidden" id="createAoiCoordinates" name="aoi_coordinates">
+                                    <div id="createAoiMap" style="height: 400px; border: 1px solid #dee2e6; border-radius: 0.25rem;"></div>
+                                    <small class="form-text text-muted mt-2">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Use the drawing tool above to create your Area of Interest. 
+                                        <strong>Rectangle:</strong> Click twice to define opposite corners.
+                                        Existing AOIs are shown in blue for reference.
+                                    </small>
                                 </div>
+                                
+                                <!-- Hidden field to store generated coordinates -->
+                                <input type="hidden" id="createAoiCoordinates" name="aoi_coordinates">
                             </div>
                         </div>
                     </div>
@@ -253,7 +240,7 @@
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="createDownloadFormats">Download Formats</label>
-                                <div class="d-flex flex-wrap gap-2">
+                                <div class="gap-2">
                                     <div class="form-check">
                                         <input type="checkbox" class="form-check-input" id="csv" value="csv" name="download_formats[]">
                                         <label class="form-check-label" for="csv">CSV</label>
@@ -332,43 +319,30 @@
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <!-- Bounding Box Method -->
-                                <div id="editAoiBounds">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="editNorthBound">North Latitude <span class="text-danger">*</span></label>
-                                                <input type="number" class="form-control" id="editNorthBound" step="0.000001">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="editSouthBound">South Latitude <span class="text-danger">*</span></label>
-                                                <input type="number" class="form-control" id="editSouthBound" step="0.000001">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="editEastBound">East Longitude <span class="text-danger">*</span></label>
-                                                <input type="number" class="form-control" id="editEastBound" step="0.000001">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="editWestBound">West Longitude <span class="text-danger">*</span></label>
-                                                <input type="number" class="form-control" id="editWestBound" step="0.000001">
-                                            </div>
+                                <!-- Interactive Map Editor -->
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="mb-0">Draw Area of Interest <span class="text-danger">*</span></label>
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" id="editDrawRectangleBtn" class="btn btn-outline-primary" onclick="startDrawingRectangle('edit')">
+                                                <i class="fas fa-square"></i> Draw Rectangle
+                                            </button>
+                                            <button type="button" id="editClearAOIBtn" class="btn btn-outline-danger" onclick="clearAOI('edit')" disabled>
+                                                <i class="fas fa-trash"></i> Clear
+                                            </button>
                                         </div>
                                     </div>
-                                    <div class="bg-light p-3 rounded mb-3">
-                                        <button type="button" class="btn btn-info btn-sm" onclick="generatePolygonFromBounds('edit')">
-                                            <i class="fas fa-magic"></i> Generate Polygon from Bounds
-                                        </button>
-                                        <small class="form-text text-muted d-block mt-2">Enter the bounding box coordinates and click the button to generate polygon coordinates automatically.</small>
-                                    </div>
-                                    <!-- Hidden field to store generated coordinates -->
-                                    <input type="hidden" id="editAoiCoordinates" name="aoi_coordinates">
+                                    <div id="editAoiMap" style="height: 400px; border: 1px solid #dee2e6; border-radius: 0.25rem;"></div>
+                                    <small class="form-text text-muted mt-2">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Use the drawing tool above to modify your Area of Interest. 
+                                        <strong>Rectangle:</strong> Click twice to define opposite corners.
+                                        Existing AOIs are shown in blue for reference.
+                                    </small>
                                 </div>
+                                
+                                <!-- Hidden field to store generated coordinates -->
+                                <input type="hidden" id="editAoiCoordinates" name="aoi_coordinates">
                             </div>
                         </div>
                     </div>
@@ -439,7 +413,7 @@
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label>Download Formats</label>
-                                <div class="d-flex flex-wrap gap-2" id="editDownloadFormats">
+                                <div class="gap-2" id="editDownloadFormats">
                                     <div class="form-check">
                                         <input type="checkbox" class="form-check-input" id="editCsv" value="csv" name="edit_download_formats[]">
                                         <label class="form-check-label" for="editCsv">CSV</label>
@@ -569,5 +543,5 @@
     // Set admin token for use in external JS file
     window.adminToken = '{{ session("admin_token") }}';
 </script>
-@vite(['resources/js/admin/entitlements.js'])
+@vite(['resources/js/admin/aoi-map-editor.js', 'resources/js/admin/entitlements.js'])
 @endpush

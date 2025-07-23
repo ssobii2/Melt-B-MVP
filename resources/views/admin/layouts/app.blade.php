@@ -4,6 +4,9 @@
     {{-- Include toastr and SweetAlert2 CSS --}}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
     
+    {{-- MapLibre GL JS CSS --}}
+    <link href="https://unpkg.com/maplibre-gl@^5.6.1/dist/maplibre-gl.css" rel="stylesheet" />
+    
     {{-- Additional CSS can be added here --}}
     @stack('css')
 @stop
@@ -12,6 +15,9 @@
     {{-- Include toastr and SweetAlert2 JS --}}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    {{-- MapLibre GL JS --}}
+    <script src="https://unpkg.com/maplibre-gl@^5.6.1/dist/maplibre-gl.js"></script>
     
     <script>
         // Configure Toastr with consistent settings across all admin pages
