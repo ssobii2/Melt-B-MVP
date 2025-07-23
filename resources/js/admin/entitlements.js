@@ -3,6 +3,12 @@ window.formatDateTime = function(dateString, options = {}) {
     if (!dateString) return 'Never';
 
     const date = new Date(dateString);
+    // Validate if the parsed date is valid
+    if (isNaN(date.getTime())) {
+        console.warn('Invalid date string provided:', dateString);
+        return 'Invalid Date';
+    }
+    
     const defaultOptions = {
         year: 'numeric',
         month: 'short',
@@ -22,6 +28,12 @@ window.formatDate = function(dateString, options = {}) {
     if (!dateString) return 'Never';
 
     const date = new Date(dateString);
+    // Validate if the parsed date is valid
+    if (isNaN(date.getTime())) {
+        console.warn('Invalid date string provided:', dateString);
+        return 'Invalid Date';
+    }
+    
     const defaultOptions = {
         year: 'numeric',
         month: 'short',
@@ -38,6 +50,12 @@ window.formatDateTimeForInput = function(dateString) {
     if (!dateString) return '';
 
     const date = new Date(dateString);
+    // Validate if the parsed date is valid
+    if (isNaN(date.getTime())) {
+        console.warn('Invalid date string provided:', dateString);
+        return '';
+    }
+    
     // Convert to local time for datetime-local input
     const offset = date.getTimezoneOffset();
     const localDate = new Date(date.getTime() - (offset * 60 * 1000));
@@ -49,6 +67,12 @@ window.parseDateTimeFromInput = function(inputValue) {
 
     // Parse the datetime-local input and convert to UTC for server
     const localDate = new Date(inputValue);
+    // Validate if the parsed date is valid
+    if (isNaN(localDate.getTime())) {
+        console.warn('Invalid date input provided:', inputValue);
+        return null;
+    }
+    
     return localDate.toISOString();
 };
 
@@ -378,7 +402,14 @@ $(document).ready(function() {
 
     // Toggle entitlement fields based on type
     window.toggleEntitlementFields = function(prefix) {
-        const type = $(`#${prefix}Type`).val();
+        let type;
+        if (prefix === 'edit') {
+            // For edit mode, get type from stored data attribute since field is readonly
+            type = $('#editEntitlementId').data('type') || $('#editType').val();
+        } else {
+            // For create mode, get type from the select field
+            type = $(`#${prefix}Type`).val();
+        }
         const aoiSection = $(`#${prefix}AoiSection`);
         const buildingSection = $(`#${prefix}BuildingSection`);
 
@@ -429,11 +460,16 @@ $(document).ready(function() {
         coordinates.forEach(coord => {
             if (Array.isArray(coord) && coord.length >= 2) {
                 const [lng, lat] = coord;
-                if (!isNaN(lng) && !isNaN(lat)) {
+                // Validate coordinate ranges: latitude [-90, 90], longitude [-180, 180]
+                if (!isNaN(lng) && !isNaN(lat) && 
+                    lat >= -90 && lat <= 90 && 
+                    lng >= -180 && lng <= 180) {
                     minLat = Math.min(minLat, lat);
                     maxLat = Math.max(maxLat, lat);
                     minLng = Math.min(minLng, lng);
                     maxLng = Math.max(maxLng, lng);
+                } else if (!isNaN(lng) && !isNaN(lat)) {
+                    console.warn('Invalid coordinate values detected:', { lng, lat });
                 }
             }
         });
@@ -703,8 +739,12 @@ $(document).ready(function() {
                     
                     resolve(response);
                 },
-                error: function(error) {
+                error: function(xhr, status, error) {
                     console.error('Error loading datasets:', error);
+                    const errorMessage = xhr.responseJSON?.message || 'Failed to load datasets';
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(errorMessage, 'Error');
+                    }
                     reject(error);
                 }
             });
@@ -763,8 +803,12 @@ $(document).ready(function() {
                 success: function(response) {
                     handleBuildingsResponse(response, prefix, page);
                 },
-                error: function(error) {
+                error: function(xhr, status, error) {
                     console.error('Error loading buildings:', error);
+                    const errorMessage = xhr.responseJSON?.message || 'Failed to load buildings';
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(errorMessage, 'Error');
+                    }
                     buildingList.html('<p class="text-danger text-center">Error loading buildings</p>');
                 }
             });
@@ -796,8 +840,12 @@ $(document).ready(function() {
                 success: function(response) {
                     handleBuildingsResponse(response, prefix, page);
                 },
-                error: function(error) {
+                error: function(xhr, status, error) {
                     console.error('Error loading buildings:', error);
+                    const errorMessage = xhr.responseJSON?.message || 'Failed to load buildings';
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(errorMessage, 'Error');
+                    }
                     buildingList.html('<p class="text-danger text-center">Error loading buildings</p>');
                 }
             });
@@ -1029,6 +1077,8 @@ $(document).ready(function() {
         // Handle type-specific fields
         if (formData.type === 'DS-AOI') {
             const aoiCoordinatesText = $('#createAoiCoordinates').val().trim();
+            
+            // Check if coordinates exist in the text field
             if (aoiCoordinatesText) {
                 try {
                     formData.aoi_coordinates = JSON.parse(aoiCoordinatesText);
@@ -1207,6 +1257,13 @@ $(document).ready(function() {
 
                 $('#entitlementDetailsContent').html(html);
                 $('#entitlementDetailsModal').modal('show');
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading entitlement details:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load entitlement details';
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage, 'Error');
+                }
             }
         });
     };
@@ -1222,8 +1279,15 @@ $(document).ready(function() {
             },
             success: function(response) {
                 const entitlement = response.entitlement;
-                $('#editEntitlementId').val(entitlement.id);
-                $('#editType').val(entitlement.type);
+                $('#editEntitlementId').val(entitlement.id).data('type', entitlement.type);
+                // Display type as readonly text with formatted label
+                const typeLabels = {
+                    'DS-ALL': 'DS-ALL (Full Dataset Access)',
+                    'DS-AOI': 'DS-AOI (Area of Interest)',
+                    'DS-BLD': 'DS-BLD (Specific Buildings)',
+                    'TILES': 'TILES'
+                };
+                $('#editType').val(typeLabels[entitlement.type] || entitlement.type);
                 $('#editDataset').val(entitlement.dataset_id);
 
                 // Handle type-specific fields
@@ -1308,6 +1372,13 @@ $(document).ready(function() {
                 $('#editExpiresAt').val(formatDateTimeForInput(entitlement.expires_at));
 
                 $('#editEntitlementModal').modal('show');
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading entitlement for editing:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load entitlement for editing';
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage, 'Error');
+                }
             }
         });
     };
@@ -1348,10 +1419,12 @@ $(document).ready(function() {
 
         const entitlementId = $('#editEntitlementId').val();
         const formData = {
-            type: $('#editType').val(),
             dataset_id: $('#editDataset').val(),
             expires_at: parseDateTimeFromInput($('#editExpiresAt').val())
         };
+        
+        // Get the actual entitlement type from the stored data (not from the readonly field)
+        const entitlementType = $('#editEntitlementId').data('type') || 'DS-ALL'; // fallback
 
         // Handle download formats
         const downloadFormats = [];
@@ -1363,7 +1436,7 @@ $(document).ready(function() {
         }
 
         // Handle type-specific fields
-        if (formData.type === 'DS-AOI') {
+        if (entitlementType === 'DS-AOI') {
             const aoiCoordinatesText = $('#editAoiCoordinates').val().trim();
             
             // Check if coordinates exist in the text field
@@ -1402,7 +1475,7 @@ $(document).ready(function() {
                     return;
                 }
             }
-        } else if (formData.type === 'DS-BLD') {
+        } else if (entitlementType === 'DS-BLD') {
             const buildingGidsText = $('#editBuildingGids').val().trim();
             if (buildingGidsText) {
                 try {
@@ -1512,8 +1585,22 @@ $(document).ready(function() {
                         });
 
                         $('#availableUsers').html(html);
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error loading entitlement users:', error);
+                        const errorMessage = xhr.responseJSON?.message || 'Failed to load entitlement users';
+                        if (typeof toastr !== 'undefined') {
+                            toastr.error(errorMessage, 'Error');
+                        }
                     }
                 });
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading available users:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load available users';
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage, 'Error');
+                }
             }
         });
     }
@@ -1551,6 +1638,13 @@ $(document).ready(function() {
                 }
 
                 $('#currentEntitlementUsers').html(html);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading current entitlement users:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load current entitlement users';
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage, 'Error');
+                }
             }
         });
     }

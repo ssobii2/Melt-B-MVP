@@ -262,6 +262,19 @@ class BuildingController extends Controller
         $east = $request->input('east');
         $west = $request->input('west');
 
+        // Validate coordinate relationships
+        if ($north <= $south) {
+            return response()->json([
+                'message' => 'Invalid bounding box: north coordinate must be greater than south coordinate'
+            ], 422);
+        }
+
+        if ($east <= $west) {
+            return response()->json([
+                'message' => 'Invalid bounding box: east coordinate must be greater than west coordinate'
+            ], 422);
+        }
+
         // Create bounding box polygon
         $bbox = "POLYGON(({$west} {$south}, {$east} {$south}, {$east} {$north}, {$west} {$north}, {$west} {$south}))";
 
@@ -527,6 +540,19 @@ class BuildingController extends Controller
         $south = $request->input('south');
         $east = $request->input('east');
         $west = $request->input('west');
+
+        // Validate coordinate relationships
+        if ($north <= $south) {
+            return response()->json([
+                'message' => 'Invalid bounding box: north coordinate must be greater than south coordinate'
+            ], 422);
+        }
+
+        if ($east <= $west) {
+            return response()->json([
+                'message' => 'Invalid bounding box: east coordinate must be greater than west coordinate'
+            ], 422);
+        }
 
         // Create bounding box polygon
         $bbox = "POLYGON(({$west} {$south}, {$east} {$south}, {$east} {$north}, {$west} {$north}, {$west} {$south}))";

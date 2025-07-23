@@ -110,16 +110,7 @@ export default function Downloads() {
     };
 
     const getDataTypeIcon = (dataType) => {
-        switch (dataType?.toLowerCase()) {
-            case 'building_data':
-                return <Database className="h-5 w-5 text-blue-600" />;
-            case 'thermal_analysis':
-                return <Map className="h-5 w-5 text-red-600" />;
-            case 'energy_performance':
-                return <FileText className="h-5 w-5 text-green-600" />;
-            default:
-                return <FileText className="h-5 w-5 text-gray-600" />;
-        }
+        return <FileText className="h-5 w-5 text-gray-600" />;
     };
 
     const formatDataType = (dataType) => {
@@ -174,21 +165,6 @@ export default function Downloads() {
                                     <p className="text-sm text-red-800">{error}</p>
                                 </div>
                             )}
-                            
-                            {/* Download Tips */}
-                            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                                <h3 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
-                                    <CheckCircle className="h-5 w-5" />
-                                    Download Tips
-                                </h3>
-                                <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-                                    <li>Files are compressed to reduce download time</li>
-                                    <li>Large datasets may take several minutes to prepare</li>
-                                    <li>Downloads will expire after 24 hours for security</li>
-                                    <li>Contact support if you encounter any issues</li>
-                                </ul>
-                            </div>
-
                             {entitlements.length === 0 ? (
                                 <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                                     <div className="px-6 py-4">

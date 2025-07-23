@@ -185,7 +185,8 @@
                             </div>
                             <div class="card-body">
                                 <div class="row">
-                                    <div class="col-md-6">                                        <div class="form-group">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
                                             <label for="createBuildingDataset">Filter by Dataset</label>
                                             <select class="form-control" id="createBuildingDataset">
                                                 <option value="">All Datasets</option>
@@ -293,11 +294,8 @@
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="editType">Entitlement Type <span class="text-danger">*</span></label>
-                                <select class="form-control" id="editType" name="type" required onchange="toggleEntitlementFields('edit')">
-                                    <option value="DS-ALL">DS-ALL (Full Dataset Access)</option>
-                                    <option value="DS-AOI">DS-AOI (Area of Interest)</option>
-                                    <option value="DS-BLD">DS-BLD (Specific Buildings)</option>
-                                </select>
+                                <input type="text" class="form-control" id="editType" name="type" readonly style="background-color: #f8f9fa; cursor: not-allowed;">
+                                <small class="text-muted">Entitlement type cannot be changed. Delete and create new entitlement to change type.</small>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -365,6 +363,9 @@
                                                 <!-- Populated dynamically -->
                                             </select>
                                         </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <!-- Additional column for future use -->
                                     </div>
                                 </div>
                                 

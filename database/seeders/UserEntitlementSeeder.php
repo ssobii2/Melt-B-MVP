@@ -17,6 +17,7 @@ class UserEntitlementSeeder extends Seeder
         $users = User::all();
         $entitlements = Entitlement::all();
         $datasets = \App\Models\Dataset::all()->keyBy('name');
+        $newAssignmentsCount = 0;
 
         if ($users->isEmpty()) {
             $this->command->warn('No users found. Please run UserSeeder first.');
@@ -70,15 +71,27 @@ class UserEntitlementSeeder extends Seeder
                     return $entitlement->expires_at === null || $entitlement->expires_at > now();
                 });
 
+                $userNewAssignments = 0;
                 foreach ($userEntitlements as $entitlement) {
-                    DB::table('user_entitlements')->insertOrIgnore([
-                        'user_id' => $user->id,
-                        'entitlement_id' => $entitlement->id,
-                        'created_at' => now(),
-                    ]);
+                    $exists = DB::table('user_entitlements')
+                        ->where('user_id', $user->id)
+                        ->where('entitlement_id', $entitlement->id)
+                        ->exists();
+
+                    if (!$exists) {
+                        DB::table('user_entitlements')->insert([
+                            'user_id' => $user->id,
+                            'entitlement_id' => $entitlement->id,
+                            'created_at' => now(),
+                        ]);
+                        $userNewAssignments++;
+                        $newAssignmentsCount++;
+                    }
                 }
 
-                $this->command->info("✅ Assigned ALL entitlements to {$user->name}");
+                if ($userNewAssignments > 0) {
+                    $this->command->info("✅ Assigned {$userNewAssignments} new entitlements to {$user->name}");
+                }
             } else {
                 // Assign specific entitlement types
                 foreach ($entitlementTypes as $spec) {
@@ -114,6 +127,7 @@ class UserEntitlementSeeder extends Seeder
                             });
                     }
 
+                    $userNewAssignments = 0;
                     foreach ($typeEntitlements as $entitlement) {
                         // Check if already assigned to avoid duplicates
                         $exists = DB::table('user_entitlements')
@@ -122,42 +136,43 @@ class UserEntitlementSeeder extends Seeder
                             ->exists();
 
                         if (!$exists) {
-                            DB::table('user_entitlements')->insertOrIgnore([
+                            DB::table('user_entitlements')->insert([
                                 'user_id' => $user->id,
                                 'entitlement_id' => $entitlement->id,
                                 'created_at' => now(),
                             ]);
+                            $userNewAssignments++;
+                            $newAssignmentsCount++;
                         }
                     }
                 }
 
-                $assignedCount = DB::table('user_entitlements')
-                    ->where('user_id', $user->id)
-                    ->count();
-
-                $this->command->info("✅ Assigned {$assignedCount} entitlements to {$user->name}");
+                if ($userNewAssignments > 0) {
+                    $this->command->info("✅ Assigned {$userNewAssignments} new entitlements to {$user->name}");
+                }
             }
         }
 
         // Summary
-        $totalAssignments = DB::table('user_entitlements')->count();
-        $this->command->info("🎉 Total user-entitlement assignments created: {$totalAssignments}");
+        $this->command->info("✅ Created {$newAssignmentsCount} new user-entitlement assignments (skipped existing)");
 
-        // Display assignment summary
-        $this->command->info("\n📊 Assignment Summary:");
-        foreach ($users as $user) {
-            $userEntitlements = DB::table('user_entitlements')
-                ->join('entitlements', 'user_entitlements.entitlement_id', '=', 'entitlements.id')
-                ->where('user_entitlements.user_id', $user->id)
-                ->select('entitlements.type')
-                ->get()
-                ->pluck('type')
-                ->unique()
-                ->values()
-                ->toArray();
+        // Only show assignment summary if there were new assignments
+        if ($newAssignmentsCount > 0) {
+            $this->command->info("\n📊 Assignment Summary:");
+            foreach ($users as $user) {
+                $userEntitlements = DB::table('user_entitlements')
+                    ->join('entitlements', 'user_entitlements.entitlement_id', '=', 'entitlements.id')
+                    ->where('user_entitlements.user_id', $user->id)
+                    ->select('entitlements.type')
+                    ->get()
+                    ->pluck('type')
+                    ->unique()
+                    ->values()
+                    ->toArray();
 
-            if (!empty($userEntitlements)) {
-                $this->command->line("  • {$user->name}: " . implode(', ', $userEntitlements));
+                if (!empty($userEntitlements)) {
+                    $this->command->line("  • {$user->name}: " . implode(', ', $userEntitlements));
+                }
             }
         }
     }

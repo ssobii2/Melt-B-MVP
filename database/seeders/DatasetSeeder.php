@@ -45,13 +45,14 @@ class DatasetSeeder extends Seeder
             ],
         ];
 
+        $createdCount = 0;
         foreach ($datasets as $dataset) {
-            Dataset::updateOrCreate(
-                ['name' => $dataset['name']], // Find by name
-                $dataset // Update or create with this data
-            );
+            if (!Dataset::where('name', $dataset['name'])->exists()) {
+                Dataset::create($dataset);
+                $createdCount++;
+            }
         }
 
-        $this->command->info('✅ Created/updated ' . count($datasets) . ' anomaly detection datasets');
+        $this->command->info('✅ Created ' . $createdCount . ' new datasets (skipped existing)');
     }
 }

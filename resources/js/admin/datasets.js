@@ -87,15 +87,7 @@ $(document).ready(function() {
             },
             error: function(xhr) {
                 console.error('Error loading data types:', xhr);
-                // Fallback to default options if API fails
-                const fallbackTypes = {
-                    'thermal_raster': 'Thermal Raster',
-                    'building_data': 'Building Data',
-                    'thermal_analysis': 'Thermal Analysis',
-                    'heat_map': 'Heat Map',
-                    'building_anomalies': 'Building Anomalies'
-                };
-                populateDataTypeDropdowns(fallbackTypes);
+                populateDataTypeDropdowns({});
             }
         });
     }
@@ -292,23 +284,11 @@ $(document).ready(function() {
 
     // Helper functions
     function getDataTypeColor(dataType) {
-        const colors = {
-            'thermal_raster': 'danger',
-            'building_data': 'success',
-            'thermal_analysis': 'warning',
-            'heat_map': 'info'
-        };
-        return colors[dataType] || 'secondary';
+        return 'secondary';
     }
 
     function formatDataType(dataType) {
-        const formatted = {
-            'thermal_raster': 'Thermal Raster',
-            'building_data': 'Building Data',
-            'thermal_analysis': 'Thermal Analysis',
-            'heat_map': 'Heat Map'
-        };
-        return formatted[dataType] || dataType;
+        return dataType.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
 
     // Create dataset form

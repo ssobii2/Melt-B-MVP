@@ -29,14 +29,14 @@ class DatasetController extends Controller
     #[Parameters([
         'per_page' => 'Number of datasets per page (default: 15)',
         'search' => 'Search term to filter by name or description',
-        'data_type' => 'Filter by data type (thermal_raster, building_data, etc.)'
+        'data_type' => 'Filter by data type'
     ])]
     #[Response(200, 'Paginated list of datasets', [
         'data' => [
             [
                 'id' => 1,
                 'name' => 'Thermal Dataset 2024',
-                'data_type' => 'thermal_raster',
+                'data_type' => 'building_anomalies',
                 'description' => 'Thermal imaging data for buildings',
                 'storage_location' => '/data/thermal/2024',
                 'version' => '1.0',
@@ -102,7 +102,15 @@ class DatasetController extends Controller
     #[Response(404, 'Dataset not found', ['message' => 'Dataset not found'])]
     public function show(string $id): JsonResponse
     {
-        $dataset = Dataset::with(['entitlements.users'])
+        // Optimize query to prevent N+1 issues and limit data loading
+        $dataset = Dataset::with([
+                'entitlements' => function ($query) {
+                    // Only load essential entitlement fields
+                    $query->select('id', 'type', 'dataset_id', 'expires_at')
+                          ->with(['users:id,name,email']) // Only load essential user fields
+                          ->limit(100); // Prevent loading too many entitlements at once
+                }
+            ])
             ->withCount('entitlements')
             ->find($id);
 
@@ -123,7 +131,7 @@ class DatasetController extends Controller
     #[Description('Create a new dataset with metadata information.')]
     #[RequestBody([
         'name' => 'string|required|Dataset name (must be unique)',
-        'data_type' => 'string|required|Type of data (thermal_raster, building_data, etc.)',
+        'data_type' => 'string|required|Type of data',
         'description' => 'string|optional|Dataset description',
         'storage_location' => 'string|required|Storage path or location',
         'version' => 'string|optional|Dataset version',
@@ -361,9 +369,7 @@ class DatasetController extends Controller
     #[Response(200, 'Dataset statistics', [
         'total_datasets' => 25,
         'by_data_type' => [
-            'thermal_raster' => 10,
-            'building_data' => 8,
-            'thermal_analysis' => 7
+            'building_anomalies' => 15
         ],
         'datasets_with_entitlements' => 18,
         'datasets_without_entitlements' => 7,
@@ -379,7 +385,7 @@ class DatasetController extends Controller
             [
                 'id' => 2,
                 'name' => 'Popular Dataset',
-                'data_type' => 'building_data',
+                'data_type' => 'building_anomalies',
                 'entitlements_count' => 15
             ]
         ]
@@ -427,17 +433,6 @@ class DatasetController extends Controller
             $dataTypes[$dataType] = $this->formatDataTypeLabel($dataType);
         }
         
-        // Add common data types if not present
-        $commonTypes = [
-            'building_anomalies' => 'Building Anomalies'
-        ];
-        
-        foreach ($commonTypes as $key => $label) {
-            if (!isset($dataTypes[$key])) {
-                $dataTypes[$key] = $label;
-            }
-        }
-
         return response()->json([
             'data_types' => $dataTypes
         ]);

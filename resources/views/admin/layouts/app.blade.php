@@ -116,17 +116,35 @@
         $(document).ajaxError(function(event, xhr, settings, thrownError) {
             // Handle 401 Unauthorized errors globally
             if (xhr.status === 401) {
-                // Automatically logout and redirect to admin login
-                $.ajax({
-                    url: '/admin/logout',
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                    },
-                    complete: function() {
-                        // Redirect to admin login regardless of logout response
-                        window.location.href = '/admin/login';
+                // Show confirmation dialog before logout to prevent session hijacking
+                Swal.fire({
+                    title: 'Session Expired',
+                    text: 'Your session has expired. You will be redirected to the login page.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Login Again',
+                    cancelButtonText: 'Stay Here',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // User confirmed logout
+                        $.ajax({
+                            url: '/admin/logout',
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                            },
+                            complete: function() {
+                                // Redirect to admin login
+                                window.location.href = '/admin/login';
+                            }
+                        });
                     }
+                    // If user cancels, they stay on the current page
+                    // but subsequent API calls may still fail
                 });
             }
             // Handle 403 Forbidden errors
