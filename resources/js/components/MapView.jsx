@@ -4,7 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { apiClient } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
-const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => {
+const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMapBoundsChange }) => {
     const { isAdmin } = useAuth();
     const mapContainer = useRef(null);
     const map = useRef(null);
@@ -241,6 +241,11 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding }) => 
                 // Add moveend handler here after map is loaded
                 const handleMoveEnd = () => {
                     loadBuildingData();
+                    // Notify parent component about bounds change for real-time stats
+                    if (onMapBoundsChange) {
+                        const bounds = map.current.getBounds();
+                        onMapBoundsChange(bounds);
+                    }
                 };
                 map.current.on('moveend', handleMoveEnd);
             });

@@ -467,6 +467,123 @@ class BuildingController extends Controller
     }
 
     /**
+     * Get building statistics within a specific geographic area (bounding box).
+     */
+    #[OperationId('getBuildingStatsWithinBounds')]
+    #[Summary('Get building statistics within bounds')]
+    #[Description('Retrieve statistical information about buildings within a specified geographic bounding box based on user entitlements.')]
+    #[Parameters([
+        'north' => 'number|required|Northern boundary latitude',
+        'south' => 'number|required|Southern boundary latitude',
+        'east' => 'number|required|Eastern boundary longitude',
+        'west' => 'number|required|Western boundary longitude',
+        'dataset_id' => 'integer|optional|Dataset ID to filter statistics'
+    ])]
+    #[Response(200, 'Building statistics within bounds retrieved', [
+        'total_buildings' => 150,
+        'anomaly_buildings' => 15,
+        'normal_buildings' => 135,
+        'avg_confidence' => 0.75,
+        'total_co2_savings' => 2500.5,
+        'avg_co2_savings' => 16.67,
+        'by_classification' => [
+            'residential' => 80,
+            'commercial' => 50,
+            'industrial' => 20
+        ],
+        'bbox' => [
+            'north' => 40.8,
+            'south' => 40.7,
+            'east' => -73.9,
+            'west' => -74.0
+        ]
+    ])]
+    #[Response(422, 'Invalid bounds parameters', [
+        'message' => 'The given data was invalid.',
+        'errors' => [
+            'north' => ['The north field is required.']
+        ]
+    ])]
+    #[Response(401, 'Authentication required', [
+        'message' => 'Authentication required'
+    ])]
+    public function statsWithinBounds(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Authentication required'], 401);
+        }
+
+        // Validate bounding box parameters
+        $request->validate([
+            'north' => 'required|numeric|between:-90,90',
+            'south' => 'required|numeric|between:-90,90',
+            'east' => 'required|numeric|between:-180,180',
+            'west' => 'required|numeric|between:-180,180',
+        ]);
+
+        $north = $request->input('north');
+        $south = $request->input('south');
+        $east = $request->input('east');
+        $west = $request->input('west');
+
+        // Create bounding box polygon
+        $bbox = "POLYGON(({$west} {$south}, {$east} {$south}, {$east} {$north}, {$west} {$north}, {$west} {$south}))";
+
+        // Get entitlement filters from middleware
+        $entitlementFilters = $request->input('entitlement_filters', []);
+
+        // Start building query
+        $query = Building::query();
+
+        // Apply entitlement filters
+        $query->where(function ($filterQuery) use ($entitlementFilters) {
+            $filterQuery->applyEntitlementFilters($entitlementFilters);
+        });
+
+        // Apply bounding box filter
+        $query->withinGeometry($bbox);
+
+        // Apply optional dataset filter
+        $datasetId = $request->input('dataset_id');
+        if ($datasetId) {
+            $query->forDataset($datasetId);
+        }
+
+        // Calculate statistics
+        $totalBuildings = $query->count();
+        $anomalyBuildings = $query->clone()->where('is_anomaly', true)->count();
+        $normalBuildings = $query->clone()->where('is_anomaly', false)->count();
+        $avgConfidence = round($query->avg('confidence') ?? 0, 2);
+        $totalCo2Savings = round($query->sum('co2_savings_estimate') ?? 0, 2);
+        $avgCo2Savings = $totalBuildings > 0 ? round($totalCo2Savings / $totalBuildings, 2) : 0;
+        
+        $byClassification = $query->clone()
+            ->selectRaw('building_type_classification, COUNT(*) as count')
+            ->groupBy('building_type_classification')
+            ->pluck('count', 'building_type_classification');
+
+        $stats = [
+            'total_buildings' => $totalBuildings,
+            'anomaly_buildings' => $anomalyBuildings,
+            'normal_buildings' => $normalBuildings,
+            'avg_confidence' => $avgConfidence,
+            'total_co2_savings' => $totalCo2Savings,
+            'avg_co2_savings' => $avgCo2Savings,
+            'by_classification' => $byClassification,
+            'bbox' => [
+                'north' => $north,
+                'south' => $south,
+                'east' => $east,
+                'west' => $west
+            ]
+        ];
+
+        return response()->json($stats);
+    }
+
+    /**
      * Get detailed heat loss analytics for buildings.
      */
     #[OperationId('getHeatLossAnalytics')]
