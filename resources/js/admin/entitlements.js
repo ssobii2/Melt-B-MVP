@@ -52,6 +52,10 @@ window.parseDateTimeFromInput = function(inputValue) {
     return localDate.toISOString();
 };
 
+// AOI Map Editor instances
+let createMapEditor = null;
+let editMapEditor = null;
+
 $(document).ready(function() {
     let currentPage = 1;
     let perPage = 15;
@@ -71,21 +75,23 @@ $(document).ready(function() {
     };
 
     // Initialize create form UI function
-    function initializeCreateForm() {
+    async function initializeCreateForm() {
         // Clear all fields
         $('#createAoiCoordinates, #createBuildingGids').val('');
-        $('#createNorthBound, #createSouthBound, #createEastBound, #createWestBound').val('');
         $('#createBuildingDataset, #createBuildingSearch').val('');
         $('#createBuildingList').html('<p class="text-muted text-center mb-0">Select a dataset to view buildings</p>');
         $('#createSelectedCount').text('0');
         // Clear global selection state
         window.globalBuildingSelection.create.clear();
         
-        // Remove any existing polygon info displays
-        const existingInfo = document.querySelector('#createPolygonInfo');
-        if (existingInfo) {
-            existingInfo.remove();
+        // Initialize AOI map for create modal
+        if (createMapEditor && typeof createMapEditor.clearCurrentAOI === 'function') {
+            await createMapEditor.clearCurrentAOI();
         }
+        
+        // Hide AOI info
+        $('#createAoiInfo').hide();
+        $('#createClearAOIBtn').prop('disabled', true);
     }
     
     // Load data on page load
@@ -96,8 +102,17 @@ $(document).ready(function() {
     initializeCreateForm();
     
     // Reset create form when modal is opened
-    $('#createEntitlementModal').on('show.bs.modal', function() {
-        initializeCreateForm();
+    $('#createEntitlementModal').on('show.bs.modal', async function() {
+        await initializeCreateForm();
+        // Do not initialize map immediately - only when AOI type is selected
+        // This prevents unnecessary map loading for non-AOI entitlements
+    });
+    
+    // Initialize edit map when modal is opened
+    $('#editEntitlementModal').on('show.bs.modal', function() {
+        setTimeout(() => {
+            initializeAOIMap('edit');
+        }, 300);
     });
     
     // Auto-load buildings when create modal opens and DS-BLD is selected
@@ -372,6 +387,19 @@ $(document).ready(function() {
 
         if (type === 'DS-AOI') {
             aoiSection.show();
+            // Only initialize AOI map if not already initialized
+            // This prevents loading the map immediately when modal opens
+            if (prefix === 'create') {
+                // For create modal, initialize map only when AOI type is selected
+                setTimeout(() => {
+                    initializeAOIMap(prefix);
+                }, 100);
+            } else {
+                // For edit modal, initialize immediately since we're editing existing AOI
+                setTimeout(() => {
+                    initializeAOIMap(prefix);
+                }, 100);
+            }
         } else if (type === 'DS-BLD') {
             buildingSection.show();
             // Load datasets for building filtering
@@ -425,6 +453,8 @@ $(document).ready(function() {
     // Function to populate bounding box fields from coordinates
     function populateBoundsFromCoordinates(prefix) {
         const coordinatesField = document.getElementById(prefix + 'AoiCoordinates');
+        if (!coordinatesField) return;
+        
         const coordinatesText = coordinatesField.value.trim();
         
         if (!coordinatesText) {
@@ -436,10 +466,19 @@ $(document).ready(function() {
             const bounds = extractBoundsFromCoordinates(coordinates);
             
             if (bounds) {
-                document.getElementById(prefix + 'NorthBound').value = bounds.north.toFixed(6);
-                document.getElementById(prefix + 'SouthBound').value = bounds.south.toFixed(6);
-                document.getElementById(prefix + 'EastBound').value = bounds.east.toFixed(6);
-                document.getElementById(prefix + 'WestBound').value = bounds.west.toFixed(6);
+                // Only populate bounds if the fields exist in the DOM
+                const northBound = document.getElementById(prefix + 'NorthBound');
+                const southBound = document.getElementById(prefix + 'SouthBound');
+                const eastBound = document.getElementById(prefix + 'EastBound');
+                const westBound = document.getElementById(prefix + 'WestBound');
+                
+                // Check if any bound fields exist before trying to populate them
+                if (northBound || southBound || eastBound || westBound) {
+                    if (northBound) northBound.value = bounds.north.toFixed(6);
+                    if (southBound) southBound.value = bounds.south.toFixed(6);
+                    if (eastBound) eastBound.value = bounds.east.toFixed(6);
+                    if (westBound) westBound.value = bounds.west.toFixed(6);
+                }
             }
         } catch (e) {
             console.warn('Could not parse coordinates for bounds:', e);
@@ -449,6 +488,10 @@ $(document).ready(function() {
     // Function to display polygon coordinates in a readable format
     window.displayPolygonInfo = function(prefix) {
         const coordinatesField = document.getElementById(prefix + 'AoiCoordinates');
+        if (!coordinatesField) {
+            console.warn('Coordinates field not found for prefix:', prefix);
+            return;
+        }
         const coordinatesText = coordinatesField.value.trim();
         
         if (!coordinatesText) {
@@ -464,7 +507,7 @@ $(document).ready(function() {
             const coordinates = JSON.parse(coordinatesText);
             const bounds = extractBoundsFromCoordinates(coordinates);
             
-            // Populate bounding box fields
+            // Populate bounding box fields (only if they exist)
             populateBoundsFromCoordinates(prefix);
             
             let infoHtml = '<div class="alert alert-info mt-3"><h6><i class="fas fa-info-circle"></i> Generated Polygon Information</h6>';
@@ -496,67 +539,138 @@ $(document).ready(function() {
         }
     };
 
-    window.generatePolygonFromBounds = function(prefix) {
-        const north = parseFloat(document.getElementById(prefix + 'NorthBound').value);
-        const south = parseFloat(document.getElementById(prefix + 'SouthBound').value);
-        const east = parseFloat(document.getElementById(prefix + 'EastBound').value);
-        const west = parseFloat(document.getElementById(prefix + 'WestBound').value);
+    // Initialize AOI Map Editor
+    function initializeAOIMap(prefix) {
+        const mapContainer = document.getElementById(prefix + 'AoiMap');
+        if (!mapContainer) return;
         
-        if (isNaN(north) || isNaN(south) || isNaN(east) || isNaN(west)) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Invalid Coordinates',
-                text: 'Please enter valid coordinates for all bounds.'
+        // Create or get existing map editor
+        let mapEditor;
+        if (prefix === 'create') {
+            if (createMapEditor) {
+                createMapEditor.destroy();
+            }
+            createMapEditor = new AOIMapEditor(mapContainer.id, {
+                onAOIChange: (coordinates) => {
+                    updateAOICoordinates(prefix, coordinates);
+                }
             });
-            return;
+            mapEditor = createMapEditor;
+        } else {
+            if (editMapEditor) {
+                editMapEditor.destroy();
+            }
+            // Get current entitlement ID for edit mode
+            const currentEntitlementId = document.getElementById('editEntitlementId')?.value || null;
+            editMapEditor = new AOIMapEditor(mapContainer.id, {
+                onAOIChange: (coordinates) => {
+                    updateAOICoordinates(prefix, coordinates);
+                },
+                currentEntitlementId: currentEntitlementId
+            });
+            mapEditor = editMapEditor;
         }
         
-        if (north <= south) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Invalid Coordinates',
-                text: 'North latitude must be greater than south latitude.'
-            });
-            return;
+        // Load existing AOI if editing
+        if (prefix === 'edit') {
+            const existingCoordinatesField = document.getElementById('editAoiCoordinates');
+            if (existingCoordinatesField && existingCoordinatesField.value) {
+                try {
+                    const coords = JSON.parse(existingCoordinatesField.value);
+                    if (mapEditor && typeof mapEditor.loadExistingAOI === 'function') {
+                        mapEditor.loadExistingAOI(coords);
+                    }
+                } catch (e) {
+                    console.warn('Could not parse existing coordinates:', e);
+                }
+            }
         }
-        
-        if (east <= west) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Invalid Coordinates',
-                text: 'East longitude must be greater than west longitude.'
-            });
-            return;
-        }
-        
-        // Create polygon coordinates (clockwise)
-        const polygon = [
-            [west, north],  // Northwest
-            [east, north],  // Northeast
-            [east, south],  // Southeast
-            [west, south],  // Southwest
-            [west, north]   // Close polygon
-        ];
-        
-        // Update the hidden coordinates field
+    }
+    
+    // Update AOI coordinates and UI
+    function updateAOICoordinates(prefix, coordinates) {
         const coordinatesField = document.getElementById(prefix + 'AoiCoordinates');
-        coordinatesField.value = JSON.stringify(polygon);
+        if (!coordinatesField) {
+            console.warn('Coordinates field not found for prefix:', prefix);
+            return;
+        }
+        const infoDiv = document.getElementById(prefix + 'AoiInfo');
+        const clearBtn = document.getElementById(prefix + 'ClearAOIBtn') || document.getElementById(prefix.replace('create', 'clear').replace('edit', 'editClear') + 'AOIBtn');
         
-        // Display polygon information automatically
-        window.displayPolygonInfo(prefix);
+        if (coordinates && coordinates.length > 0) {
+            coordinatesField.value = JSON.stringify(coordinates);
+            
+            // Update info display if elements exist (they were removed in recent updates)
+            const coordCountEl = document.getElementById(prefix + 'CoordCount');
+            const areaInfoEl = document.getElementById(prefix + 'AreaInfo');
+            
+            if (coordCountEl) {
+                coordCountEl.textContent = coordinates.length;
+            }
+            
+            if (areaInfoEl) {
+                // Calculate approximate area (simple polygon area calculation)
+                const area = calculatePolygonArea(coordinates);
+                areaInfoEl.textContent = formatArea(area);
+            }
+            
+            if (infoDiv) {
+                infoDiv.style.display = 'block';
+            }
+            if (clearBtn) clearBtn.disabled = false;
+        } else {
+            coordinatesField.value = '';
+            if (infoDiv) {
+                infoDiv.style.display = 'none';
+            }
+            if (clearBtn) clearBtn.disabled = true;
+        }
+    }
+    
+    // Calculate polygon area (approximate)
+    function calculatePolygonArea(coordinates) {
+        if (coordinates.length < 3) return 0;
         
-        // Show success message
-        const button = event.target;
-        const originalText = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-check"></i> Generated!';
-        button.classList.remove('btn-info');
-        button.classList.add('btn-success');
-        
-        setTimeout(() => {
-            button.innerHTML = originalText;
-            button.classList.remove('btn-success');
-            button.classList.add('btn-info');
-        }, 2000);
+        let area = 0;
+        for (let i = 0; i < coordinates.length - 1; i++) {
+            const [x1, y1] = coordinates[i];
+            const [x2, y2] = coordinates[i + 1];
+            area += (x1 * y2 - x2 * y1);
+        }
+        return Math.abs(area / 2);
+    }
+    
+    // Format area for display
+    function formatArea(area) {
+        if (area < 0.01) {
+            return (area * 1000000).toFixed(2) + ' m²';
+        } else if (area < 1) {
+            return (area * 100).toFixed(2) + ' hectares';
+        } else {
+            return area.toFixed(2) + ' km²';
+        }
+    }
+    
+    // Drawing tool functions
+    window.startDrawingRectangle = function(prefix) {
+        const mapEditor = prefix === 'create' ? createMapEditor : editMapEditor;
+        if (mapEditor) {
+            mapEditor.startDrawingRectangle();
+        }
+    };
+    
+
+    
+    window.clearAOI = async function(prefix) {
+        const mapEditor = prefix === 'create' ? createMapEditor : editMapEditor;
+        if (mapEditor && typeof mapEditor.clearCurrentAOI === 'function') {
+            const cleared = await mapEditor.clearCurrentAOI();
+            // If clearing was cancelled (in edit mode), don't proceed
+            if (cleared === false) {
+                return false;
+            }
+        }
+        return true;
     };
 
     // Load datasets for building filtering
@@ -1156,7 +1270,9 @@ $(document).ready(function() {
                 }
 
                 // Handle AOI coordinates - check both aoi_coordinates and aoi_geom
+                let aoiCoordinates = null;
                 if (entitlement.aoi_coordinates) {
+                    aoiCoordinates = entitlement.aoi_coordinates;
                     $('#editAoiCoordinates').val(JSON.stringify(entitlement.aoi_coordinates));
                     // Display polygon information automatically
                     setTimeout(() => {
@@ -1164,12 +1280,21 @@ $(document).ready(function() {
                     }, 100);
                 } else if (entitlement.aoi_geom && entitlement.aoi_geom.coordinates) {
                     // Extract coordinates from GeoJSON format
-                    const coordinates = entitlement.aoi_geom.coordinates[0];
-                    $('#editAoiCoordinates').val(JSON.stringify(coordinates));
+                    aoiCoordinates = entitlement.aoi_geom.coordinates[0];
+                    $('#editAoiCoordinates').val(JSON.stringify(aoiCoordinates));
                     // Display polygon information automatically
                     setTimeout(() => {
                         window.displayPolygonInfo('edit');
                     }, 100);
+                }
+                
+                // Load AOI into map editor if coordinates exist
+                if (aoiCoordinates && entitlement.type === 'DS-AOI') {
+                    setTimeout(() => {
+                        if (editMapEditor && editMapEditor.loadExistingAOI) {
+                            editMapEditor.loadExistingAOI(aoiCoordinates);
+                        }
+                    }, 500); // Wait for map to be fully initialized
                 }
 
                 // Handle download formats
@@ -1240,6 +1365,8 @@ $(document).ready(function() {
         // Handle type-specific fields
         if (formData.type === 'DS-AOI') {
             const aoiCoordinatesText = $('#editAoiCoordinates').val().trim();
+            
+            // Check if coordinates exist in the text field
             if (aoiCoordinatesText) {
                 try {
                     formData.aoi_coordinates = JSON.parse(aoiCoordinatesText);
@@ -1252,12 +1379,28 @@ $(document).ready(function() {
                     return;
                 }
             } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Missing AOI Coordinates',
-                    text: 'AOI coordinates are required for this entitlement type.'
-                });
-                return;
+                // Check if map editor has current AOI
+                if (editMapEditor && editMapEditor.hasCurrentAOI && editMapEditor.hasCurrentAOI()) {
+                    // Get coordinates from map editor
+                    const currentCoordinates = editMapEditor.getCurrentCoordinates();
+                    if (currentCoordinates && currentCoordinates.length > 0) {
+                        formData.aoi_coordinates = currentCoordinates;
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Missing AOI Coordinates',
+                            text: 'AOI coordinates are required for this entitlement type. Please draw an AOI on the map.'
+                        });
+                        return;
+                    }
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Missing AOI Coordinates',
+                        text: 'AOI coordinates are required for this entitlement type. Please draw an AOI on the map.'
+                    });
+                    return;
+                }
             }
         } else if (formData.type === 'DS-BLD') {
             const buildingGidsText = $('#editBuildingGids').val().trim();

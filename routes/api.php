@@ -126,6 +126,7 @@ Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(functi
     Route::delete('/users/{userId}/entitlements/{entitlementId}', [UserController::class, 'removeEntitlement']);
 
     // Entitlement management - specific routes first
+    Route::get('/entitlements/all-aois', [EntitlementController::class, 'allAois']);
     Route::get('/entitlements/datasets', [EntitlementController::class, 'datasets']);
     Route::get('/entitlements/stats', [EntitlementController::class, 'stats']);
     Route::apiResource('entitlements', EntitlementController::class);
