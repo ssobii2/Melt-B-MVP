@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\AuditLog;
+use App\Services\UserEntitlementService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -26,6 +27,12 @@ use Dedoc\Scramble\Attributes\Description;
 #[Tag('Authentication')]
 class AuthController extends Controller
 {
+    protected UserEntitlementService $entitlementService;
+
+    public function __construct(UserEntitlementService $entitlementService)
+    {
+        $this->entitlementService = $entitlementService;
+    }
     /**
      * Register a new user.
      */
@@ -173,6 +180,9 @@ class AuthController extends Controller
             ipAddress: $request->ip(),
             userAgent: $request->userAgent()
         );
+
+        // Pre-cache user entitlements for faster subsequent API requests
+        $this->entitlementService->getUserEntitlements($user);
 
         return response()->json([
             'message' => 'Login successful',
