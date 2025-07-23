@@ -87,9 +87,18 @@ class AOIMapEditor {
                 const data = await response.json();
                 this.existingAOIs = data.features || [];
                 this.displayExistingAOIs();
+            } else {
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                console.error('Failed to load existing AOIs:', response.status, errorData.message);
+                if (typeof toastr !== 'undefined') {
+                    toastr.error('Failed to load existing AOI boundaries. Please refresh the page.', 'Error');
+                }
             }
         } catch (error) {
             console.error('Failed to load existing AOIs:', error);
+            if (typeof toastr !== 'undefined') {
+                toastr.error('Network error while loading AOI boundaries. Please check your connection.', 'Connection Error');
+            }
         }
     }
 
@@ -104,7 +113,7 @@ class AOIMapEditor {
             if (!this.displayRetryCount) this.displayRetryCount = 0;
             if (this.displayRetryCount < 50) { // Max 5 seconds of retries
                 this.displayRetryCount++;
-                setTimeout(() => this.displayExistingAOIs(), 100);
+                this.displayRetryTimeout = setTimeout(() => this.displayExistingAOIs(), 100);
             }
             return;
         }
@@ -371,12 +380,19 @@ class AOIMapEditor {
         if (this.map && this.map.isStyleLoaded() && this.map.getSource('current-aoi')) {
             this.setCurrentAOI(geometry);
         } else {
-            // Wait for drawing tools to be ready
+            // Wait for drawing tools to be ready with retry limit
+            if (!this.checkAndSetRetryCount) this.checkAndSetRetryCount = 0;
+            
             const checkAndSet = () => {
                 if (this.map && this.map.isStyleLoaded() && this.map.getSource('current-aoi')) {
                     this.setCurrentAOI(geometry);
+                    this.checkAndSetRetryCount = 0; // Reset on success
+                } else if (this.checkAndSetRetryCount < 50) { // Max 5 seconds of retries
+                    this.checkAndSetRetryCount++;
+                    this.checkAndSetTimeout = setTimeout(checkAndSet, 100);
                 } else {
-                    setTimeout(checkAndSet, 100);
+                    console.error('Failed to load existing AOI: map or drawing tools not ready after maximum retries');
+                    this.checkAndSetRetryCount = 0; // Reset for future attempts
                 }
             };
             checkAndSet();
@@ -462,9 +478,46 @@ class AOIMapEditor {
     }
 
     destroy() {
-        if (this.map) {
-            this.map.remove();
+        // Clear any pending timeouts
+        if (this.displayRetryTimeout) {
+            clearTimeout(this.displayRetryTimeout);
+            this.displayRetryTimeout = null;
         }
+        
+        if (this.checkAndSetTimeout) {
+            clearTimeout(this.checkAndSetTimeout);
+            this.checkAndSetTimeout = null;
+        }
+        
+        // Clear any intervals or timers
+        if (this.checkAndSetInterval) {
+            clearInterval(this.checkAndSetInterval);
+            this.checkAndSetInterval = null;
+        }
+        
+        // Remove event listeners
+        if (this.map) {
+            this.map.off('click');
+            this.map.off('mousemove');
+            this.map.off('styledata');
+            
+            // Remove map instance
+            this.map.remove();
+            this.map = null;
+        }
+        
+        // Clear references
+        this.existingAOIs = [];
+        this.currentAOI = null;
+        this.rectangleStart = null;
+        this.onAOIChange = null;
+        this.adminToken = null;
+        
+        // Reset state
+        this.isDrawing = false;
+        this.drawingMode = null;
+        this.displayRetryCount = 0;
+        this.checkAndSetRetryCount = 0;
     }
 }
 

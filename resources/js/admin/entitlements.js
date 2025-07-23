@@ -739,8 +739,12 @@ $(document).ready(function() {
                     
                     resolve(response);
                 },
-                error: function(error) {
+                error: function(xhr, status, error) {
                     console.error('Error loading datasets:', error);
+                    const errorMessage = xhr.responseJSON?.message || 'Failed to load datasets';
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(errorMessage, 'Error');
+                    }
                     reject(error);
                 }
             });
@@ -799,8 +803,12 @@ $(document).ready(function() {
                 success: function(response) {
                     handleBuildingsResponse(response, prefix, page);
                 },
-                error: function(error) {
+                error: function(xhr, status, error) {
                     console.error('Error loading buildings:', error);
+                    const errorMessage = xhr.responseJSON?.message || 'Failed to load buildings';
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(errorMessage, 'Error');
+                    }
                     buildingList.html('<p class="text-danger text-center">Error loading buildings</p>');
                 }
             });
@@ -832,8 +840,12 @@ $(document).ready(function() {
                 success: function(response) {
                     handleBuildingsResponse(response, prefix, page);
                 },
-                error: function(error) {
+                error: function(xhr, status, error) {
                     console.error('Error loading buildings:', error);
+                    const errorMessage = xhr.responseJSON?.message || 'Failed to load buildings';
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(errorMessage, 'Error');
+                    }
                     buildingList.html('<p class="text-danger text-center">Error loading buildings</p>');
                 }
             });
@@ -1065,6 +1077,8 @@ $(document).ready(function() {
         // Handle type-specific fields
         if (formData.type === 'DS-AOI') {
             const aoiCoordinatesText = $('#createAoiCoordinates').val().trim();
+            
+            // Check if coordinates exist in the text field
             if (aoiCoordinatesText) {
                 try {
                     formData.aoi_coordinates = JSON.parse(aoiCoordinatesText);
@@ -1243,6 +1257,13 @@ $(document).ready(function() {
 
                 $('#entitlementDetailsContent').html(html);
                 $('#entitlementDetailsModal').modal('show');
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading entitlement details:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load entitlement details';
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage, 'Error');
+                }
             }
         });
     };
@@ -1351,6 +1372,13 @@ $(document).ready(function() {
                 $('#editExpiresAt').val(formatDateTimeForInput(entitlement.expires_at));
 
                 $('#editEntitlementModal').modal('show');
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading entitlement for editing:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load entitlement for editing';
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage, 'Error');
+                }
             }
         });
     };
@@ -1408,7 +1436,7 @@ $(document).ready(function() {
         }
 
         // Handle type-specific fields
-        if (formData.type === 'DS-AOI') {
+        if (entitlementType === 'DS-AOI') {
             const aoiCoordinatesText = $('#editAoiCoordinates').val().trim();
             
             // Check if coordinates exist in the text field
@@ -1557,8 +1585,22 @@ $(document).ready(function() {
                         });
 
                         $('#availableUsers').html(html);
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error loading entitlement users:', error);
+                        const errorMessage = xhr.responseJSON?.message || 'Failed to load entitlement users';
+                        if (typeof toastr !== 'undefined') {
+                            toastr.error(errorMessage, 'Error');
+                        }
                     }
                 });
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading available users:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load available users';
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage, 'Error');
+                }
             }
         });
     }
@@ -1596,6 +1638,13 @@ $(document).ready(function() {
                 }
 
                 $('#currentEntitlementUsers').html(html);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading current entitlement users:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load current entitlement users';
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage, 'Error');
+                }
             }
         });
     }
