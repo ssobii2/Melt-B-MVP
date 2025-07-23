@@ -81,14 +81,15 @@ class BuildingSeeder extends Seeder
             $r['owner_operator_details'] = $r['owner_operator_details'] ?? 'Synthetic owner';
         }
 
+        $createdCount = 0;
         foreach ($records as $record) {
-            Building::updateOrCreate(
-                ['gid' => $record['gid']], // Find by gid (unique identifier)
-                $record // Update or create with this data
-            );
+            if (!Building::where('gid', $record['gid'])->exists()) {
+                Building::create($record);
+                $createdCount++;
+            }
         }
 
-        $this->command->info('✅ Created/updated ' . count($records) . ' sample buildings with anomaly detection data');
+        $this->command->info('✅ Created ' . $createdCount . ' new buildings (skipped existing)');
     }
 
     private function rect(float $lat, float $lon, float $size): Polygon

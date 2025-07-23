@@ -95,22 +95,29 @@ class EntitlementSeeder extends Seeder
             ],
         ];
 
-        // Clear existing user entitlements and entitlements to avoid duplicates
-        DB::table('user_entitlements')
-            ->whereIn('entitlement_id', function($query) use ($parisDataset) {
-                $query->select('id')
-                      ->from('entitlements')
-                      ->where('dataset_id', $parisDataset->id);
-            })
-            ->delete();
-        
-        Entitlement::where('dataset_id', $parisDataset->id)->delete();
-        
+        $createdCount = 0;
         foreach ($entitlements as $entitlementData) {
-            Entitlement::create($entitlementData);
+            // Check if entitlement already exists based on type, dataset_id, and unique characteristics
+            $existingQuery = Entitlement::where('type', $entitlementData['type'])
+                ->where('dataset_id', $entitlementData['dataset_id']);
+            
+            if ($entitlementData['type'] === 'DS-ALL') {
+                $existingQuery = $existingQuery->whereNull('aoi_geom')->whereNull('building_gids');
+            } elseif ($entitlementData['type'] === 'DS-AOI') {
+                // For AOI, we'll skip if any AOI entitlement exists for this dataset
+                $existingQuery = $existingQuery->whereNotNull('aoi_geom');
+            } elseif ($entitlementData['type'] === 'DS-BLD') {
+                // For building GIDs, we'll skip if any building entitlement exists for this dataset
+                $existingQuery = $existingQuery->whereNotNull('building_gids');
+            }
+            
+            if (!$existingQuery->exists()) {
+                Entitlement::create($entitlementData);
+                $createdCount++;
+            }
         }
 
-        $this->command->info('✅ Created/updated ' . count($entitlements) . ' anomaly detection entitlements (TILES removed)');
+        $this->command->info('✅ Created ' . $createdCount . ' new entitlements (skipped existing)');
     }
 
     /**

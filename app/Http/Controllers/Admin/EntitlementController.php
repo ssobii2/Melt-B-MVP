@@ -309,8 +309,15 @@ class EntitlementController extends Controller
             return response()->json(['message' => 'Entitlement not found'], 404);
         }
 
+        // Prevent type changes
+        if ($request->has('type') && $request->type !== $entitlement->type) {
+            return response()->json([
+                'message' => 'Entitlement type cannot be changed. Please delete and create a new entitlement to change the type.',
+                'errors' => ['type' => ['Entitlement type cannot be modified']]
+            ], 422);
+        }
+
         $validator = Validator::make($request->all(), [
-            'type' => ['sometimes', 'string', 'in:DS-ALL,DS-AOI,DS-BLD,TILES'],
             'dataset_id' => ['sometimes', 'integer', 'exists:datasets,id'],
             'aoi_coordinates' => ['sometimes', 'array', 'min:3'],
             'aoi_coordinates.*' => ['array', 'size:2'],
@@ -330,7 +337,7 @@ class EntitlementController extends Controller
         }
 
         $oldValues = $entitlement->only(['type', 'dataset_id', 'building_gids', 'download_formats', 'expires_at']);
-        $updateData = $request->only(['type', 'dataset_id', 'building_gids', 'download_formats', 'expires_at']);
+        $updateData = $request->only(['dataset_id', 'building_gids', 'download_formats', 'expires_at']);
 
         // Handle AOI geometry update
         if ($request->has('aoi_coordinates')) {
@@ -446,13 +453,13 @@ class EntitlementController extends Controller
             [
                 'id' => 1,
                 'name' => 'Thermal Dataset 2024',
-                'data_type' => 'thermal_raster',
+                'data_type' => 'building_anomalies',
                 'description' => 'Thermal imaging data for buildings'
             ],
             [
                 'id' => 2,
                 'name' => 'Building Data',
-                'data_type' => 'building_data',
+                'data_type' => 'building_anomalies',
                 'description' => 'Comprehensive building information'
             ]
         ]

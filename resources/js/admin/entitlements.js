@@ -378,7 +378,14 @@ $(document).ready(function() {
 
     // Toggle entitlement fields based on type
     window.toggleEntitlementFields = function(prefix) {
-        const type = $(`#${prefix}Type`).val();
+        let type;
+        if (prefix === 'edit') {
+            // For edit mode, get type from stored data attribute since field is readonly
+            type = $('#editEntitlementId').data('type') || $('#editType').val();
+        } else {
+            // For create mode, get type from the select field
+            type = $(`#${prefix}Type`).val();
+        }
         const aoiSection = $(`#${prefix}AoiSection`);
         const buildingSection = $(`#${prefix}BuildingSection`);
 
@@ -1027,7 +1034,7 @@ $(document).ready(function() {
         }
 
         // Handle type-specific fields
-        if (formData.type === 'DS-AOI') {
+        if (entitlementType === 'DS-AOI') {
             const aoiCoordinatesText = $('#createAoiCoordinates').val().trim();
             if (aoiCoordinatesText) {
                 try {
@@ -1048,7 +1055,7 @@ $(document).ready(function() {
                 });
                 return;
             }
-        } else if (formData.type === 'DS-BLD') {
+        } else if (entitlementType === 'DS-BLD') {
             const buildingGidsText = $('#createBuildingGids').val().trim();
             if (buildingGidsText) {
                 try {
@@ -1222,8 +1229,15 @@ $(document).ready(function() {
             },
             success: function(response) {
                 const entitlement = response.entitlement;
-                $('#editEntitlementId').val(entitlement.id);
-                $('#editType').val(entitlement.type);
+                $('#editEntitlementId').val(entitlement.id).data('type', entitlement.type);
+                // Display type as readonly text with formatted label
+                const typeLabels = {
+                    'DS-ALL': 'DS-ALL (Full Dataset Access)',
+                    'DS-AOI': 'DS-AOI (Area of Interest)',
+                    'DS-BLD': 'DS-BLD (Specific Buildings)',
+                    'TILES': 'TILES'
+                };
+                $('#editType').val(typeLabels[entitlement.type] || entitlement.type);
                 $('#editDataset').val(entitlement.dataset_id);
 
                 // Handle type-specific fields
@@ -1348,10 +1362,12 @@ $(document).ready(function() {
 
         const entitlementId = $('#editEntitlementId').val();
         const formData = {
-            type: $('#editType').val(),
             dataset_id: $('#editDataset').val(),
             expires_at: parseDateTimeFromInput($('#editExpiresAt').val())
         };
+        
+        // Get the actual entitlement type from the stored data (not from the readonly field)
+        const entitlementType = $('#editEntitlementId').data('type') || 'DS-ALL'; // fallback
 
         // Handle download formats
         const downloadFormats = [];
@@ -1402,7 +1418,7 @@ $(document).ready(function() {
                     return;
                 }
             }
-        } else if (formData.type === 'DS-BLD') {
+        } else if (entitlementType === 'DS-BLD') {
             const buildingGidsText = $('#editBuildingGids').val().trim();
             if (buildingGidsText) {
                 try {
