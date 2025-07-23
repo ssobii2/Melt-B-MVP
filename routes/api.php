@@ -95,6 +95,7 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
     // Building data endpoints - specific routes first
     Route::get('/buildings/stats', [BuildingController::class, 'stats']);
+    Route::get('/buildings/stats/within-bounds', [BuildingController::class, 'statsWithinBounds']);
     Route::get('/buildings/analytics/heat-loss', [BuildingController::class, 'heatLossAnalytics']);
     Route::get('/buildings/within/bounds', [BuildingController::class, 'withinBounds']);
     Route::get('/buildings/{gid}/find-page', [BuildingController::class, 'findPage']);
@@ -125,6 +126,7 @@ Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(functi
     Route::delete('/users/{userId}/entitlements/{entitlementId}', [UserController::class, 'removeEntitlement']);
 
     // Entitlement management - specific routes first
+    Route::get('/entitlements/all-aois', [EntitlementController::class, 'allAois']);
     Route::get('/entitlements/datasets', [EntitlementController::class, 'datasets']);
     Route::get('/entitlements/stats', [EntitlementController::class, 'stats']);
     Route::apiResource('entitlements', EntitlementController::class);

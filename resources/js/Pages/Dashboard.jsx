@@ -11,6 +11,7 @@ export default function Dashboard() {
     const { user } = useAuth();
     const [selectedBuilding, setSelectedBuilding] = useState(null);
     const [highlightedBuilding, setHighlightedBuilding] = useState(null);
+    const [currentMapBounds, setCurrentMapBounds] = useState(null);
     const [buildingStats, setBuildingStats] = useState({
         totalBuildings: '--',
         anomalyBuildings: '--',
@@ -19,27 +20,53 @@ export default function Dashboard() {
         avgConfidence: '--'
     });
 
-    useEffect(() => {
-        const fetchBuildingStats = async () => {
-            try {
-                // Fetch building statistics using the dedicated stats endpoint
-                const statsResponse = await apiClient.get('/buildings/stats');
-                const statsData = statsResponse.data;
-                
-                setBuildingStats({
-                    totalBuildings: (statsData.total_buildings || 0).toLocaleString(),
-                    anomalyBuildings: (statsData.anomaly_buildings || 0).toLocaleString(),
-                    normalBuildings: (statsData.normal_buildings || 0).toLocaleString(),
-                    totalCo2Savings: Math.round(statsData.avg_co2_savings || 0).toLocaleString(),
-                    avgConfidence: ((statsData.avg_confidence || 0) * 100).toFixed(1) + '%'
+    const fetchBuildingStats = async (bounds = null) => {
+        try {
+            let statsResponse;
+            
+            if (bounds) {
+                // Fetch building statistics for current map bounds
+                statsResponse = await apiClient.get('/buildings/stats/within-bounds', {
+                    params: {
+                        north: bounds.getNorth(),
+                        south: bounds.getSouth(),
+                        east: bounds.getEast(),
+                        west: bounds.getWest()
+                    }
                 });
-            } catch (error) {
-                console.error('Failed to fetch building statistics:', error);
+            } else {
+                // Fetch overall building statistics
+                statsResponse = await apiClient.get('/buildings/stats');
             }
-        };
+            
+            const statsData = statsResponse.data;
+            
+            setBuildingStats({
+                totalBuildings: (statsData.total_buildings || 0).toLocaleString(),
+                anomalyBuildings: (statsData.anomaly_buildings || 0).toLocaleString(),
+                normalBuildings: (statsData.normal_buildings || 0).toLocaleString(),
+                totalCo2Savings: Math.round(statsData.total_co2_savings || statsData.avg_co2_savings || 0).toLocaleString(),
+                avgConfidence: ((statsData.avg_confidence || 0) * 100).toFixed(1) + '%'
+            });
+        } catch (error) {
+            console.error('Failed to fetch building statistics:', error);
+        }
+    };
 
+    useEffect(() => {
         fetchBuildingStats();
     }, []);
+
+    // Update stats when map bounds change
+    useEffect(() => {
+        if (currentMapBounds) {
+            fetchBuildingStats(currentMapBounds);
+        }
+    }, [currentMapBounds]);
+
+    const handleMapBoundsChange = (bounds) => {
+        setCurrentMapBounds(bounds);
+    };
 
     const handleBuildingClick = (building) => {
         setSelectedBuilding(building);
@@ -88,6 +115,7 @@ export default function Dashboard() {
                             onBuildingClick={handleBuildingClick}
                             selectedBuilding={selectedBuilding}
                             highlightedBuilding={highlightedBuilding}
+                            onMapBoundsChange={handleMapBoundsChange}
                         />
                         
                         {/* Context Panel Overlay */}
