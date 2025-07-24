@@ -97,18 +97,25 @@ class DatasetController extends Controller
             'entitlements' => []
         ],
         'entitlements_count' => 5,
-        'users_with_access' => 12
+        'users_with_access' => 12,
+        'meta' => [
+            'entitlements_truncated' => true,
+            'total_entitlements' => 150,
+            'showing_entitlements' => 50,
+            'message' => 'Only the 50 most recent entitlements are shown. Use the entitlements endpoint for complete data.'
+        ]
     ])]
     #[Response(404, 'Dataset not found', ['message' => 'Dataset not found'])]
     public function show(string $id): JsonResponse
     {
-        // Optimize query to prevent N+1 issues and limit data loading
+        // Optimize query to prevent N+1 issues while ensuring data integrity
         $dataset = Dataset::with([
                 'entitlements' => function ($query) {
                     // Only load essential entitlement fields
                     $query->select('id', 'type', 'dataset_id', 'expires_at')
                           ->with(['users:id,name,email']) // Only load essential user fields
-                          ->limit(100); // Prevent loading too many entitlements at once
+                          ->orderBy('created_at', 'desc')
+                          ->take(50); // Use take() instead of limit() for better clarity
                 }
             ])
             ->withCount('entitlements')
@@ -118,9 +125,22 @@ class DatasetController extends Controller
             return response()->json(['message' => 'Dataset not found'], 404);
         }
 
-        return response()->json([
+        // Include information about potential truncation
+        $response = [
             'dataset' => new DatasetResource($dataset)
-        ]);
+        ];
+        
+        // Add warning if entitlements were truncated
+        if ($dataset->entitlements_count > 50) {
+            $response['meta'] = [
+                'entitlements_truncated' => true,
+                'total_entitlements' => $dataset->entitlements_count,
+                'showing_entitlements' => min(50, $dataset->entitlements_count),
+                'message' => 'Only the 50 most recent entitlements are shown. Use the entitlements endpoint for complete data.'
+            ];
+        }
+
+        return response()->json($response);
     }
 
     /**

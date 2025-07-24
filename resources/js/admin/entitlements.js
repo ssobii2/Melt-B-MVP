@@ -654,12 +654,18 @@ $(document).ready(function() {
                 infoDiv.style.display = 'block';
             }
             if (clearBtn) clearBtn.disabled = false;
+            
+            // Update the Generated Polygon Information in real-time
+            displayPolygonInfo(prefix);
         } else {
             coordinatesField.value = '';
             if (infoDiv) {
                 infoDiv.style.display = 'none';
             }
             if (clearBtn) clearBtn.disabled = true;
+            
+            // Clear the Generated Polygon Information when no coordinates
+            displayPolygonInfo(prefix);
         }
     }
     

@@ -97,21 +97,55 @@ class EntitlementSeeder extends Seeder
 
         $createdCount = 0;
         foreach ($entitlements as $entitlementData) {
-            // Check if entitlement already exists based on type, dataset_id, and unique characteristics
+            // Check if entitlement already exists based on type, dataset_id, and specific characteristics
             $existingQuery = Entitlement::where('type', $entitlementData['type'])
                 ->where('dataset_id', $entitlementData['dataset_id']);
             
+            $shouldCreate = true;
+            
             if ($entitlementData['type'] === 'DS-ALL') {
+                // For DS-ALL, only one per dataset should exist
                 $existingQuery = $existingQuery->whereNull('aoi_geom')->whereNull('building_gids');
+                $shouldCreate = !$existingQuery->exists();
             } elseif ($entitlementData['type'] === 'DS-AOI') {
-                // For AOI, we'll skip if any AOI entitlement exists for this dataset
-                $existingQuery = $existingQuery->whereNotNull('aoi_geom');
+                // For DS-AOI, check if the exact same AOI geometry already exists
+                // Multiple different AOI entitlements for the same dataset are allowed
+                if ($entitlementData['aoi_geom']) {
+                    $existingEntitlements = $existingQuery->whereNotNull('aoi_geom')->get();
+                    foreach ($existingEntitlements as $existing) {
+                        // Compare AOI geometries by converting to WKT (Well-Known Text)
+                        $existingWkt = $existing->aoi_geom ? $existing->aoi_geom->toWkt() : null;
+                        $newWkt = $entitlementData['aoi_geom']->toWkt();
+                        
+                        if ($existingWkt === $newWkt) {
+                            $shouldCreate = false;
+                            break;
+                        }
+                    }
+                }
             } elseif ($entitlementData['type'] === 'DS-BLD') {
-                // For building GIDs, we'll skip if any building entitlement exists for this dataset
-                $existingQuery = $existingQuery->whereNotNull('building_gids');
+                // For DS-BLD, check if the exact same building GIDs already exist
+                // Multiple different building entitlements for the same dataset are allowed
+                if ($entitlementData['building_gids']) {
+                    $existingEntitlements = $existingQuery->whereNotNull('building_gids')->get();
+                    foreach ($existingEntitlements as $existing) {
+                        // Compare building GIDs arrays
+                        $existingGids = $existing->building_gids ?? [];
+                        $newGids = $entitlementData['building_gids'];
+                        
+                        // Sort both arrays for comparison
+                        sort($existingGids);
+                        sort($newGids);
+                        
+                        if ($existingGids === $newGids) {
+                            $shouldCreate = false;
+                            break;
+                        }
+                    }
+                }
             }
             
-            if (!$existingQuery->exists()) {
+            if ($shouldCreate) {
                 Entitlement::create($entitlementData);
                 $createdCount++;
             }

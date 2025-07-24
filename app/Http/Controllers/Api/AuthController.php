@@ -171,7 +171,7 @@ class AuthController extends Controller
         $tokenName = $request->input('token_name', 'Login Token');
         $token = $user->createToken($tokenName);
 
-        // Log the successful login
+        // Log the login
         AuditLog::createEntry(
             userId: $user->id,
             action: 'user_login',
@@ -181,8 +181,7 @@ class AuthController extends Controller
             userAgent: $request->userAgent()
         );
 
-        // Pre-cache user entitlements for faster subsequent API requests
-        $this->entitlementService->getUserEntitlements($user);
+        // Note: Entitlements are now loaded lazily when needed to avoid login performance issues
 
         return response()->json([
             'message' => 'Login successful',

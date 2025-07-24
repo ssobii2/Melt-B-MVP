@@ -489,12 +489,6 @@ class AOIMapEditor {
             this.checkAndSetTimeout = null;
         }
         
-        // Clear any intervals or timers
-        if (this.checkAndSetInterval) {
-            clearInterval(this.checkAndSetInterval);
-            this.checkAndSetInterval = null;
-        }
-        
         // Remove event listeners
         if (this.map) {
             this.map.off('click');
