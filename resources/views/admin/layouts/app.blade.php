@@ -113,42 +113,106 @@
         };
 
         // Global AJAX setup for handling authentication errors
+        let sessionExpiredShown = false; // Prevent multiple dialogs
+        
         $(document).ajaxError(function(event, xhr, settings, thrownError) {
             // Handle 401 Unauthorized errors globally
-            if (xhr.status === 401) {
-                // Show confirmation dialog before logout to prevent session hijacking
+            if (xhr.status === 401 && !sessionExpiredShown) {
+                sessionExpiredShown = true;
+                
+                // Secure session expiry handling with auto-redirect
+                let countdown = 10; // 10 seconds countdown
+                let timerInterval;
+                
                 Swal.fire({
                     title: 'Session Expired',
-                    text: 'Your session has expired. You will be redirected to the login page.',
+                    html: `Your login session has expired, please login again.<br><br>
+                           You will be automatically redirected to the login page in <b>${countdown}</b> seconds.<br><br>
+                           <small>Click "Login Now" to redirect immediately.</small>`,
                     icon: 'warning',
-                    showCancelButton: true,
+                    showCancelButton: false,
                     confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Login Again',
-                    cancelButtonText: 'Stay Here',
+                    confirmButtonText: 'Login Now',
                     allowOutsideClick: false,
-                    allowEscapeKey: false
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // User confirmed logout
-                        $.ajax({
-                            url: '/admin/logout',
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                            },
-                            complete: function() {
-                                // Redirect to admin login
-                                window.location.href = '/admin/login';
+                    allowEscapeKey: false,
+                    timer: countdown * 1000,
+                    timerProgressBar: true,
+                    didOpen: () => {
+                        const content = Swal.getHtmlContainer();
+                        const b = content.querySelector('b');
+                        
+                        timerInterval = setInterval(() => {
+                            countdown--;
+                            b.textContent = countdown;
+                            
+                            if (countdown <= 0) {
+                                clearInterval(timerInterval);
                             }
-                        });
+                        }, 1000);
+                    },
+                    willClose: () => {
+                        clearInterval(timerInterval);
                     }
-                    // If user cancels, they stay on the current page
-                    // but subsequent API calls may still fail
+                }).then((result) => {
+                    // Regardless of user action, perform secure logout and redirect
+                    performSecureLogout();
+                });
+                
+                // Also auto-redirect after timer expires
+                setTimeout(() => {
+                    if (sessionExpiredShown) {
+                        performSecureLogout();
+                    }
+                }, countdown * 1000);
+            }
+            
+            /**
+             * Perform secure logout with proper server-side session invalidation
+             */
+            function performSecureLogout() {
+                // Disable all user interactions during logout
+                $('body').css('pointer-events', 'none');
+                
+                // Show loading indicator
+                Swal.fire({
+                    title: 'Logging out...',
+                    text: 'Please wait while we securely log you out.',
+                    icon: 'info',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Perform server-side logout to invalidate session
+                $.ajax({
+                    url: '/admin/logout',
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    timeout: 5000, // 5 second timeout
+                    complete: function(xhr) {
+                        // Clear any client-side storage
+                        if (typeof(Storage) !== "undefined") {
+                            localStorage.clear();
+                            sessionStorage.clear();
+                        }
+                        
+                        // Force redirect regardless of logout response
+                        // This ensures user is redirected even if logout fails
+                        window.location.replace('/admin/login');
+                    },
+                    error: function() {
+                        // Even if logout fails, redirect for security
+                        window.location.replace('/admin/login');
+                    }
                 });
             }
             // Handle 403 Forbidden errors
-            else if (xhr.status === 403) {
+            if (xhr.status === 403) {
                 toastr.error('Access denied. You do not have permission to perform this action.');
             }
             // Handle 500 Internal Server Error

@@ -208,6 +208,50 @@ class EntitlementController extends Controller
         if (!$dataset) {
             return response()->json(['message' => 'Dataset not found'], 404);
         }
+        
+        // Validate type-dependent fields for consistency
+        if ($request->type === 'DS-ALL') {
+            // DS-ALL should not have AOI coordinates or building GIDs
+            if ($request->has('aoi_coordinates') || $request->has('building_gids')) {
+                return response()->json([
+                    'message' => 'DS-ALL entitlements cannot have AOI coordinates or building restrictions.',
+                    'errors' => [
+                        'aoi_coordinates' => ['Not allowed for DS-ALL type'],
+                        'building_gids' => ['Not allowed for DS-ALL type']
+                    ]
+                ], 422);
+            }
+        } elseif ($request->type === 'DS-AOI') {
+            // DS-AOI should not have building GIDs
+            if ($request->has('building_gids')) {
+                return response()->json([
+                    'message' => 'DS-AOI entitlements cannot have building restrictions.',
+                    'errors' => ['building_gids' => ['Not allowed for DS-AOI type']]
+                ], 422);
+            }
+            // DS-AOI should have AOI coordinates
+            if (!$request->has('aoi_coordinates')) {
+                return response()->json([
+                    'message' => 'DS-AOI entitlements require AOI coordinates.',
+                    'errors' => ['aoi_coordinates' => ['Required for DS-AOI type']]
+                ], 422);
+            }
+        } elseif ($request->type === 'DS-BLD') {
+            // DS-BLD should not have AOI coordinates
+            if ($request->has('aoi_coordinates')) {
+                return response()->json([
+                    'message' => 'DS-BLD entitlements cannot have AOI coordinates.',
+                    'errors' => ['aoi_coordinates' => ['Not allowed for DS-BLD type']]
+                ], 422);
+            }
+            // DS-BLD should have building GIDs
+            if (!$request->has('building_gids') || empty($request->building_gids)) {
+                return response()->json([
+                    'message' => 'DS-BLD entitlements require building GIDs.',
+                    'errors' => ['building_gids' => ['Required for DS-BLD type']]
+                ], 422);
+            }
+        }
 
         $entitlementData = [
             'type' => $request->type,
@@ -309,12 +353,44 @@ class EntitlementController extends Controller
             return response()->json(['message' => 'Entitlement not found'], 404);
         }
 
-        // Prevent type changes
-        if ($request->has('type') && $request->type !== $entitlement->type) {
+        // Comprehensive type change prevention
+        // Check if type is being modified through any means
+        $requestType = $request->input('type', $entitlement->type);
+        if ($requestType !== $entitlement->type) {
             return response()->json([
                 'message' => 'Entitlement type cannot be changed. Please delete and create a new entitlement to change the type.',
                 'errors' => ['type' => ['Entitlement type cannot be modified']]
             ], 422);
+        }
+        
+        // Validate type-dependent fields to prevent inconsistent state
+        if ($entitlement->type === 'DS-ALL') {
+            // DS-ALL should not have AOI coordinates or building GIDs
+            if ($request->has('aoi_coordinates') || $request->has('building_gids')) {
+                return response()->json([
+                    'message' => 'DS-ALL entitlements cannot have AOI coordinates or building restrictions.',
+                    'errors' => [
+                        'aoi_coordinates' => ['Not allowed for DS-ALL type'],
+                        'building_gids' => ['Not allowed for DS-ALL type']
+                    ]
+                ], 422);
+            }
+        } elseif ($entitlement->type === 'DS-AOI') {
+            // DS-AOI should not have building GIDs
+            if ($request->has('building_gids')) {
+                return response()->json([
+                    'message' => 'DS-AOI entitlements cannot have building restrictions.',
+                    'errors' => ['building_gids' => ['Not allowed for DS-AOI type']]
+                ], 422);
+            }
+        } elseif ($entitlement->type === 'DS-BLD') {
+            // DS-BLD should not have AOI coordinates
+            if ($request->has('aoi_coordinates')) {
+                return response()->json([
+                    'message' => 'DS-BLD entitlements cannot have AOI coordinates.',
+                    'errors' => ['aoi_coordinates' => ['Not allowed for DS-BLD type']]
+                ], 422);
+            }
         }
 
         $validator = Validator::make($request->all(), [

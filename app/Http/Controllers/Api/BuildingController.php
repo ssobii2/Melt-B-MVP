@@ -269,14 +269,15 @@ class BuildingController extends Controller
             ], 422);
         }
 
-        if ($east <= $west) {
+        // Handle antimeridian crossing: when west > east, it's a valid bounding box crossing the International Date Line
+        $crossesAntimeridian = $west > $east;
+        
+        // Only validate east > west for non-antimeridian cases
+        if (!$crossesAntimeridian && $east <= $west) {
             return response()->json([
                 'message' => 'Invalid bounding box: east coordinate must be greater than west coordinate'
             ], 422);
         }
-
-        // Create bounding box polygon
-        $bbox = "POLYGON(({$west} {$south}, {$east} {$south}, {$east} {$north}, {$west} {$north}, {$west} {$south}))";
 
         // Get entitlement filters from middleware
         $entitlementFilters = $request->input('entitlement_filters', []);
@@ -289,8 +290,27 @@ class BuildingController extends Controller
             $filterQuery->applyEntitlementFilters($entitlementFilters);
         });
 
-        // Apply bounding box filter
-        $query->withinGeometry($bbox);
+        // Apply bounding box filter, handling antimeridian crossing
+        if ($crossesAntimeridian) {
+            // For antimeridian crossing, use OR condition for longitude ranges
+            $query->where(function ($bboxQuery) use ($west, $east, $north, $south) {
+                $bboxQuery->where(function ($westSide) use ($west, $north, $south) {
+                    // Western side: longitude >= west
+                    $westSide->whereRaw('ST_X(geom) >= ?', [$west])
+                             ->whereRaw('ST_Y(geom) >= ?', [$south])
+                             ->whereRaw('ST_Y(geom) <= ?', [$north]);
+                })->orWhere(function ($eastSide) use ($east, $north, $south) {
+                    // Eastern side: longitude <= east
+                    $eastSide->whereRaw('ST_X(geom) <= ?', [$east])
+                             ->whereRaw('ST_Y(geom) >= ?', [$south])
+                             ->whereRaw('ST_Y(geom) <= ?', [$north]);
+                });
+            });
+        } else {
+            // Standard bounding box
+            $bbox = "POLYGON(({$west} {$south}, {$east} {$south}, {$east} {$north}, {$west} {$north}, {$west} {$south}))";
+            $query->withinGeometry($bbox);
+        }
 
         // Limit results for performance
         $limit = min($request->input('limit', 1000), 5000);
