@@ -43,6 +43,14 @@ return Application::configure(basePath: dirname(__DIR__))
                     'error' => 'authentication_required'
                 ], 401);
             }
+            
+            // For admin routes, redirect to admin login
+            if ($request->is('admin/*')) {
+                return redirect()->route('admin.login');
+            }
+            
+            // For other web routes, redirect to React SPA (which handles login)
+            return redirect('/');
         });
     })
     ->create();

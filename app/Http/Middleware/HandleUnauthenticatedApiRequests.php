@@ -27,8 +27,13 @@ class HandleUnauthenticatedApiRequests
                 ], 401);
             }
 
-            // For web routes, redirect to login
-            return redirect()->guest(route('login'));
+            // For admin routes, redirect to admin login
+            if ($request->is('admin/*')) {
+                return redirect()->guest(route('admin.login'));
+            }
+            
+            // For other web routes, redirect to React SPA (which handles login)
+            return redirect('/');
         }
     }
 }

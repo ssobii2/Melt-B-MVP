@@ -1,5 +1,10 @@
 @extends('adminlte::page')
 
+@section('adminlte_css_pre')
+    {{-- CSRF Token Meta Tag --}}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+@stop
+
 @section('css')
     {{-- Include toastr and SweetAlert2 CSS --}}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
@@ -20,7 +25,10 @@
     <script src="https://unpkg.com/maplibre-gl@^5.6.1/dist/maplibre-gl.js"></script>
     
     <script>
-        // Configure Toastr with consistent settings across all admin pages
+        // Global admin token
+        window.adminToken = '{{ session("admin_token") }}';
+        
+        // Toastr configuration
         toastr.options = {
             "closeButton": true,
             "debug": false,
@@ -113,106 +121,61 @@
         };
 
         // Global AJAX setup for handling authentication errors
-        let sessionExpiredShown = false; // Prevent multiple dialogs
+        let logoutInProgress = false; // Prevent multiple logout attempts
         
-        $(document).ajaxError(function(event, xhr, settings, thrownError) {
-            // Handle 401 Unauthorized errors globally
-            if (xhr.status === 401 && !sessionExpiredShown) {
-                sessionExpiredShown = true;
-                
-                // Secure session expiry handling with auto-redirect
-                let countdown = 10; // 10 seconds countdown
-                let timerInterval;
-                
-                Swal.fire({
-                    title: 'Session Expired',
-                    html: `Your login session has expired, please login again.<br><br>
-                           You will be automatically redirected to the login page in <b>${countdown}</b> seconds.<br><br>
-                           <small>Click "Login Now" to redirect immediately.</small>`,
-                    icon: 'warning',
-                    showCancelButton: false,
-                    confirmButtonColor: '#3085d6',
-                    confirmButtonText: 'Login Now',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    timer: countdown * 1000,
-                    timerProgressBar: true,
-                    didOpen: () => {
-                        const content = Swal.getHtmlContainer();
-                        const b = content.querySelector('b');
-                        
-                        timerInterval = setInterval(() => {
-                            countdown--;
-                            b.textContent = countdown;
-                            
-                            if (countdown <= 0) {
-                                clearInterval(timerInterval);
-                            }
-                        }, 1000);
-                    },
-                    willClose: () => {
-                        clearInterval(timerInterval);
-                    }
-                }).then((result) => {
-                    // Regardless of user action, perform secure logout and redirect
-                    performSecureLogout();
-                });
-                
-                // Also auto-redirect after timer expires
-                setTimeout(() => {
-                    if (sessionExpiredShown) {
-                        performSecureLogout();
-                    }
-                }, countdown * 1000);
+        /**
+         * Simple secure logout - just invalidate session and redirect
+         */
+        function performSecureLogout() {
+            // Prevent multiple simultaneous logout attempts
+            if (logoutInProgress) {
+                return;
+            }
+            logoutInProgress = true;
+            
+            // Clear any client-side storage
+            if (typeof(Storage) !== "undefined") {
+                localStorage.clear();
+                sessionStorage.clear();
             }
             
-            /**
-             * Perform secure logout with proper server-side session invalidation
-             */
-            function performSecureLogout() {
-                // Disable all user interactions during logout
-                $('body').css('pointer-events', 'none');
-                
-                // Show loading indicator
-                Swal.fire({
-                    title: 'Logging out...',
-                    text: 'Please wait while we securely log you out.',
-                    icon: 'info',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    showConfirmButton: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                
-                // Perform server-side logout to invalidate session
-                $.ajax({
-                    url: '/admin/logout',
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                    },
-                    timeout: 5000, // 5 second timeout
-                    complete: function(xhr) {
-                        // Clear any client-side storage
-                        if (typeof(Storage) !== "undefined") {
-                            localStorage.clear();
-                            sessionStorage.clear();
-                        }
-                        
-                        // Force redirect regardless of logout response
-                        // This ensures user is redirected even if logout fails
-                        window.location.replace('/admin/login');
-                    },
-                    error: function() {
-                        // Even if logout fails, redirect for security
-                        window.location.replace('/admin/login');
-                    }
-                });
+            // Perform server-side logout to invalidate session
+            $.ajax({
+                url: '/admin/logout',
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                timeout: 3000,
+                complete: function() {
+                    // Always redirect to login page
+                    window.location.replace('/admin/login');
+                },
+                error: function() {
+                    // Even if logout fails, redirect for security
+                    window.location.replace('/admin/login');
+                }
+            });
+        }
+        
+        // Setup CSRF token for all AJAX requests
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+        
+        $(document).ajaxError(function(event, xhr, settings, thrownError) {
+            // Handle 401 Unauthorized errors - immediate logout
+            if (xhr.status === 401 && !logoutInProgress) {
+                performSecureLogout();
+            }
+            // Handle 419 CSRF Token Mismatch - refresh page to get new token
+            else if (xhr.status === 419 && !logoutInProgress) {
+                window.location.reload();
             }
             // Handle 403 Forbidden errors
-            if (xhr.status === 403) {
+            else if (xhr.status === 403) {
                 toastr.error('Access denied. You do not have permission to perform this action.');
             }
             // Handle 500 Internal Server Error

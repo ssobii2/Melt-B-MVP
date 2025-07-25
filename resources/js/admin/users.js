@@ -100,11 +100,18 @@ $(document).ready(function() {
         users.forEach(function(user) {
             const entitlementsCount = user.entitlements ? user.entitlements.length : 0;
             const roleColor = getRoleColor(user.role);
+            const isVerified = user.email_verified_at !== null;
+            const verificationBadge = isVerified 
+                ? '<span class="badge badge-success"><i class="fas fa-check"></i> Verified</span>'
+                : '<span class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i> Unverified</span>';
 
             html += `
             <tr>
                 <td><strong>${user.name}</strong></td>
-                <td>${user.email}</td>
+                <td>
+                    ${user.email}
+                    <br><small>${verificationBadge}</small>
+                </td>
                 <td><span class="badge badge-${roleColor}">${user.role.charAt(0).toUpperCase() + user.role.slice(1)}</span></td>
                 <td><span class="badge badge-info">${entitlementsCount}</span></td>
                 <td><small>${formatDate(user.created_at)}</small></td>
@@ -116,6 +123,11 @@ $(document).ready(function() {
                         <button class="btn btn-warning" onclick="editUser(${user.id})" title="Edit User">
                             <i class="fas fa-edit"></i>
                         </button>
+                        ${!isVerified ? `
+                        <button class="btn btn-success" onclick="verifyUserEmail(${user.id}, '${user.name}')" title="Verify Email">
+                            <i class="fas fa-check-circle"></i>
+                        </button>
+                        ` : ''}
                         <button class="btn btn-danger" onclick="deleteUser(${user.id}, '${user.name}')" title="Delete User">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -225,12 +237,26 @@ $(document).ready(function() {
             },
             success: function(response) {
                 const user = response.user;
+                const isVerified = user.email_verified_at !== null;
+                const verificationStatus = isVerified 
+                    ? '<span class="badge badge-success"><i class="fas fa-check"></i> Verified</span>'
+                    : '<span class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i> Unverified</span>';
+                
                 let html = `
                 <div class="row">
                     <div class="col-md-6">
                         <h5>User Information</h5>
                         <p><strong>Name:</strong> ${user.name}</p>
-                        <p><strong>Email:</strong> ${user.email}</p>
+                        <p><strong>Email:</strong> ${user.email} ${verificationStatus}</p>
+                        ${!isVerified ? `
+                        <p>
+                            <button class="btn btn-sm btn-success" onclick="verifyUserEmail(${user.id}, '${user.name}')">
+                                <i class="fas fa-check-circle"></i> Verify Email Manually
+                            </button>
+                        </p>
+                        ` : `
+                        <p><strong>Email Verified:</strong> ${formatDateTime(user.email_verified_at)}</p>
+                        `}
                         <p><strong>Role:</strong> <span class="badge badge-${getRoleColor(user.role)}">${user.role}</span></p>
                         <p><strong>Created:</strong> ${formatDateTime(user.created_at)}</p>
                         
@@ -548,4 +574,42 @@ $(document).ready(function() {
             });
         });
     };
-}); 
+
+    // Email verification function
+    window.verifyUserEmail = function(userId, userName) {
+        Swal.fire({
+            title: 'Verify Email',
+            text: `Are you sure you want to manually verify the email for ${userName}?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, verify it!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: `/api/admin/users/${userId}/verify-email`,
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + window.adminToken,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    success: function(response) {
+                        toastr.success('Email verified successfully!');
+                        loadUsers(); // Refresh the main table
+                        
+                        // If user details modal is open, refresh it
+                        if ($('#userDetailsModal').hasClass('show')) {
+                            viewUser(userId);
+                        }
+                    },
+                    error: function(xhr) {
+                        toastr.error(xhr.responseJSON?.message || 'Error verifying email');
+                    }
+                });
+            }
+        });
+    };
+});

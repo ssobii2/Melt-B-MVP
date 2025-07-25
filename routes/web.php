@@ -4,8 +4,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Api\AuthController;
 
 // --- KEEP ALL ADMIN ROUTES AS THEY ARE ---
+
+// Email verification routes
+Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+    ->middleware(['signed'])
+    ->name('verification.verify');
+
 Route::prefix('admin')->group(function () {
     // Admin authentication routes (no middleware)
     Route::get('/login', [DashboardController::class, 'showLoginForm'])->name('admin.login');
@@ -19,8 +26,8 @@ Route::prefix('admin')->group(function () {
         return redirect()->route('admin.login');
     });
 
-    // Protected admin routes using Laravel's session authentication
-    Route::middleware(['auth', 'auth.admin'])->group(function () {
+    // Protected admin routes using custom authentication middleware
+    Route::middleware(['auth.admin'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
         Route::post('/logout', [DashboardController::class, 'logout'])->name('admin.logout');
 

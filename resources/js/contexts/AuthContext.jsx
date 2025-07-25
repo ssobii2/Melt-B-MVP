@@ -82,13 +82,22 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         try {
             if (token) {
+                // Attempt server-side logout to revoke token
                 await apiClient.post('/logout');
             }
         } catch (error) {
+            // Log error but don't prevent client-side cleanup
             console.error('Logout error:', error);
         } finally {
+            // Always clear client-side state regardless of server response
             setToken(null);
             setUser(null);
+            
+            // Clear all client-side storage for security
+            if (typeof(Storage) !== "undefined") {
+                localStorage.clear();
+                sessionStorage.clear();
+            }
         }
     };
 

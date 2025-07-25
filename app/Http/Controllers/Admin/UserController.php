@@ -591,4 +591,59 @@ class UserController extends Controller
             'message' => 'Entitlement removed successfully'
         ]);
     }
+
+    /**
+     * Manually verify a user's email address.
+     */
+    #[OperationId('verifyUserEmail')]
+    #[Summary('Verify user email')]
+    #[Description('Manually verify a user\'s email address as an admin.')]
+    #[Response(200, 'Email verified successfully', [
+        'message' => 'User email verified successfully'
+    ])]
+    #[Response(400, 'Email already verified', [
+        'message' => 'User email is already verified'
+    ])]
+    #[Response(404, 'User not found', [
+        'message' => 'User not found'
+    ])]
+    #[Response(401, 'Not authenticated', [
+        'message' => 'Unauthenticated'
+    ])]
+    #[Response(403, 'Access denied', [
+        'message' => 'Access denied. Admin role required.'
+    ])]
+    public function verifyEmail(Request $request, string $id): JsonResponse
+    {
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'User email is already verified'
+            ], 400);
+        }
+
+        $user->markEmailAsVerified();
+
+        // Log the admin action
+        AuditLog::createEntry(
+            userId: $request->user()->id,
+            action: 'admin_email_verified',
+            targetType: 'user',
+            targetId: $user->id,
+            newValues: [
+                'email_verified_at' => $user->email_verified_at
+            ],
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent()
+        );
+
+        return response()->json([
+            'message' => 'User email verified successfully'
+        ]);
+    }
 }

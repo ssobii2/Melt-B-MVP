@@ -229,7 +229,7 @@ export default function Downloads() {
                                                         </button>
                                                     )}
                                                     {(!entitlement.download_formats || entitlement.download_formats.length === 0) && (
-                                                        <p className="text-sm text-gray-500">No download formats available</p>
+                                                        <p className="text-sm text-gray-500">No download formats assigned. Contact Admin</p>
                                                     )}
                                                 </div>
                                             </div>

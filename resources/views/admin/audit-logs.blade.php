@@ -138,9 +138,5 @@
 
 
 @push('js')
-<script>
-    // Set admin token for use in external JS file
-    window.adminToken = '{{ session("admin_token") }}';
-</script>
 @vite(['resources/js/admin/audit-logs.js'])
 @endpush
