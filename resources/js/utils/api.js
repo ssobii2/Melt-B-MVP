@@ -1,5 +1,6 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import toast from 'react-hot-toast';
 
 // Create axios instance with proper configuration
 const api = axios.create({
@@ -26,21 +27,62 @@ api.interceptors.request.use(
     }
 );
 
+// Global state for preventing multiple logout attempts and race conditions
+let logoutInProgress = false;
+let sessionExpiredShown = false;
+
+/**
+ * Perform secure logout with proper cleanup
+ * Centralized function to prevent race conditions and ensure consistent behavior
+ */
+function performSecureLogout() {
+    // Prevent multiple simultaneous logout attempts
+    if (logoutInProgress) {
+        return;
+    }
+    logoutInProgress = true;
+    
+    // Clear all client-side storage immediately for security
+    Cookies.remove('auth_token');
+    if (typeof(Storage) !== "undefined") {
+        localStorage.clear();
+        sessionStorage.clear();
+    }
+    
+    // Force redirect to login page
+    // Use replace to prevent back button navigation to authenticated pages
+    window.location.replace('/login');
+}
+
 // Response interceptor for handling global errors
 api.interceptors.response.use(
     (response) => {
         return response;
     },
     (error) => {
-        // Handle 401 Unauthorized globally
-        if (error.response?.status === 401) {
-            // Clear auth data
-            Cookies.remove('auth_token');
+        // Handle 401 Unauthorized globally with enhanced security
+        if (error.response?.status === 401 && !sessionExpiredShown && !logoutInProgress) {
+            sessionExpiredShown = true;
             
-            // Redirect to login - only if not already on login page
+            // Immediate logout for security - no client-side delays that can be bypassed
+            // Only show alert if not already on login page to avoid infinite loops
             if (!window.location.pathname.includes('/login')) {
-                window.location.href = '/login';
+                // Show toast notification before redirect
+                toast.error('Your session has expired. You will be redirected to the login page.', {
+                    duration: 3000,
+                    position: 'top-right'
+                });
+                
+                // Perform logout after a brief delay to show the toast
+                setTimeout(() => {
+                    performSecureLogout();
+                }, 1000);
             }
+        }
+        
+        // Handle other error types
+        if (error.response?.status === 403) {
+            console.warn('Access denied:', error.response.data?.message || 'Insufficient permissions');
         }
         
         return Promise.reject(error);
@@ -56,4 +98,4 @@ export const apiClient = {
     patch: (url, data = {}, config = {}) => api.patch(url, data, config),
 };
 
-export default api; 
+export default api;

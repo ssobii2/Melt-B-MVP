@@ -26,8 +26,8 @@ Route::prefix('admin')->group(function () {
         return redirect()->route('admin.login');
     });
 
-    // Protected admin routes using Laravel's session authentication
-    Route::middleware(['auth', 'auth.admin'])->group(function () {
+    // Protected admin routes using custom authentication middleware
+    Route::middleware(['auth.admin'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
         Route::post('/logout', [DashboardController::class, 'logout'])->name('admin.logout');
 

@@ -253,7 +253,10 @@ class AuthController extends Controller
         );
 
         // Revoke current token
-        $request->user()->currentAccessToken()->delete();
+        $token = $request->user()->currentAccessToken();
+        if ($token && method_exists($token, 'delete')) {
+            $token->delete();
+        }
 
         return response()->json([
             'message' => 'Logout successful - token revoked'
