@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function Register() {
     const { register } = useAuth();
@@ -12,21 +13,17 @@ export default function Register() {
         role: 'user'
     });
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
     const [errors, setErrors] = useState({});
-    const [success, setSuccess] = useState('');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setError('');
         setErrors({});
-        setSuccess('');
 
         const result = await register(formData);
         
         if (result.success) {
-            setSuccess(result.message);
+            toast.success(result.message || 'Account created successfully! Please check your email to verify your account.');
             setFormData({
                 name: '',
                 email: '',
@@ -35,7 +32,7 @@ export default function Register() {
                 role: 'user'
             });
         } else {
-            setError(result.error);
+            toast.error(result.error || 'Registration failed. Please try again.');
             setErrors(result.errors || {});
         }
         
@@ -138,17 +135,6 @@ export default function Register() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        {error && (
-                            <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded">
-                                {error}
-                            </div>
-                        )}
-
-                        {success && (
-                            <div className="bg-green-50 border border-green-300 text-green-700 px-4 py-3 rounded">
-                                {success}
-                            </div>
-                        )}
 
                         <div>
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -164,9 +150,6 @@ export default function Register() {
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-white"
                                 placeholder="Your full name"
                             />
-                            {errors.name && (
-                                <p className="mt-1 text-sm text-red-600">{errors.name[0]}</p>
-                            )}
                         </div>
 
                         <div>
@@ -183,9 +166,7 @@ export default function Register() {
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-white"
                                 placeholder="your@email.com"
                             />
-                            {errors.email && (
-                                <p className="mt-1 text-sm text-red-600">{errors.email[0]}</p>
-                            )}
+
                         </div>
 
                         <div>
@@ -204,9 +185,7 @@ export default function Register() {
                                 <option value="contractor">Contractor</option>
                                 <option value="municipality">Municipality</option>
                             </select>
-                            {errors.role && (
-                                <p className="mt-1 text-sm text-red-600">{errors.role[0]}</p>
-                            )}
+
                         </div>
 
                         <div>
@@ -223,9 +202,6 @@ export default function Register() {
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-white"
                                 placeholder="Create a strong password"
                             />
-                            {errors.password && (
-                                <p className="mt-1 text-sm text-red-600">{errors.password[0]}</p>
-                            )}
                         </div>
 
                         <div>
@@ -263,6 +239,7 @@ export default function Register() {
                     </div>
                 </div>
             </div>
+            <Toaster position="top-right" />
         </div>
     );
 }

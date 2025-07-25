@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 // Import page components
 import Home from '../Pages/Home';
 import Login from '../Pages/Auth/Login';
-import Register from '../Pages/Auth/Register';
+// import Register from '../Pages/Auth/Register'; // Commented out - registration disabled
+import EmailVerificationResult from '../Pages/Auth/EmailVerificationResult';
 import Dashboard from '../Pages/Dashboard';
 import Profile from '../Pages/Profile';
 import Downloads from '../Pages/Downloads';
@@ -63,14 +64,16 @@ const Router = () => {
                     </PublicRoute>
                 } 
             />
-            <Route 
+            {/* Registration route commented out to disable signup */}
+            {/* <Route 
                 path="/register" 
                 element={
                     <PublicRoute>
                         <Register />
                     </PublicRoute>
                 } 
-            />
+            /> */}
+            <Route path="/email-verification-result" element={<EmailVerificationResult />} />
 
             {/* Protected Routes */}
             <Route 
@@ -104,4 +107,4 @@ const Router = () => {
     );
 };
 
-export default Router; 
+export default Router;

@@ -25,7 +25,7 @@ use App\Http\Controllers\Api\TokenController;
 */
 
 // Public authentication routes (no middleware)
-Route::post('/register', [AuthController::class, 'register']);
+// Route::post('/register', [AuthController::class, 'register']); // Commented out to disable registration
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
@@ -58,6 +58,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Profile management
     Route::put('/user/profile-information', [AuthController::class, 'updateProfile']);
     Route::put('/user/password', [AuthController::class, 'updatePassword']);
+
+    // Email verification
+    Route::post('/email/verification-notification', [AuthController::class, 'sendEmailVerification']);
+    Route::post('/email/verify', [AuthController::class, 'verifyEmail']);
 
     // User entitlements
     Route::get('/me/entitlements', function (Request $request) {
@@ -124,6 +128,7 @@ Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(functi
     Route::get('/users/{id}/entitlements', [UserController::class, 'entitlements']);
     Route::post('/users/{userId}/entitlements/{entitlementId}', [UserController::class, 'assignEntitlement']);
     Route::delete('/users/{userId}/entitlements/{entitlementId}', [UserController::class, 'removeEntitlement']);
+    Route::post('/users/{id}/verify-email', [UserController::class, 'verifyEmail']);
 
     // Entitlement management - specific routes first
     Route::get('/entitlements/all-aois', [EntitlementController::class, 'allAois']);

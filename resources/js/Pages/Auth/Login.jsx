@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function Login() {
     const { login } = useAuth();
@@ -10,20 +11,26 @@ export default function Login() {
         password: ''
     });
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setError('');
 
         const result = await login(formData);
         
         if (result.success) {
+            toast.success('Login successful! Welcome back.');
             // Redirect to dashboard using React Router
             navigate('/dashboard');
         } else {
-            setError(result.error);
+            if (result.error === 'Please verify your email address before logging in.') {
+                toast.error('Please verify your email address before logging in.', {
+                    duration: 5000,
+                    icon: '📧'
+                });
+            } else {
+                toast.error(result.error || 'Login failed. Please try again.');
+            }
         }
         
         setLoading(false);
@@ -106,11 +113,6 @@ export default function Login() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        {error && (
-                            <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded">
-                                {error}
-                            </div>
-                        )}
 
                         <div>
                             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -155,16 +157,16 @@ export default function Login() {
 
                     <div className="mt-6 text-center">
                         <p className="text-sm text-gray-600">
-                            Don't have an account?{' '}
-                            <Link to="/register" className="text-blue-600 hover:text-blue-500 font-medium cursor-pointer">
-                                Sign up
-                            </Link>
+                            Need an account?{' '}
+                            <span className="text-blue-600 font-medium">
+                                Contact the administrator
+                            </span>
                         </p>
                     </div>
 
-
                 </div>
             </div>
+            <Toaster position="top-right" />
         </div>
     );
 }

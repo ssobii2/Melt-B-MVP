@@ -162,6 +162,28 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // Check if email is verified
+        if (!$user->hasVerifiedEmail()) {
+            // Log the failed login attempt due to unverified email
+            AuditLog::createEntry(
+                userId: $user->id,
+                action: 'user_login_failed',
+                targetType: 'user',
+                targetId: $user->id,
+                newValues: [
+                    'email' => $credentials['email'],
+                    'reason' => 'email_not_verified'
+                ],
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent()
+            );
+
+            return response()->json([
+                'message' => 'Please verify your email address before logging in.',
+                'error' => 'email_not_verified'
+            ], 403);
+        }
+
         // Revoke existing tokens if requested (for security)
         if ($request->boolean('revoke_existing', false)) {
             $user->tokens()->delete();
@@ -511,5 +533,136 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Password updated successfully.'
         ]);
+    }
+
+    /**
+     * Send email verification notification.
+     */
+    #[OperationId('sendEmailVerification')]
+    #[Summary('Send email verification')]
+    #[Description('Send email verification notification to the authenticated user.')]
+    #[Response(200, 'Verification email sent', [
+        'message' => 'Verification email sent successfully.'
+    ])]
+    #[Response(400, 'Email already verified', [
+        'message' => 'Email address is already verified.'
+    ])]
+    #[Response(401, 'Not authenticated', [
+        'message' => 'Unauthenticated'
+    ])]
+    public function sendEmailVerification(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Email address is already verified.'
+            ], 400);
+        }
+
+        $user->sendEmailVerificationNotification();
+
+        // Log the verification email sent
+        AuditLog::createEntry(
+            userId: $user->id,
+            action: 'email_verification_sent',
+            targetType: 'user',
+            targetId: $user->id,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent()
+        );
+
+        return response()->json([
+            'message' => 'Verification email sent successfully.'
+        ]);
+    }
+
+    /**
+     * Verify email address.
+     */
+    #[OperationId('verifyEmail')]
+    #[Summary('Verify email address')]
+    #[Description('Verify user email address using the verification link.')]
+    #[RequestBody([
+        'id' => 'string|required',
+        'hash' => 'string|required'
+    ])]
+    #[Response(200, 'Email verified successfully', [
+        'message' => 'Email verified successfully.'
+    ])]
+    #[Response(400, 'Invalid verification link', [
+        'message' => 'Invalid verification link.'
+    ])]
+    #[Response(404, 'User not found', [
+        'message' => 'User not found.'
+    ])]
+    public function verifyEmail(Request $request, $id = null, $hash = null)
+    {
+        // Handle both API requests (JSON) and web requests (URL parameters)
+        $userId = $id ?? $request->input('id');
+        $hashValue = $hash ?? $request->input('hash');
+
+        if (!$userId || !$hashValue) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Missing verification parameters.'
+                ], 400);
+            }
+            return redirect()->to(config('app.url') . '/email-verification-result?error=' . urlencode('Missing verification parameters.'));
+        }
+
+        try {
+            $user = User::findOrFail($userId);
+        } catch (\Exception $e) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'User not found.'
+                ], 404);
+            }
+            return redirect()->to(config('app.url') . '/email-verification-result?error=' . urlencode('User not found.'));
+        }
+
+        if (!hash_equals((string) $hashValue, sha1($user->getEmailForVerification()))) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Invalid verification link.'
+                ], 400);
+            }
+            return redirect()->to(config('app.url') . '/email-verification-result?error=' . urlencode('Invalid verification link.'));
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Email address is already verified.'
+                ], 400);
+            }
+            return redirect()->to(config('app.url') . '/email-verification-result?success=true&message=' . urlencode('Email address is already verified.'));
+        }
+
+        if ($user->markEmailAsVerified()) {
+            // Log the email verification
+            AuditLog::createEntry(
+                userId: $user->id,
+                action: 'email_verified',
+                targetType: 'user',
+                targetId: $user->id,
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent()
+            );
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Email verified successfully.'
+            ]);
+        }
+
+        // For web requests, redirect to verification result page
+        return redirect()->to(config('app.url') . '/email-verification-result?success=true');
     }
 }
