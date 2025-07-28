@@ -112,7 +112,7 @@ Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
 });
 
 // Admin-only routes (same token, but checks user role)
-Route::middleware(['auth:sanctum', 'auth.admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum', 'auth.admin.api'])->prefix('admin')->group(function () {
     // System statistics
     Route::get('/stats', function (Request $request) {
         return response()->json([
