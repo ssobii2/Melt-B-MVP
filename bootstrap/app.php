@@ -29,7 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Add aliases for easier use
         $middleware->alias([
-            'auth.admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
+            'auth.admin' => \App\Http\Middleware\EnsureAdminToken::class,
+            'auth.admin.api' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'auth.api' => \App\Http\Middleware\HandleUnauthenticatedApiRequests::class,
             'check.entitlements' => \App\Http\Middleware\CheckEntitlementsMiddleware::class,
         ]);
