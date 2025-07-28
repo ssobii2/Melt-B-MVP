@@ -22,6 +22,14 @@
 
 @section('auth_body')
 
+{{-- Display general error messages --}}
+@if ($errors->has('error'))
+<div class="alert alert-danger alert-dismissible">
+    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+    <i class="icon fas fa-ban"></i> {{ $errors->first('error') }}
+</div>
+@endif
+
 <form action="{{ route('admin.login.post') }}" method="post">
     @csrf
 

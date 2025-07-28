@@ -31,8 +31,8 @@ class EnsureAdminToken
             return redirect()->route('admin.login');
         }
 
-        // Set user for the default Auth facade so AdminLTE can access user
-        Auth::setUser($user);
+        // Set the admin guard as the default for this request to maintain consistency
+        Auth::shouldUse('admin');
 
         return $next($request);
     }

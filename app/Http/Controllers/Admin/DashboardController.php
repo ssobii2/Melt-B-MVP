@@ -98,8 +98,9 @@ class DashboardController extends Controller
             if ($user && $user->isAdmin()) {
                 return redirect()->route('admin.dashboard');
             }
-            // If user is not admin, logout from admin guard
+            // If user is not admin, logout from admin guard and redirect to login
             Auth::guard('admin')->logout();
+            return redirect()->route('admin.login')->withErrors(['error' => 'Access denied. Admin privileges required.']);
         }
 
         return view('admin.auth.login');
@@ -239,7 +240,6 @@ class DashboardController extends Controller
         
         // Regenerate session for security
         $request->session()->invalidate();
-        $request->session()->regenerateToken();
 
         return redirect('/admin/login');
     }
