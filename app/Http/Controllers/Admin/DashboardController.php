@@ -92,24 +92,14 @@ class DashboardController extends Controller
     #[Response(302, 'Already authenticated - redirect to dashboard')]
     public function showLoginForm(Request $request)
     {
-        // Check if admin is already authenticated via session token
-        $token = $request->session()->get('admin_token');
-        $userId = $request->session()->get('admin_user_id');
-        
-        if ($token && $userId) {
-            // Verify token is still valid
-            $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
-            if ($accessToken && 
-                $accessToken->tokenable_id == $userId && 
-                $accessToken->name === 'admin-dashboard' &&
-                (!$accessToken->expires_at || $accessToken->expires_at->isFuture())) {
-                $user = User::find($userId);
-                if ($user && $user->isAdmin()) {
-                    return redirect()->route('admin.dashboard');
-                }
+        // Check if admin is already authenticated via Laravel's admin guard
+        if (Auth::guard('admin')->check()) {
+            $user = Auth::guard('admin')->user();
+            if ($user && $user->isAdmin()) {
+                return redirect()->route('admin.dashboard');
             }
-            // Clean up invalid session data
-            $request->session()->forget(['admin_token', 'admin_user_id']);
+            // If user is not admin, logout from admin guard
+            Auth::guard('admin')->logout();
         }
 
         return view('admin.auth.login');
@@ -143,11 +133,10 @@ class DashboardController extends Controller
             'password' => ['required'],
         ]);
 
-        // Find user by email
-        $user = User::where('email', $credentials['email'])->first();
-        
-        // Verify credentials manually without using Auth system
-        if ($user && \Illuminate\Support\Facades\Hash::check($credentials['password'], $user->password)) {
+        // Attempt authentication with admin guard
+        if (Auth::guard('admin')->attempt($credentials, $request->boolean('remember'))) {
+            $user = Auth::guard('admin')->user();
+            
             // Check if user is admin
             if (!$user->isAdmin()) {
                 // Log failed admin access attempt
@@ -164,6 +153,9 @@ class DashboardController extends Controller
                     userAgent: $request->userAgent()
                 );
 
+                // Logout from admin guard since user is not admin
+                Auth::guard('admin')->logout();
+                
                 return back()->withErrors([
                     'email' => 'Access denied. Admin privileges required.',
                 ]);
@@ -175,7 +167,6 @@ class DashboardController extends Controller
             // Create a Sanctum token for API calls from admin interface
             $token = $user->createToken('admin-dashboard')->plainTextToken;
             $request->session()->put('admin_token', $token);
-            $request->session()->put('admin_user_id', $user->id);
 
             // Log the admin login
             AuditLog::createEntry(
@@ -219,9 +210,8 @@ class DashboardController extends Controller
     #[Response(302, 'Logout successful - redirect to login')]
     public function logout(Request $request)
     {
-        // Get admin user from session
-        $userId = $request->session()->get('admin_user_id');
-        $user = $userId ? User::find($userId) : null;
+        // Get admin user before logout
+        $user = Auth::guard('admin')->user();
 
         if ($user) {
             // Log the admin logout
@@ -233,18 +223,22 @@ class DashboardController extends Controller
                 ipAddress: $request->ip(),
                 userAgent: $request->userAgent()
             );
+
+            // Revoke the admin token if it exists
+            if ($request->session()->has('admin_token')) {
+                // Find and revoke the admin-dashboard token
+                $user->tokens()->where('name', 'admin-dashboard')->delete();
+            }
         }
 
-        // Revoke the admin token if it exists
-        if ($user && $request->session()->has('admin_token')) {
-            // Find and revoke the admin-dashboard token
-            $user->tokens()->where('name', 'admin-dashboard')->delete();
-        }
-
-        // Clear only admin-related session data
-        $request->session()->forget(['admin_token', 'admin_user_id']);
+        // Logout from admin guard
+        Auth::guard('admin')->logout();
         
-        // Regenerate CSRF token for security
+        // Clear admin token from session
+        $request->session()->forget('admin_token');
+        
+        // Regenerate session for security
+        $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return redirect('/admin/login');

@@ -4,8 +4,6 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use App\Models\User;
-use Laravel\Sanctum\PersonalAccessToken;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
 
@@ -18,34 +16,22 @@ class EnsureAdminToken
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Check if admin token exists in session
-        $token = $request->session()->get('admin_token');
-        $userId = $request->session()->get('admin_user_id');
-
-        if (!$token || !$userId) {
+        // Check if admin is authenticated via Laravel's admin guard
+        if (!Auth::guard('admin')->check()) {
             return redirect()->route('admin.login');
         }
 
-        // Verify token is valid
-        $accessToken = PersonalAccessToken::findToken($token);
-        if (!$accessToken || $accessToken->tokenable_id != $userId) {
-            $request->session()->forget(['admin_token', 'admin_user_id']);
-            return redirect()->route('admin.login');
-        }
-
-        // Verify user is admin
-        $user = User::find($userId);
+        // Get the authenticated admin user
+        $user = Auth::guard('admin')->user();
+        
+        // Verify user is still admin (in case role changed)
         if (!$user || !$user->isAdmin()) {
-            $request->session()->forget(['admin_token', 'admin_user_id']);
+            Auth::guard('admin')->logout();
+            $request->session()->forget('admin_token');
             return redirect()->route('admin.login');
         }
 
-        // Set user for the request and Auth facade
-        $request->setUserResolver(function () use ($user) {
-            return $user;
-        });
-
-        // Also set for Auth facade so AdminLTE can access user
+        // Set user for the default Auth facade so AdminLTE can access user
         Auth::setUser($user);
 
         return $next($request);
