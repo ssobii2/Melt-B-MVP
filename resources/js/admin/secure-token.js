@@ -7,9 +7,12 @@
 
 class SecureTokenHandler {
     constructor() {
-        this.token = null;
+        this.#token = null;
         this.initialized = false;
     }
+
+    // Private field for token
+    #token;
 
     /**
      * Initialize the token handler with the admin token
@@ -22,7 +25,7 @@ class SecureTokenHandler {
         }
         
         // Store token securely (not on window object)
-        this.token = token;
+        this.#token = token;
         this.initialized = true;
         
         // Clear the token from any global scope immediately
@@ -32,28 +35,22 @@ class SecureTokenHandler {
     }
 
     /**
-     * Get the token for API requests
-     * Only accessible through this controlled interface
-     */
-    getToken() {
-        if (!this.initialized || !this.token) {
-            throw new Error('Token handler not properly initialized');
-        }
-        return this.token;
-    }
-
-    /**
      * Get authorization header for API requests
+     * Private method - token is never exposed
      */
     getAuthHeader() {
+        if (!this.initialized || !this.#token) {
+            throw new Error('Token handler not properly initialized');
+        }
         return {
-            'Authorization': `Bearer ${this.getToken()}`,
+            'Authorization': `Bearer ${this.#token}`,
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
         };
     }
 
     /**
      * Make authenticated AJAX request
+     * Note: 401 error handling is managed globally by the admin layout
      */
     makeAuthenticatedRequest(options) {
         const defaultOptions = {
@@ -65,10 +62,77 @@ class SecureTokenHandler {
     }
 
     /**
+     * Convenience method for GET requests
+     */
+    get(url, options = {}) {
+        return this.makeAuthenticatedRequest({
+            url: url,
+            method: 'GET',
+            ...options
+        });
+    }
+
+    /**
+     * Convenience method for POST requests
+     */
+    post(url, data = {}, options = {}) {
+        return this.makeAuthenticatedRequest({
+            url: url,
+            method: 'POST',
+            data: data,
+            ...options
+        });
+    }
+
+    /**
+     * Convenience method for PUT requests
+     */
+    put(url, data = {}, options = {}) {
+        return this.makeAuthenticatedRequest({
+            url: url,
+            method: 'PUT',
+            data: data,
+            ...options
+        });
+    }
+
+    /**
+     * Convenience method for DELETE requests
+     */
+    delete(url, options = {}) {
+        return this.makeAuthenticatedRequest({
+            url: url,
+            method: 'DELETE',
+            ...options
+        });
+    }
+
+    /**
+     * Convenience method for PATCH requests
+     */
+    patch(url, data = {}, options = {}) {
+        return this.makeAuthenticatedRequest({
+            url: url,
+            method: 'PATCH',
+            data: data,
+            ...options
+        });
+    }
+
+    /**
+     * Helper for paginated GET requests
+     */
+    getPaginated(url, params = {}, options = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        const fullUrl = queryString ? `${url}?${queryString}` : url;
+        return this.get(fullUrl, options);
+    }
+
+    /**
      * Clear the token (call on logout)
      */
     clear() {
-        this.token = null;
+        this.#token = null;
         this.initialized = false;
     }
 
@@ -76,7 +140,7 @@ class SecureTokenHandler {
      * Check if token is available
      */
     isAvailable() {
-        return this.initialized && this.token !== null;
+        return this.initialized && this.#token !== null;
     }
 }
 

@@ -22,7 +22,7 @@ class EnsureUserIsAdmin
             // For AJAX requests, return JSON
             if ($request->expectsJson() || $request->is('api/*')) {
                 return response()->json([
-                    'message' => 'Unauthenticated. Please provide a valid Bearer token.',
+                    'message' => 'Unauthenticated. Please login again.',
                     'error' => 'authentication_required'
                 ], 401);
             }

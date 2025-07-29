@@ -198,26 +198,30 @@ $(document).ready(function() {
 
     // Load datasets for dropdowns
     function loadDatasets() {
-        $.ajax({
-            url: '/api/admin/entitlements/datasets',
-            method: 'GET',
+        adminTokenHandler.get('/api/admin/entitlements/datasets', {
             headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
-            },
-            success: function(response) {
-                let options = '<option value="">Select Dataset</option>';
-                response.datasets.forEach(function(dataset) {
-                    options += `<option value="${dataset.id}">${dataset.name}</option>`;
-                });
-                $('#datasetFilter').html(options);
+            }
+        })
+        .done(function(response) {
+            let options = '<option value="">Select Dataset</option>';
+            response.datasets.forEach(function(dataset) {
+                options += `<option value="${dataset.id}">${dataset.name}</option>`;
+            });
+            $('#datasetFilter').html(options);
 
-                // For create/edit modals
-                let modalOptions = '<option value="">Select Dataset</option>';
-                response.datasets.forEach(function(dataset) {
-                    modalOptions += `<option value="${dataset.id}">${dataset.name}</option>`;
-                });
-                $('#createDataset, #editDataset').html(modalOptions);
+            // For create/edit modals
+            let modalOptions = '<option value="">Select Dataset</option>';
+            response.datasets.forEach(function(dataset) {
+                modalOptions += `<option value="${dataset.id}">${dataset.name}</option>`;
+            });
+            $('#createDataset, #editDataset').html(modalOptions);
+        })
+        .fail(function(xhr, status, error) {
+            console.error('Error loading datasets:', error);
+            const errorMessage = xhr.responseJSON?.message || 'Failed to load datasets';
+            if (typeof toastr !== 'undefined') {
+                toastr.error(errorMessage, 'Error');
             }
         });
     }
@@ -231,42 +235,36 @@ $(document).ready(function() {
             dataset_id: datasetFilter
         });
 
-        $.ajax({
-            url: '/api/admin/entitlements?' + params.toString(),
-            method: 'GET',
+        adminTokenHandler.get('/api/admin/entitlements?' + params.toString(), {
             headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json',
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
                 'Expires': '0'
-            },
-            success: function(response) {
-                renderEntitlementsTable(response.data);
-                renderPagination(response);
-            },
-            error: function(xhr) {
-                console.error('Error loading entitlements:', xhr);
-                $('#entitlementsTableBody').html('<tr><td colspan="7" class="text-center text-danger">Error loading entitlements</td></tr>');
             }
+        })
+        .done(function(response) {
+            renderEntitlementsTable(response.data);
+            renderPagination(response);
+        })
+        .fail(function(xhr) {
+            console.error('Error loading entitlements:', xhr);
+            $('#entitlementsTableBody').html('<tr><td colspan="7" class="text-center text-danger">Error loading entitlements</td></tr>');
         });
     }
 
     // Load statistics
     function loadStats() {
-        $.ajax({
-            url: '/api/admin/entitlements/stats',
-            method: 'GET',
+        adminTokenHandler.get('/api/admin/entitlements/stats', {
             headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
-            },
-            success: function(response) {
-                renderStats(response);
-            },
-            error: function(xhr) {
-                $('#statsContent').html('<p class="text-danger">Error loading statistics</p>');
             }
+        })
+        .done(function(response) {
+            renderStats(response);
+        })
+        .fail(function(xhr) {
+            $('#statsContent').html('<p class="text-danger">Error loading statistics</p>');
         });
     }
 
@@ -718,41 +716,38 @@ $(document).ready(function() {
     // Load datasets for building filtering
     function loadDatasetsForBuildings(prefix) {
         return new Promise((resolve, reject) => {
-            $.ajax({
-                url: '/api/admin/datasets',
-                method: 'GET',
+            adminTokenHandler.get('/api/admin/datasets', {
                 headers: {
-                    'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                     'Accept': 'application/json'
-                },
-                success: function(response) {
-                    const select = $(`#${prefix}BuildingDataset`);
-                    select.html('<option value="">Select Dataset</option>');
-                    
-                    if (response.data) {
-                        response.data.forEach(dataset => {
-                            const option = `<option value="${dataset.id}">${dataset.name}</option>`;
-                            select.append(option);
-                        });
-                    }
-                    
-                    // For create modal, ensure buildings are not loaded initially
-                    if (prefix === 'create') {
-                        $(`#${prefix}BuildingList`).html('<p class="text-muted text-center">Select a dataset to view buildings</p>');
-                        $(`#${prefix}SelectedCount`).text('0');
-                        $(`#${prefix}BuildingPagination`).hide();
-                    }
-                    
-                    resolve(response);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error loading datasets:', error);
-                    const errorMessage = xhr.responseJSON?.message || 'Failed to load datasets';
-                    if (typeof toastr !== 'undefined') {
-                        toastr.error(errorMessage, 'Error');
-                    }
-                    reject(error);
                 }
+            })
+            .done(function(response) {
+                const select = $(`#${prefix}BuildingDataset`);
+                select.html('<option value="">Select Dataset</option>');
+                
+                if (response.data) {
+                    response.data.forEach(dataset => {
+                        const option = `<option value="${dataset.id}">${dataset.name}</option>`;
+                        select.append(option);
+                    });
+                }
+                
+                // For create modal, ensure buildings are not loaded initially
+                if (prefix === 'create') {
+                    $(`#${prefix}BuildingList`).html('<p class="text-muted text-center">Select a dataset to view buildings</p>');
+                    $(`#${prefix}SelectedCount`).text('0');
+                    $(`#${prefix}BuildingPagination`).hide();
+                }
+                
+                resolve(response);
+            })
+            .fail(function(xhr, status, error) {
+                console.error('Error loading datasets:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load datasets';
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage, 'Error');
+                }
+                reject(error);
             });
         });
     }
@@ -797,26 +792,22 @@ $(document).ready(function() {
                 page: page
             };
             
-            $.ajax({
-                url: '/api/admin/buildings/with-priority',
-                method: 'POST',
+            adminTokenHandler.post('/api/admin/buildings/with-priority', JSON.stringify(postData), {
                 headers: {
-                    'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
-                },
-                data: JSON.stringify(postData),
-                success: function(response) {
-                    handleBuildingsResponse(response, prefix, page);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error loading buildings:', error);
-                    const errorMessage = xhr.responseJSON?.message || 'Failed to load buildings';
-                    if (typeof toastr !== 'undefined') {
-                        toastr.error(errorMessage, 'Error');
-                    }
-                    buildingList.html('<p class="text-danger text-center">Error loading buildings</p>');
                 }
+            })
+            .done(function(response) {
+                handleBuildingsResponse(response, prefix, page);
+            })
+            .fail(function(xhr, status, error) {
+                console.error('Error loading buildings:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load buildings';
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage, 'Error');
+                }
+                buildingList.html('<p class="text-danger text-center">Error loading buildings</p>');
             });
         } else {
             // Create modal OR edit modal without pre-selected buildings: Use GET endpoint for normal pagination
@@ -836,24 +827,21 @@ $(document).ready(function() {
                 url += '?' + params.toString();
             }
             
-            $.ajax({
-                url: url,
-                method: 'GET',
+            adminTokenHandler.get(url, {
                 headers: {
-                    'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                     'Accept': 'application/json'
-                },
-                success: function(response) {
-                    handleBuildingsResponse(response, prefix, page);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error loading buildings:', error);
-                    const errorMessage = xhr.responseJSON?.message || 'Failed to load buildings';
-                    if (typeof toastr !== 'undefined') {
-                        toastr.error(errorMessage, 'Error');
-                    }
-                    buildingList.html('<p class="text-danger text-center">Error loading buildings</p>');
                 }
+            })
+            .done(function(response) {
+                handleBuildingsResponse(response, prefix, page);
+            })
+            .fail(function(xhr, status, error) {
+                console.error('Error loading buildings:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load buildings';
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage, 'Error');
+                }
+                buildingList.html('<p class="text-danger text-center">Error loading buildings</p>');
             });
         }
     };
@@ -1135,16 +1123,13 @@ $(document).ready(function() {
             }
         }
 
-        $.ajax({
-            url: '/api/admin/entitlements',
-            method: 'POST',
+        adminTokenHandler.post('/api/admin/entitlements', JSON.stringify(formData), {
             headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
-            },
-            data: JSON.stringify(formData),
-            success: function(response) {
+            }
+        })
+        .done(function(response) {
                 $('#createEntitlementModal').modal('hide');
                 $('#createEntitlementForm')[0].reset();
                 // Clear all create modal fields and reset UI
@@ -1161,8 +1146,8 @@ $(document).ready(function() {
                     loadEntitlements();
                 }, 100);
                 toastr.success('Entitlement created successfully!');
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 const errors = xhr.responseJSON?.errors;
                 if (errors) {
                     let errorMessage = 'Please fix the following errors:<br>';
@@ -1181,8 +1166,7 @@ $(document).ready(function() {
                         text: xhr.responseJSON?.message || 'Error creating entitlement'
                     });
                 }
-            }
-        });
+            });
     });
 
     // Global functions for buttons
@@ -1192,14 +1176,12 @@ $(document).ready(function() {
     };
 
     window.viewEntitlement = function(entitlementId) {
-        $.ajax({
-            url: `/api/admin/entitlements/${entitlementId}?include_geometry=1`,
-            method: 'GET',
+        adminTokenHandler.get(`/api/admin/entitlements/${entitlementId}?include_geometry=1`, {
             headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
-            },
-            success: function(response) {
+            }
+        })
+        .done(function(response) {
                 const entitlement = response.entitlement;
                 let html = `
                 <div class="row">
@@ -1263,27 +1245,24 @@ $(document).ready(function() {
 
                 $('#entitlementDetailsContent').html(html);
                 $('#entitlementDetailsModal').modal('show');
-            },
-            error: function(xhr, status, error) {
+            })
+            .fail(function(xhr, status, error) {
                 console.error('Error loading entitlement details:', error);
                 const errorMessage = xhr.responseJSON?.message || 'Failed to load entitlement details';
                 if (typeof toastr !== 'undefined') {
                     toastr.error(errorMessage, 'Error');
                 }
-            }
-        });
+            });
     };
 
     window.editEntitlement = function(entitlementId) {
         // Load entitlement data for editing
-        $.ajax({
-            url: `/api/admin/entitlements/${entitlementId}?include_geometry=1`,
-            method: 'GET',
+        adminTokenHandler.get(`/api/admin/entitlements/${entitlementId}?include_geometry=1`, {
             headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
-            },
-            success: function(response) {
+            }
+        })
+        .done(function(response) {
                 const entitlement = response.entitlement;
                 $('#editEntitlementId').val(entitlement.id).data('type', entitlement.type);
                 // Display type as readonly text with formatted label
@@ -1378,15 +1357,14 @@ $(document).ready(function() {
                 $('#editExpiresAt').val(formatDateTimeForInput(entitlement.expires_at));
 
                 $('#editEntitlementModal').modal('show');
-            },
-            error: function(xhr, status, error) {
+            })
+            .fail(function(xhr, status, error) {
                 console.error('Error loading entitlement for editing:', error);
                 const errorMessage = xhr.responseJSON?.message || 'Failed to load entitlement for editing';
                 if (typeof toastr !== 'undefined') {
                     toastr.error(errorMessage, 'Error');
                 }
-            }
-        });
+            });
     };
 
     window.deleteEntitlement = function(entitlementId, entitlementType) {
@@ -1400,20 +1378,17 @@ $(document).ready(function() {
             confirmButtonText: 'Yes, delete it!'
         }).then((result) => {
             if (result.isConfirmed) {
-                $.ajax({
-                    url: `/api/admin/entitlements/${entitlementId}`,
-                    method: 'DELETE',
+                adminTokenHandler.delete(`/api/admin/entitlements/${entitlementId}`, {
                     headers: {
-                        'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                         'Accept': 'application/json'
-                    },
-                    success: function(response) {
-                        loadEntitlements();
-                        toastr.success('Entitlement deleted successfully!');
-                    },
-                    error: function(xhr) {
-                        toastr.error(xhr.responseJSON?.message || 'Error deleting entitlement');
                     }
+                })
+                .done(function(response) {
+                    loadEntitlements();
+                    toastr.success('Entitlement deleted successfully!');
+                })
+                .fail(function(xhr) {
+                    toastr.error(xhr.responseJSON?.message || 'Error deleting entitlement');
                 });
             }
         });
@@ -1512,42 +1487,38 @@ $(document).ready(function() {
             }
         }
 
-        $.ajax({
-            url: `/api/admin/entitlements/${entitlementId}`,
-            method: 'PUT',
+        adminTokenHandler.put(`/api/admin/entitlements/${entitlementId}`, JSON.stringify(formData), {
             headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
-            },
-            data: JSON.stringify(formData),
-            success: function(response) {
-                $('#editEntitlementModal').modal('hide');
-                // Force reload by clearing any potential cache
-                setTimeout(function() {
-                    loadEntitlements();
-                }, 100);
-                toastr.success('Entitlement updated successfully!');
-            },
-            error: function(xhr) {
-                const errors = xhr.responseJSON?.errors;
-                if (errors) {
-                    let errorMessage = 'Please fix the following errors:<br>';
-                    Object.keys(errors).forEach(key => {
-                        errorMessage += `• ${errors[key][0]}<br>`;
-                    });
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Validation Errors',
-                        html: errorMessage
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: xhr.responseJSON?.message || 'Error updating entitlement'
-                    });
-                }
+            }
+        })
+        .done(function(response) {
+            $('#editEntitlementModal').modal('hide');
+            // Force reload by clearing any potential cache
+            setTimeout(function() {
+                loadEntitlements();
+            }, 100);
+            toastr.success('Entitlement updated successfully!');
+        })
+        .fail(function(xhr) {
+            const errors = xhr.responseJSON?.errors;
+            if (errors) {
+                let errorMessage = 'Please fix the following errors:<br>';
+                Object.keys(errors).forEach(key => {
+                    errorMessage += `• ${errors[key][0]}<br>`;
+                });
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Validation Errors',
+                    html: errorMessage
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: xhr.responseJSON?.message || 'Error updating entitlement'
+                });
             }
         });
     });
@@ -1561,96 +1532,75 @@ $(document).ready(function() {
     };
 
     function loadAvailableUsers(entitlementId) {
-        $.ajax({
-            url: '/api/admin/users',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
-                let html = '<option value="">Select a user to assign...</option>';
+        adminTokenHandler.get('/api/admin/users')
+        .done(function(response) {
+            let html = '<option value="">Select a user to assign...</option>';
 
-                // Get current entitlement's users to filter them out
-                $.ajax({
-                    url: `/api/admin/entitlements/${entitlementId}`,
-                    method: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                        'Accept': 'application/json'
-                    },
-                    success: function(entitlementResponse) {
-                        const entitlementUserIds = entitlementResponse.entitlement.users?.map(u => u.id) || [];
+            // Get current entitlement's users to filter them out
+            adminTokenHandler.get(`/api/admin/entitlements/${entitlementId}`)
+            .done(function(entitlementResponse) {
+                const entitlementUserIds = entitlementResponse.entitlement.users?.map(u => u.id) || [];
 
-                        response.data.forEach(function(user) {
-                            if (!entitlementUserIds.includes(user.id)) {
-                                html += `<option value="${user.id}">
-                                    ${user.name} (${user.email}) - ${user.role}
-                                </option>`;
-                            }
-                        });
-
-                        $('#availableUsers').html(html);
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Error loading entitlement users:', error);
-                        const errorMessage = xhr.responseJSON?.message || 'Failed to load entitlement users';
-                        if (typeof toastr !== 'undefined') {
-                            toastr.error(errorMessage, 'Error');
-                        }
+                response.data.forEach(function(user) {
+                    if (!entitlementUserIds.includes(user.id)) {
+                        html += `<option value="${user.id}">
+                            ${user.name} (${user.email}) - ${user.role}
+                        </option>`;
                     }
                 });
-            },
-            error: function(xhr, status, error) {
-                console.error('Error loading available users:', error);
-                const errorMessage = xhr.responseJSON?.message || 'Failed to load available users';
+
+                $('#availableUsers').html(html);
+            })
+            .fail(function(xhr, status, error) {
+                console.error('Error loading entitlement users:', error);
+                const errorMessage = xhr.responseJSON?.message || 'Failed to load entitlement users';
                 if (typeof toastr !== 'undefined') {
                     toastr.error(errorMessage, 'Error');
                 }
+            });
+        })
+        .fail(function(xhr, status, error) {
+            console.error('Error loading available users:', error);
+            const errorMessage = xhr.responseJSON?.message || 'Failed to load available users';
+            if (typeof toastr !== 'undefined') {
+                toastr.error(errorMessage, 'Error');
             }
         });
     }
 
     function loadCurrentEntitlementUsers(entitlementId) {
-        $.ajax({
-            url: `/api/admin/entitlements/${entitlementId}`,
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
-                const users = response.entitlement.users || [];
-                let html = '';
+        adminTokenHandler.get(`/api/admin/entitlements/${entitlementId}`)
+        .done(function(response) {
+            const users = response.entitlement.users || [];
+            let html = '';
 
-                if (users.length > 0) {
-                    users.forEach(function(user) {
-                        html += `
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>${user.name}</strong> (${user.email})
-                                    <br><small class="text-muted">Role: ${user.role}</small>
-                                </div>
-                                <button class="btn btn-sm btn-danger" onclick="removeEntitlementUser(${user.id}, ${entitlementId})">
-                                    <i class="fas fa-times"></i> Remove
-                                </button>
+            if (users.length > 0) {
+                users.forEach(function(user) {
+                    html += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${user.name}</strong> (${user.email})
+                                <br><small class="text-muted">Role: ${user.role}</small>
                             </div>
+                            <button class="btn btn-sm btn-danger" onclick="removeEntitlementUser(${user.id}, ${entitlementId})">
+                                <i class="fas fa-times"></i> Remove
+                            </button>
                         </div>
-                        `;
-                    });
-                } else {
-                    html = '<div class="text-center text-muted p-3"><em>No users assigned</em></div>';
-                }
+                    </div>
+                    `;
+                });
+            } else {
+                html = '<div class="text-center text-muted p-3"><em>No users assigned</em></div>';
+            }
 
-                $('#currentEntitlementUsers').html(html);
-            },
-            error: function(xhr, status, error) {
-                console.error('Error loading current entitlement users:', error);
-                const errorMessage = xhr.responseJSON?.message || 'Failed to load current entitlement users';
-                if (typeof toastr !== 'undefined') {
-                    toastr.error(errorMessage, 'Error');
-                }
+            $('#currentEntitlementUsers').html(html);
+        })
+        .fail(function(xhr, status, error) {
+            console.error('Error loading current entitlement users:', error);
+            const errorMessage = xhr.responseJSON?.message || 'Failed to load current entitlement users';
+            if (typeof toastr !== 'undefined') {
+                toastr.error(errorMessage, 'Error');
             }
         });
     }
@@ -1668,22 +1618,15 @@ $(document).ready(function() {
             return;
         }
 
-        $.ajax({
-            url: `/api/admin/users/${userId}/entitlements/${entitlementId}`,
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
-                toastr.success('User assigned successfully!');
-                loadAvailableUsers(entitlementId);
-                loadCurrentEntitlementUsers(entitlementId);
-                loadEntitlements(); // Refresh the main table
-            },
-            error: function(xhr) {
-                toastr.error(xhr.responseJSON?.message || 'Error assigning user');
-            }
+        adminTokenHandler.post(`/api/admin/users/${userId}/entitlements/${entitlementId}`)
+        .done(function(response) {
+            toastr.success('User assigned successfully!');
+            loadAvailableUsers(entitlementId);
+            loadCurrentEntitlementUsers(entitlementId);
+            loadEntitlements(); // Refresh the main table
+        })
+        .fail(function(xhr) {
+            toastr.error(xhr.responseJSON?.message || 'Error assigning user');
         });
     };
 
@@ -1698,25 +1641,18 @@ $(document).ready(function() {
             confirmButtonText: 'Yes, remove user!'
         }).then((result) => {
             if (result.isConfirmed) {
-                $.ajax({
-                    url: `/api/admin/users/${userId}/entitlements/${entitlementId}`,
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                        'Accept': 'application/json'
-                    },
-                    success: function(response) {
-                        toastr.success('User removed successfully!');
-                        loadEntitlements(); // Refresh the main table
+                adminTokenHandler.delete(`/api/admin/users/${userId}/entitlements/${entitlementId}`)
+                .done(function(response) {
+                    toastr.success('User removed successfully!');
+                    loadEntitlements(); // Refresh the main table
 
-                        // If entitlement details modal is open, refresh it
-                        if ($('#entitlementDetailsModal').hasClass('show')) {
-                            viewEntitlement(entitlementId);
-                        }
-                    },
-                    error: function(xhr) {
-                        toastr.error(xhr.responseJSON?.message || 'Error removing user');
+                    // If entitlement details modal is open, refresh it
+                    if ($('#entitlementDetailsModal').hasClass('show')) {
+                        viewEntitlement(entitlementId);
                     }
+                })
+                .fail(function(xhr) {
+                    toastr.error(xhr.responseJSON?.message || 'Error removing user');
                 });
             }
         });
@@ -1733,22 +1669,15 @@ $(document).ready(function() {
             confirmButtonText: 'Yes, remove user!'
         }).then((result) => {
             if (result.isConfirmed) {
-                $.ajax({
-                    url: `/api/admin/users/${userId}/entitlements/${entitlementId}`,
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                        'Accept': 'application/json'
-                    },
-                    success: function(response) {
-                        toastr.success('User removed successfully!');
-                        loadAvailableUsers(entitlementId);
-                        loadCurrentEntitlementUsers(entitlementId);
-                        loadEntitlements(); // Refresh the main table
-                    },
-                    error: function(xhr) {
-                        toastr.error(xhr.responseJSON?.message || 'Error removing user');
-                    }
+                adminTokenHandler.delete(`/api/admin/users/${userId}/entitlements/${entitlementId}`)
+                .done(function(response) {
+                    toastr.success('User removed successfully!');
+                    loadAvailableUsers(entitlementId);
+                    loadCurrentEntitlementUsers(entitlementId);
+                    loadEntitlements(); // Refresh the main table
+                })
+                .fail(function(xhr) {
+                    toastr.error(xhr.responseJSON?.message || 'Error removing user');
                 });
             }
         });

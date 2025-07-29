@@ -75,21 +75,14 @@ $(document).ready(function() {
 
     // Load data types function
     function loadDataTypes() {
-        $.ajax({
-            url: '/api/admin/datasets/data-types',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get('/api/admin/datasets/data-types')
+            .done(function(response) {
                 populateDataTypeDropdowns(response.data_types);
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 console.error('Error loading data types:', xhr);
                 populateDataTypeDropdowns({});
-            }
-        });
+            });
     }
 
     // Populate data type dropdowns
@@ -114,47 +107,33 @@ $(document).ready(function() {
 
     // Load datasets function
     function loadDatasets() {
-        const params = new URLSearchParams({
+        const params = {
             page: currentPage,
             per_page: perPage,
             search: searchTerm,
             data_type: dataTypeFilter
-        });
+        };
 
-        $.ajax({
-            url: '/api/admin/datasets?' + params.toString(),
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.getPaginated('/api/admin/datasets', params)
+            .done(function(response) {
                 renderDatasetsTable(response.data);
                 renderPagination(response);
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 console.error('Error loading datasets:', xhr);
                 $('#datasetsTableBody').html('<tr><td colspan="6" class="text-center text-danger">Error loading datasets</td></tr>');
-            }
-        });
+            });
     }
 
     // Load statistics
     function loadStats() {
-        $.ajax({
-            url: '/api/admin/datasets/stats',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get('/api/admin/datasets/stats')
+            .done(function(response) {
                 renderStats(response);
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 $('#statsContent').html('<p class="text-danger">Error loading statistics</p>');
-            }
-        });
+            });
     }
 
     // Render datasets table
@@ -308,22 +287,19 @@ $(document).ready(function() {
             temporal_coverage: $('#createTemporalCoverage').val()
         };
 
-        $.ajax({
-            url: '/api/admin/datasets',
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            data: JSON.stringify(formData),
-            success: function(response) {
+        adminTokenHandler.post('/api/admin/datasets', formData, {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify(formData)
+            })
+            .done(function(response) {
                 $('#createDatasetModal').modal('hide');
                 $('#createDatasetForm')[0].reset();
                 loadDatasets();
                 toastr.success('Dataset created successfully!');
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 const errors = xhr.responseJSON?.errors;
                 if (errors) {
                     let errorMessage = 'Please fix the following errors:<br>';
@@ -334,8 +310,7 @@ $(document).ready(function() {
                 } else {
                     toastr.error(xhr.responseJSON?.message || 'Error creating dataset');
                 }
-            }
-        });
+            });
     });
 
     // Global functions for buttons
@@ -346,14 +321,8 @@ $(document).ready(function() {
 
     window.viewDataset = function(datasetId) {
         // Load dataset details
-        $.ajax({
-            url: `/api/admin/datasets/${datasetId}`,
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get(`/api/admin/datasets/${datasetId}`)
+            .done(function(response) {
                 const dataset = response.dataset;
                 let html = `
                 <div class="row">
@@ -393,20 +362,13 @@ $(document).ready(function() {
 
                 $('#datasetDetailsContent').html(html);
                 $('#datasetDetailsModal').modal('show');
-            }
         });
     };
 
     window.editDataset = function(datasetId) {
         // Load dataset data for editing
-        $.ajax({
-            url: `/api/admin/datasets/${datasetId}`,
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get(`/api/admin/datasets/${datasetId}`)
+            .done(function(response) {
                 const dataset = response.dataset;
                 $('#editDatasetId').val(dataset.id);
                 $('#editName').val(dataset.name);
@@ -424,27 +386,19 @@ $(document).ready(function() {
                 $('#editTemporalCoverage').val(metadata.temporal_coverage || '');
 
                 $('#editDatasetModal').modal('show');
-            }
         });
     };
 
     window.deleteDataset = function(datasetId, datasetName) {
         showDeleteConfirm(datasetName, function() {
-            $.ajax({
-                url: `/api/admin/datasets/${datasetId}`,
-                method: 'DELETE',
-                headers: {
-                    'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                    'Accept': 'application/json'
-                },
-                success: function(response) {
+            adminTokenHandler.delete(`/api/admin/datasets/${datasetId}`)
+                .done(function(response) {
                     loadDatasets();
                     toastr.success('Dataset deleted successfully!');
-                },
-                error: function(xhr) {
+                })
+                .fail(function(xhr) {
                     toastr.error(xhr.responseJSON?.message || 'Error deleting dataset');
-                }
-            });
+                });
         });
     };
 
@@ -466,21 +420,18 @@ $(document).ready(function() {
             temporal_coverage: $('#editTemporalCoverage').val()
         };
 
-        $.ajax({
-            url: `/api/admin/datasets/${datasetId}`,
-            method: 'PUT',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            data: JSON.stringify(formData),
-            success: function(response) {
+        adminTokenHandler.put(`/api/admin/datasets/${datasetId}`, formData, {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify(formData)
+            })
+            .done(function(response) {
                 $('#editDatasetModal').modal('hide');
                 loadDatasets();
                 toastr.success('Dataset updated successfully!');
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 const errors = xhr.responseJSON?.errors;
                 if (errors) {
                     let errorMessage = 'Please fix the following errors:<br>';
@@ -491,7 +442,6 @@ $(document).ready(function() {
                 } else {
                     toastr.error(xhr.responseJSON?.message || 'Error updating dataset');
                 }
-            }
-        });
+            });
     });
 });

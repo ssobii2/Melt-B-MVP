@@ -88,42 +88,28 @@ $(document).ready(function() {
 
     // Load actions for filter dropdown
     function loadActions() {
-        $.ajax({
-            url: '/api/admin/audit-logs/actions',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get('/api/admin/audit-logs/actions')
+            .done(function(response) {
                 let options = '<option value="">All Actions</option>';
                 response.actions.forEach(function(action) {
                     const formattedAction = formatAction(action);
                     options += `<option value="${action}">${formattedAction}</option>`;
                 });
                 $('#actionFilter').html(options);
-            }
-        });
+            });
     }
 
     // Load target types for filter dropdown
     function loadTargetTypes() {
-        $.ajax({
-            url: '/api/admin/audit-logs/target-types',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get('/api/admin/audit-logs/target-types')
+            .done(function(response) {
                 let options = '<option value="">All Target Types</option>';
                 response.target_types.forEach(function(targetType) {
                     const formattedType = formatTargetType(targetType);
                     options += `<option value="${targetType}">${formattedType}</option>`;
                 });
                 $('#targetTypeFilter').html(options);
-            }
-        });
+            });
     }
 
     // Load audit logs function
@@ -137,40 +123,26 @@ $(document).ready(function() {
             date_to: filters.date_to
         });
 
-        $.ajax({
-            url: '/api/admin/audit-logs?' + params.toString(),
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get('/api/admin/audit-logs?' + params.toString())
+            .done(function(response) {
                 renderAuditLogsTable(response.data);
                 renderPagination(response);
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 console.error('Error loading audit logs:', xhr);
                 $('#auditLogsTableBody').html('<tr><td colspan="7" class="text-center text-danger">Error loading audit logs</td></tr>');
-            }
-        });
+            });
     }
 
     // Load statistics
     function loadStats() {
-        $.ajax({
-            url: '/api/admin/audit-logs/stats',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get('/api/admin/audit-logs/stats')
+            .done(function(response) {
                 renderStats(response);
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 $('#statsContent').html('<p class="text-danger">Error loading statistics</p>');
-            }
-        });
+            });
     }
 
     // Render audit logs table
@@ -341,14 +313,8 @@ $(document).ready(function() {
     };
 
     window.viewAuditLog = function(logId) {
-        $.ajax({
-            url: `/api/admin/audit-logs/${logId}`,
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get(`/api/admin/audit-logs/${logId}`)
+            .done(function(response) {
                 const log = response.audit_log;
                 let html = `
                 <div class="row">
@@ -411,10 +377,9 @@ ${log.new_values ? JSON.stringify(log.new_values, null, 2) : 'None'}
 
                 $('#auditLogDetailsContent').html(html);
                 $('#auditLogDetailsModal').modal('show');
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 toastr.error('Error loading audit log details');
-            }
-        });
+            });
     };
 });
