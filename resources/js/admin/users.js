@@ -455,6 +455,7 @@ $(document).ready(function() {
                 toastr.success('Entitlement assigned successfully!');
                 loadAvailableEntitlements(userId);
                 loadCurrentUserEntitlements(userId);
+                loadUsers();
             })
             .fail(function(xhr) {
                 toastr.error(xhr.responseJSON?.message || 'Error assigning entitlement');

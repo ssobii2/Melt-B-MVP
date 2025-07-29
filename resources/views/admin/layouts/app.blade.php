@@ -141,7 +141,7 @@
         let logoutInProgress = false; // Prevent multiple logout attempts
         
         /**
-         * Simple secure logout - just invalidate session and redirect
+         * Simple secure logout - invalidate session and redirect with fresh CSRF token
          */
         function performSecureLogout() {
             // Prevent multiple simultaneous logout attempts
@@ -165,12 +165,38 @@
                 },
                 timeout: 3000,
                 complete: function() {
-                    // Always redirect to login page
-                    window.location.replace('/admin/login');
+                    // Fetch fresh CSRF token before redirecting to prevent 419 errors
+                    $.get('/admin/login')
+                        .done(function(data) {
+                            // Extract new CSRF token from the response
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(data, 'text/html');
+                            const newToken = doc.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                            
+                            if (newToken) {
+                                // Update the CSRF token in the current page
+                                $('meta[name="csrf-token"]').attr('content', newToken);
+                                $.ajaxSetup({
+                                    headers: {
+                                        'X-CSRF-TOKEN': newToken
+                                    }
+                                });
+                            }
+                            
+                            // Now redirect to login page
+                            window.location.replace('/admin/login');
+                        })
+                        .fail(function() {
+                            // If fetching new token fails, still redirect
+                            window.location.replace('/admin/login');
+                        });
                 },
                 error: function() {
-                    // Even if logout fails, redirect for security
-                    window.location.replace('/admin/login');
+                    // Even if logout fails, try to get fresh token and redirect
+                    $.get('/admin/login')
+                        .always(function() {
+                            window.location.replace('/admin/login');
+                        });
                 }
             });
         }
