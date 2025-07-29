@@ -92,7 +92,7 @@ $(document).ready(function() {
             url: '/api/admin/audit-logs/actions',
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -112,7 +112,7 @@ $(document).ready(function() {
             url: '/api/admin/audit-logs/target-types',
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -141,7 +141,7 @@ $(document).ready(function() {
             url: '/api/admin/audit-logs?' + params.toString(),
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -161,7 +161,7 @@ $(document).ready(function() {
             url: '/api/admin/audit-logs/stats',
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -345,7 +345,7 @@ $(document).ready(function() {
             url: `/api/admin/audit-logs/${logId}`,
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {

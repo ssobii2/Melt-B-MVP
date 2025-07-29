@@ -28,6 +28,9 @@ class EnsureAdminToken
         if (!$user || !$user->isAdmin()) {
             Auth::guard('admin')->logout();
             $request->session()->forget('admin_token');
+            // Invalidate and regenerate session for security
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
             return redirect()->route('admin.login');
         }
 

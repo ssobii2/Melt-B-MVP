@@ -202,7 +202,7 @@ $(document).ready(function() {
             url: '/api/admin/entitlements/datasets',
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -235,7 +235,7 @@ $(document).ready(function() {
             url: '/api/admin/entitlements?' + params.toString(),
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json',
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
@@ -258,7 +258,7 @@ $(document).ready(function() {
             url: '/api/admin/entitlements/stats',
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -722,7 +722,7 @@ $(document).ready(function() {
                 url: '/api/admin/datasets',
                 method: 'GET',
                 headers: {
-                    'Authorization': 'Bearer ' + window.adminToken,
+                    'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                     'Accept': 'application/json'
                 },
                 success: function(response) {
@@ -801,7 +801,7 @@ $(document).ready(function() {
                 url: '/api/admin/buildings/with-priority',
                 method: 'POST',
                 headers: {
-                    'Authorization': 'Bearer ' + window.adminToken,
+                    'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
@@ -840,7 +840,7 @@ $(document).ready(function() {
                 url: url,
                 method: 'GET',
                 headers: {
-                    'Authorization': 'Bearer ' + window.adminToken,
+                    'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                     'Accept': 'application/json'
                 },
                 success: function(response) {
@@ -1139,7 +1139,7 @@ $(document).ready(function() {
             url: '/api/admin/entitlements',
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
@@ -1196,7 +1196,7 @@ $(document).ready(function() {
             url: `/api/admin/entitlements/${entitlementId}?include_geometry=1`,
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -1280,7 +1280,7 @@ $(document).ready(function() {
             url: `/api/admin/entitlements/${entitlementId}?include_geometry=1`,
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -1404,7 +1404,7 @@ $(document).ready(function() {
                     url: `/api/admin/entitlements/${entitlementId}`,
                     method: 'DELETE',
                     headers: {
-                        'Authorization': 'Bearer ' + window.adminToken,
+                        'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                         'Accept': 'application/json'
                     },
                     success: function(response) {
@@ -1516,7 +1516,7 @@ $(document).ready(function() {
             url: `/api/admin/entitlements/${entitlementId}`,
             method: 'PUT',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
@@ -1565,7 +1565,7 @@ $(document).ready(function() {
             url: '/api/admin/users',
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -1576,7 +1576,7 @@ $(document).ready(function() {
                     url: `/api/admin/entitlements/${entitlementId}`,
                     method: 'GET',
                     headers: {
-                        'Authorization': 'Bearer ' + window.adminToken,
+                        'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                         'Accept': 'application/json'
                     },
                     success: function(entitlementResponse) {
@@ -1616,7 +1616,7 @@ $(document).ready(function() {
             url: `/api/admin/entitlements/${entitlementId}`,
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -1672,7 +1672,7 @@ $(document).ready(function() {
             url: `/api/admin/users/${userId}/entitlements/${entitlementId}`,
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -1702,7 +1702,7 @@ $(document).ready(function() {
                     url: `/api/admin/users/${userId}/entitlements/${entitlementId}`,
                     method: 'DELETE',
                     headers: {
-                        'Authorization': 'Bearer ' + window.adminToken,
+                        'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                         'Accept': 'application/json'
                     },
                     success: function(response) {
@@ -1737,7 +1737,7 @@ $(document).ready(function() {
                     url: `/api/admin/users/${userId}/entitlements/${entitlementId}`,
                     method: 'DELETE',
                     headers: {
-                        'Authorization': 'Bearer ' + window.adminToken,
+                        'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                         'Accept': 'application/json'
                     },
                     success: function(response) {

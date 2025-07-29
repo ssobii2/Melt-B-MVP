@@ -24,9 +24,26 @@
     {{-- MapLibre GL JS --}}
     <script src="https://unpkg.com/maplibre-gl@^5.6.1/dist/maplibre-gl.js"></script>
     
+    {{-- Include the secure token handler --}}
+    @vite(['resources/js/admin/secure-token.js'])
+    
     <script>
-        // Global admin token
-        window.adminToken = '{{ session("admin_token") }}';
+        // Initialize secure admin token handler when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Ensure adminTokenHandler is available
+            if (typeof adminTokenHandler !== 'undefined') {
+                adminTokenHandler.init('{{ session("admin_token") }}');
+            } else {
+                // Fallback: wait a bit more for Vite to load
+                setTimeout(function() {
+                    if (typeof adminTokenHandler !== 'undefined') {
+                        adminTokenHandler.init('{{ session("admin_token") }}');
+                    } else {
+                        console.error('adminTokenHandler not available');
+                    }
+                }, 250);
+            }
+        });
         
         // Toastr configuration
         toastr.options = {

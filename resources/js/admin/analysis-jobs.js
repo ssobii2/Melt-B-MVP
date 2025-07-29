@@ -90,7 +90,7 @@ $(document).ready(function() {
             url: '/api/admin/analysis-jobs?' + params.toString(),
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -110,7 +110,7 @@ $(document).ready(function() {
             url: '/api/admin/analysis-jobs/stats',
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -263,7 +263,7 @@ $(document).ready(function() {
             url: `/api/admin/analysis-jobs/${jobId}`,
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(job) {

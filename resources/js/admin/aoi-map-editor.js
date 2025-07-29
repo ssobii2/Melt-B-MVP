@@ -12,7 +12,7 @@ class AOIMapEditor {
         this.currentAOI = null;
         this.onAOIChange = options.onAOIChange || (() => {});
         this.currentEntitlementId = options.currentEntitlementId || null; // ID of entitlement being edited
-        this.adminToken = window.adminToken;
+        this.adminToken = adminTokenHandler.getToken();
         
         // Drawing state
         this.isDrawing = false;

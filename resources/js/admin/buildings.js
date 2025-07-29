@@ -82,7 +82,7 @@ $(document).ready(function() {
             method: 'GET',
             data: params,
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -102,7 +102,7 @@ $(document).ready(function() {
             url: '/api/admin/datasets',
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -198,7 +198,7 @@ $(document).ready(function() {
             url: `/api/admin/buildings/${gid}`,
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(building) {

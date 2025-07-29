@@ -79,7 +79,7 @@ $(document).ready(function() {
             url: '/api/admin/datasets/data-types',
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -125,7 +125,7 @@ $(document).ready(function() {
             url: '/api/admin/datasets?' + params.toString(),
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -145,7 +145,7 @@ $(document).ready(function() {
             url: '/api/admin/datasets/stats',
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -312,7 +312,7 @@ $(document).ready(function() {
             url: '/api/admin/datasets',
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
@@ -350,7 +350,7 @@ $(document).ready(function() {
             url: `/api/admin/datasets/${datasetId}`,
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -403,7 +403,7 @@ $(document).ready(function() {
             url: `/api/admin/datasets/${datasetId}`,
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json'
             },
             success: function(response) {
@@ -434,7 +434,7 @@ $(document).ready(function() {
                 url: `/api/admin/datasets/${datasetId}`,
                 method: 'DELETE',
                 headers: {
-                    'Authorization': 'Bearer ' + window.adminToken,
+                    'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                     'Accept': 'application/json'
                 },
                 success: function(response) {
@@ -470,7 +470,7 @@ $(document).ready(function() {
             url: `/api/admin/datasets/${datasetId}`,
             method: 'PUT',
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
+                'Authorization': 'Bearer ' + adminTokenHandler.getToken(),
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
