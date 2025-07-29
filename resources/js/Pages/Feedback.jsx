@@ -67,9 +67,12 @@ export default function Feedback() {
         
         if (!formData.description.trim()) {
             newErrors.description = 'Description is required';
+        } else if (formData.description.length > 5000) {
+            newErrors.description = 'Description must not exceed 5000 characters';
         }
         
-        if (formData.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)) {
+        // Improved email validation regex
+        if (formData.contact_email && !/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(formData.contact_email)) {
             newErrors.contact_email = 'Please enter a valid email address';
         }
         
@@ -177,9 +180,17 @@ export default function Feedback() {
 
                             {/* Description */}
                             <div>
-                                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Description *
-                                </label>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                                        Description *
+                                    </label>
+                                    <span className={`text-xs ${
+                                        formData.description.length > 5000 ? 'text-red-600' : 
+                                        formData.description.length > 4500 ? 'text-yellow-600' : 'text-gray-500'
+                                    }`}>
+                                        {formData.description.length}/5000
+                                    </span>
+                                </div>
                                 <textarea
                                     id="description"
                                     name="description"

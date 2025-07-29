@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rule;
 
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Log;
 
 class FeedbackController extends Controller
 {
@@ -38,10 +39,8 @@ class FeedbackController extends Controller
             $validated['priority'] = Feedback::PRIORITY_MEDIUM;
         }
 
-        // Add browser and page context to metadata
+        // Add minimal context to metadata (no privacy data)
         $metadata = $validated['metadata'] ?? [];
-        $metadata['user_agent'] = $request->header('User-Agent');
-        $metadata['ip_address'] = $request->ip();
         $metadata['submitted_at'] = now()->toISOString();
         
         if ($request->has('current_url')) {
@@ -53,11 +52,16 @@ class FeedbackController extends Controller
         $feedback = Feedback::create($validated);
         $feedback->load(['user:id,name,email']);
 
-        // Send email notification to admin with feedback details
+        // Send email notification to admin with feedback details (if configured)
         $adminEmail = config('mail.admin_email');
         if ($adminEmail) {
-            Notification::route('mail', $adminEmail)
-                ->notify(new FeedbackSubmitted($feedback));
+            try {
+                Notification::route('mail', $adminEmail)
+                    ->notify(new FeedbackSubmitted($feedback));
+            } catch (\Exception $e) {
+                // Log the error but don't fail the feedback submission
+                Log::error('Failed to send feedback notification email: ' . $e->getMessage());
+            }
         }
 
         return response()->json([
