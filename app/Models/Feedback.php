@@ -19,17 +19,12 @@ class Feedback extends Model
         'subject',
         'description',
         'priority',
-        'status',
         'metadata',
         'contact_email',
-        'admin_notes',
-        'resolved_at',
-        'resolved_by',
     ];
 
     protected $casts = [
         'metadata' => 'array',
-        'resolved_at' => 'datetime',
     ];
 
     // Define feedback types
@@ -51,11 +46,7 @@ class Feedback extends Model
     public const PRIORITY_HIGH = 'high';
     public const PRIORITY_CRITICAL = 'critical';
 
-    // Define statuses
-    public const STATUS_OPEN = 'open';
-    public const STATUS_IN_PROGRESS = 'in_progress';
-    public const STATUS_RESOLVED = 'resolved';
-    public const STATUS_CLOSED = 'closed';
+
 
     /**
      * Get the user who submitted the feedback.
@@ -65,13 +56,7 @@ class Feedback extends Model
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the admin who resolved the feedback.
-     */
-    public function resolvedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'resolved_by');
-    }
+
 
     /**
      * Scope to filter by type.
@@ -82,63 +67,11 @@ class Feedback extends Model
     }
 
     /**
-     * Scope to filter by status.
-     */
-    public function scopeWithStatus($query, $status)
-    {
-        return $query->where('status', $status);
-    }
-
-    /**
      * Scope to filter by priority.
      */
     public function scopeWithPriority($query, $priority)
     {
         return $query->where('priority', $priority);
-    }
-
-    /**
-     * Scope to get open feedback.
-     */
-    public function scopeOpen($query)
-    {
-        return $query->where('status', self::STATUS_OPEN);
-    }
-
-    /**
-     * Scope to get resolved feedback.
-     */
-    public function scopeResolved($query)
-    {
-        return $query->where('status', self::STATUS_RESOLVED);
-    }
-
-    /**
-     * Check if feedback is resolved.
-     */
-    public function isResolved(): bool
-    {
-        return $this->status === self::STATUS_RESOLVED;
-    }
-
-    /**
-     * Check if feedback is open.
-     */
-    public function isOpen(): bool
-    {
-        return $this->status === self::STATUS_OPEN;
-    }
-
-    /**
-     * Mark feedback as resolved.
-     */
-    public function markAsResolved($resolvedBy = null): void
-    {
-        $this->update([
-            'status' => self::STATUS_RESOLVED,
-            'resolved_at' => now(),
-            'resolved_by' => $resolvedBy,
-        ]);
     }
 
     /**
@@ -181,16 +114,5 @@ class Feedback extends Model
         ];
     }
 
-    /**
-     * Get all available statuses.
-     */
-    public static function getStatuses(): array
-    {
-        return [
-            self::STATUS_OPEN => 'Open',
-            self::STATUS_IN_PROGRESS => 'In Progress',
-            self::STATUS_RESOLVED => 'Resolved',
-            self::STATUS_CLOSED => 'Closed',
-        ];
-    }
+
 }

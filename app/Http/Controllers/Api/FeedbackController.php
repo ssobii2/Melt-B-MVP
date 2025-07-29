@@ -79,7 +79,6 @@ class FeedbackController extends Controller
             'types' => Feedback::getTypes(),
             'categories' => Feedback::getCategories(),
             'priorities' => Feedback::getPriorities(),
-            'statuses' => Feedback::getStatuses(),
         ]);
     }
 }
