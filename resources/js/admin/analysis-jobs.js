@@ -86,39 +86,33 @@ $(document).ready(function() {
             status: statusFilter
         });
 
-        $.ajax({
-            url: '/api/admin/analysis-jobs?' + params.toString(),
-            method: 'GET',
+        adminTokenHandler.get('/api/admin/analysis-jobs?' + params.toString(), {
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
                 'Accept': 'application/json'
-            },
-            success: function(response) {
-                renderJobsTable(response.data);
-                renderPagination(response);
-            },
-            error: function(xhr) {
-                console.error('Error loading analysis jobs:', xhr);
-                $('#jobsTableBody').html('<tr><td colspan="8" class="text-center text-danger">Error loading analysis jobs</td></tr>');
             }
+        })
+        .done(function(response) {
+            renderJobsTable(response.data);
+            renderPagination(response);
+        })
+        .fail(function(xhr) {
+            console.error('Error loading analysis jobs:', xhr);
+            $('#jobsTableBody').html('<tr><td colspan="8" class="text-center text-danger">Error loading analysis jobs</td></tr>');
         });
     }
 
     // Load statistics
     function loadStats() {
-        $.ajax({
-            url: '/api/admin/analysis-jobs/stats',
-            method: 'GET',
+        adminTokenHandler.get('/api/admin/analysis-jobs/stats', {
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
                 'Accept': 'application/json'
-            },
-            success: function(response) {
-                renderStats(response);
-            },
-            error: function(xhr) {
-                $('#statsContent').html('<p class="text-danger">Error loading statistics</p>');
             }
+        })
+        .done(function(response) {
+            renderStats(response);
+        })
+        .fail(function(xhr) {
+            $('#statsContent').html('<p class="text-danger">Error loading statistics</p>');
         });
     }
 
@@ -259,14 +253,12 @@ $(document).ready(function() {
     };
 
     window.viewJob = function(jobId) {
-        $.ajax({
-            url: `/api/admin/analysis-jobs/${jobId}`,
-            method: 'GET',
+        adminTokenHandler.get(`/api/admin/analysis-jobs/${jobId}`, {
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
                 'Accept': 'application/json'
-            },
-            success: function(job) {
+            }
+        })
+        .done(function(job) {
                 // Populate modal with job data
                 $('#detailJobId').text(job.id);
                 $('#detailStatus').html(getStatusBadge(job.status));
@@ -307,10 +299,9 @@ $(document).ready(function() {
                 }
 
                 $('#jobDetailsModal').modal('show');
-            },
-            error: function(xhr) {
-                toastr.error('Error loading job details: ' + (xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : xhr.statusText));
-            }
+        })
+        .fail(function(xhr) {
+            toastr.error('Error loading job details: ' + (xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : xhr.statusText));
         });
     };
 });

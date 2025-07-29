@@ -76,22 +76,15 @@ $(document).ready(function() {
             role: roleFilter
         });
 
-        $.ajax({
-            url: '/api/admin/users?' + params.toString(),
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get('/api/admin/users?' + params.toString())
+            .done(function(response) {
                 renderUsersTable(response.data);
                 renderPagination(response.meta);
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 console.error('Error loading users:', xhr);
                 $('#usersTableBody').html('<tr><td colspan="6" class="text-center text-danger">Error loading users</td></tr>');
-            }
-        });
+            });
     }
 
     // Render users table
@@ -190,22 +183,18 @@ $(document).ready(function() {
             address: $('#createAddress').val()
         };
 
-        $.ajax({
-            url: '/api/admin/users',
-            method: 'POST',
+        adminTokenHandler.post('/api/admin/users', JSON.stringify(formData), {
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
-                'Accept': 'application/json',
                 'Content-Type': 'application/json'
-            },
-            data: JSON.stringify(formData),
-            success: function(response) {
+            }
+        })
+            .done(function(response) {
                 $('#createUserModal').modal('hide');
                 $('#createUserForm')[0].reset();
                 loadUsers();
                 toastr.success('User created successfully!');
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 const errors = xhr.responseJSON?.errors;
                 if (errors) {
                     let errorMessage = 'Validation errors:\n';
@@ -216,8 +205,7 @@ $(document).ready(function() {
                 } else {
                     toastr.error('Error creating user');
                 }
-            }
-        });
+            });
     });
 
     // Global functions for buttons
@@ -228,14 +216,8 @@ $(document).ready(function() {
 
     window.viewUser = function(userId) {
         // Load user details
-        $.ajax({
-            url: `/api/admin/users/${userId}`,
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get(`/api/admin/users/${userId}`)
+            .done(function(response) {
                 const user = response.user;
                 const isVerified = user.email_verified_at !== null;
                 const verificationStatus = isVerified 
@@ -315,20 +297,13 @@ $(document).ready(function() {
 
                 $('#userDetailsContent').html(html);
                 $('#userDetailsModal').modal('show');
-            }
-        });
+            });
     };
 
     window.editUser = function(userId) {
         // Load user data for editing
-        $.ajax({
-            url: `/api/admin/users/${userId}`,
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get(`/api/admin/users/${userId}`)
+            .done(function(response) {
                 const user = response.user;
                 $('#editUserId').val(user.id);
                 $('#editName').val(user.name);
@@ -343,27 +318,19 @@ $(document).ready(function() {
                 $('#editAddress').val(contactInfo.address || '');
 
                 $('#editUserModal').modal('show');
-            }
-        });
+            });
     };
 
     window.deleteUser = function(userId, userName) {
         showDeleteConfirm(userName, function() {
-            $.ajax({
-                url: `/api/admin/users/${userId}`,
-                method: 'DELETE',
-                headers: {
-                    'Authorization': 'Bearer ' + window.adminToken,
-                    'Accept': 'application/json'
-                },
-                success: function(response) {
+            adminTokenHandler.delete(`/api/admin/users/${userId}`)
+                .done(function(response) {
                     loadUsers();
                     toastr.success('User deleted successfully!');
-                },
-                error: function(xhr) {
+                })
+                .fail(function(xhr) {
                     toastr.error(xhr.responseJSON?.message || 'Error deleting user');
-                }
-            });
+                });
         });
     };
 
@@ -386,21 +353,17 @@ $(document).ready(function() {
             formData.password = $('#editPassword').val();
         }
 
-        $.ajax({
-            url: `/api/admin/users/${userId}`,
-            method: 'PUT',
+        adminTokenHandler.put(`/api/admin/users/${userId}`, JSON.stringify(formData), {
             headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
-                'Accept': 'application/json',
                 'Content-Type': 'application/json'
-            },
-            data: JSON.stringify(formData),
-            success: function(response) {
+            }
+        })
+            .done(function(response) {
                 $('#editUserModal').modal('hide');
                 loadUsers();
                 toastr.success('User updated successfully!');
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 const errors = xhr.responseJSON?.errors;
                 if (errors) {
                     let errorMessage = 'Validation errors:<br>';
@@ -411,8 +374,7 @@ $(document).ready(function() {
                 } else {
                     toastr.error('Error updating user');
                 }
-            }
-        });
+            });
     });
 
     // User entitlement management functions
@@ -424,25 +386,13 @@ $(document).ready(function() {
     };
 
     function loadAvailableEntitlements(userId) {
-        $.ajax({
-            url: '/api/admin/entitlements',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get('/api/admin/entitlements')
+            .done(function(response) {
                 let html = '<option value="">Select an entitlement to assign...</option>';
 
                 // Get current user's entitlements to filter them out
-                $.ajax({
-                    url: `/api/admin/users/${userId}`,
-                    method: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + window.adminToken,
-                        'Accept': 'application/json'
-                    },
-                    success: function(userResponse) {
+                adminTokenHandler.get(`/api/admin/users/${userId}`)
+                    .done(function(userResponse) {
                         const userEntitlementIds = userResponse.user.entitlements?.map(e => e.id) || [];
 
                         response.data.forEach(function(entitlement) {
@@ -455,21 +405,13 @@ $(document).ready(function() {
                         });
 
                         $('#availableEntitlements').html(html);
-                    }
-                });
-            }
-        });
+                    });
+            });
     }
 
     function loadCurrentUserEntitlements(userId) {
-        $.ajax({
-            url: `/api/admin/users/${userId}`,
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get(`/api/admin/users/${userId}`)
+            .done(function(response) {
                 const entitlements = response.user.entitlements || [];
                 let html = '';
 
@@ -496,8 +438,7 @@ $(document).ready(function() {
                 }
 
                 $('#currentUserEntitlements').html(html);
-            }
-        });
+            });
     }
 
     window.assignEntitlementToUser = function() {
@@ -509,35 +450,22 @@ $(document).ready(function() {
             return;
         }
 
-        $.ajax({
-            url: `/api/admin/users/${userId}/entitlements/${entitlementId}`,
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.post(`/api/admin/users/${userId}/entitlements/${entitlementId}`)
+            .done(function(response) {
                 toastr.success('Entitlement assigned successfully!');
                 loadAvailableEntitlements(userId);
                 loadCurrentUserEntitlements(userId);
-                loadUsers(); // Refresh the main table
-            },
-            error: function(xhr) {
+                loadUsers();
+            })
+            .fail(function(xhr) {
                 toastr.error(xhr.responseJSON?.message || 'Error assigning entitlement');
-            }
-        });
+            });
     };
 
     window.removeUserEntitlement = function(userId, entitlementId) {
         showRemoveConfirm('this entitlement from the user', function() {
-            $.ajax({
-                url: `/api/admin/users/${userId}/entitlements/${entitlementId}`,
-                method: 'DELETE',
-                headers: {
-                    'Authorization': 'Bearer ' + window.adminToken,
-                    'Accept': 'application/json'
-                },
-                success: function(response) {
+            adminTokenHandler.delete(`/api/admin/users/${userId}/entitlements/${entitlementId}`)
+                .done(function(response) {
                     toastr.success('Entitlement removed successfully!');
                     loadUsers(); // Refresh the main table
 
@@ -545,33 +473,25 @@ $(document).ready(function() {
                     if ($('#userDetailsModal').hasClass('show')) {
                         viewUser(userId);
                     }
-                },
-                error: function(xhr) {
+                })
+                .fail(function(xhr) {
                     toastr.error(xhr.responseJSON?.message || 'Error removing entitlement');
-                }
-            });
+                });
         });
     };
 
     window.removeUserEntitlementFromModal = function(userId, entitlementId) {
         showRemoveConfirm('this entitlement from the user', function() {
-            $.ajax({
-                url: `/api/admin/users/${userId}/entitlements/${entitlementId}`,
-                method: 'DELETE',
-                headers: {
-                    'Authorization': 'Bearer ' + window.adminToken,
-                    'Accept': 'application/json'
-                },
-                success: function(response) {
+            adminTokenHandler.delete(`/api/admin/users/${userId}/entitlements/${entitlementId}`)
+                .done(function(response) {
                     toastr.success('Entitlement removed successfully!');
                     loadAvailableEntitlements(userId);
                     loadCurrentUserEntitlements(userId);
                     loadUsers(); // Refresh the main table
-                },
-                error: function(xhr) {
+                })
+                .fail(function(xhr) {
                     toastr.error(xhr.responseJSON?.message || 'Error removing entitlement');
-                }
-            });
+                });
         });
     };
 
@@ -588,15 +508,12 @@ $(document).ready(function() {
             cancelButtonText: 'Cancel'
         }).then((result) => {
             if (result.isConfirmed) {
-                $.ajax({
-                    url: `/api/admin/users/${userId}/verify-email`,
-                    method: 'POST',
+                adminTokenHandler.post(`/api/admin/users/${userId}/verify-email`, '', {
                     headers: {
-                        'Authorization': 'Bearer ' + window.adminToken,
-                        'Accept': 'application/json',
                         'Content-Type': 'application/json'
-                    },
-                    success: function(response) {
+                    }
+                })
+                    .done(function(response) {
                         toastr.success('Email verified successfully!');
                         loadUsers(); // Refresh the main table
                         
@@ -604,11 +521,10 @@ $(document).ready(function() {
                         if ($('#userDetailsModal').hasClass('show')) {
                             viewUser(userId);
                         }
-                    },
-                    error: function(xhr) {
+                    })
+                    .fail(function(xhr) {
                         toastr.error(xhr.responseJSON?.message || 'Error verifying email');
-                    }
-                });
+                    });
             }
         });
     };

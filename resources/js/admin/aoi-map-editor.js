@@ -12,7 +12,6 @@ class AOIMapEditor {
         this.currentAOI = null;
         this.onAOIChange = options.onAOIChange || (() => {});
         this.currentEntitlementId = options.currentEntitlementId || null; // ID of entitlement being edited
-        this.adminToken = window.adminToken;
         
         // Drawing state
         this.isDrawing = false;
@@ -76,28 +75,13 @@ class AOIMapEditor {
 
     async loadExistingAOIs() {
         try {
-            const response = await fetch('/api/admin/entitlements/all-aois', {
-                headers: {
-                    'Authorization': `Bearer ${this.adminToken}`,
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                this.existingAOIs = data.features || [];
-                this.displayExistingAOIs();
-            } else {
-                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-                console.error('Failed to load existing AOIs:', response.status, errorData.message);
-                if (typeof toastr !== 'undefined') {
-                    toastr.error('Failed to load existing AOI boundaries. Please refresh the page.', 'Error');
-                }
-            }
+            const data = await adminTokenHandler.get('/api/admin/entitlements/all-aois');
+            this.existingAOIs = data.features || [];
+            this.displayExistingAOIs();
         } catch (error) {
             console.error('Failed to load existing AOIs:', error);
             if (typeof toastr !== 'undefined') {
-                toastr.error('Network error while loading AOI boundaries. Please check your connection.', 'Connection Error');
+                toastr.error('Failed to load existing AOI boundaries. Please refresh the page.', 'Error');
             }
         }
     }

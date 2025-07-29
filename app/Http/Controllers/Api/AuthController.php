@@ -254,7 +254,7 @@ class AuthController extends Controller
 
         // Revoke current token
         $token = $request->user()->currentAccessToken();
-        if ($token && method_exists($token, 'delete')) {
+        if ($token) {
             $token->delete();
         }
 

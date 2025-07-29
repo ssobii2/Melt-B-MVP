@@ -9,6 +9,7 @@ export default defineConfig({
             input: [
                 'resources/css/app.css',
                 'resources/js/app.jsx',
+                'resources/js/admin/secure-token.js',
                 'resources/js/admin/users.js',
                 'resources/js/admin/datasets.js',
                 'resources/js/admin/dashboard.js',

@@ -239,8 +239,9 @@ class DashboardController extends Controller
         // Clear admin token from session
         $request->session()->forget('admin_token');
         
-        // Regenerate session for security
+        // Invalidate current session and regenerate new session ID for security
         $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return redirect('/admin/login');
     }

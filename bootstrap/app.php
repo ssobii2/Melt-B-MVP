@@ -40,7 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
-                    'message' => 'Unauthenticated. Please provide a valid Bearer token.',
+                    'message' => 'Unauthenticated. Please login again.',
                     'error' => 'authentication_required'
                 ], 401);
             }

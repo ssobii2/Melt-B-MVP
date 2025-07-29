@@ -77,46 +77,31 @@ $(document).ready(function() {
 
         $('#buildingsTableBody').html('<tr><td colspan="9" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading buildings...</td></tr>');
 
-        $.ajax({
-            url: '/api/admin/buildings',
-            method: 'GET',
-            data: params,
-            headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.getPaginated('/api/admin/buildings', params)
+            .done(function(response) {
                 displayBuildings(response.data);
                 updatePagination(response.meta);
                 $('#buildingCount').text(`${response.meta.total} buildings`);
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 $('#buildingsTableBody').html('<tr><td colspan="9" class="text-center text-danger">Error loading buildings: ' +
                     (xhr.responseJSON?.message || 'Unknown error') + '</td></tr>');
-            }
-        });
+            });
     }
 
     function loadDatasets() {
-        $.ajax({
-            url: '/api/admin/datasets',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
-                'Accept': 'application/json'
-            },
-            success: function(response) {
+        adminTokenHandler.get('/api/admin/datasets')
+            .done(function(response) {
                 const datasetSelect = $('#datasetFilter');
                 datasetSelect.find('option:not(:first)').remove();
 
                 response.data.forEach(function(dataset) {
                     datasetSelect.append(`<option value="${dataset.id}">${dataset.name}</option>`);
                 });
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 console.error('Error loading datasets:', xhr.responseJSON?.message || 'Unknown error');
-            }
-        });
+            });
     }
 
     function displayBuildings(buildings) {
@@ -194,14 +179,8 @@ $(document).ready(function() {
     };
 
     window.viewBuildingDetails = function(gid) {
-        $.ajax({
-            url: `/api/admin/buildings/${gid}`,
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + window.adminToken,
-                'Accept': 'application/json'
-            },
-            success: function(building) {
+        adminTokenHandler.get(`/api/admin/buildings/${gid}`)
+            .done(function(building) {
                 // Populate modal with building data
                 $('#detailGid').text(building.gid);
                 $('#detailAddress').text(building.address || 'N/A');
@@ -226,11 +205,10 @@ $(document).ready(function() {
                 $('#detailCreated').text(formatDateTime(building.created_at));
 
                 $('#buildingDetailsModal').modal('show');
-            },
-            error: function(xhr) {
+            })
+            .fail(function(xhr) {
                 toastr.error('Failed to load building details: ' + (xhr.responseJSON?.message || 'Unknown error'));
-            }
-        });
+            });
     };
 
     function exportBuildings() {
