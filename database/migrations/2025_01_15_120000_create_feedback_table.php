@@ -19,17 +19,10 @@ return new class extends Migration
             $table->string('subject');
             $table->text('description');
             $table->string('priority')->default('medium'); // 'low', 'medium', 'high', 'critical'
-            $table->string('status')->default('open'); // 'open', 'in_progress', 'resolved', 'closed'
-            $table->json('metadata')->nullable(); // Store additional context like browser info, page URL, etc.
             $table->string('contact_email')->nullable(); // For anonymous feedback
-            $table->text('admin_notes')->nullable(); // Internal notes for admins
-            $table->timestamp('resolved_at')->nullable();
-            $table->foreignId('resolved_by')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
             
-            $table->index(['type', 'status']);
             $table->index(['user_id', 'created_at']);
-            $table->index('status');
         });
     }
 

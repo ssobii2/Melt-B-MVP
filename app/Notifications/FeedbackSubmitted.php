@@ -70,13 +70,6 @@ class FeedbackSubmitted extends Notification
             ->line('**Submitted by:** ' . $submitterInfo)
             ->line('**Description:**')
             ->line($this->feedback->description)
-            ->when($this->feedback->metadata, function ($message) {
-                $metadata = $this->feedback->metadata;
-                if (isset($metadata['current_url'])) {
-                    return $message->line('**Page:** ' . $metadata['current_url']);
-                }
-                return $message;
-            })
 
             ->line('Please review and respond to this feedback as appropriate.');
     }

@@ -26,7 +26,6 @@ class FeedbackController extends Controller
             'description' => 'required|string|max:5000',
             'priority' => ['nullable', Rule::in(array_keys(Feedback::getPriorities()))],
             'contact_email' => 'nullable|email|max:255',
-            'metadata' => 'nullable|array',
         ]);
 
         // Add user ID if authenticated
@@ -38,16 +37,6 @@ class FeedbackController extends Controller
         if (!isset($validated['priority'])) {
             $validated['priority'] = Feedback::PRIORITY_MEDIUM;
         }
-
-        // Add minimal context to metadata (no privacy data)
-        $metadata = $validated['metadata'] ?? [];
-        $metadata['submitted_at'] = now()->toISOString();
-        
-        if ($request->has('current_url')) {
-            $metadata['current_url'] = $request->input('current_url');
-        }
-        
-        $validated['metadata'] = $metadata;
 
         $feedback = Feedback::create($validated);
         $feedback->load(['user:id,name,email']);

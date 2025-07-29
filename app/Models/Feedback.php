@@ -19,12 +19,11 @@ class Feedback extends Model
         'subject',
         'description',
         'priority',
-        'metadata',
         'contact_email',
     ];
 
     protected $casts = [
-        'metadata' => 'array',
+        //
     ];
 
     // Define feedback types
