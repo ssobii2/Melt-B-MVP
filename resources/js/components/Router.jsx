@@ -10,6 +10,7 @@ import EmailVerificationResult from '../Pages/Auth/EmailVerificationResult';
 import Dashboard from '../Pages/Dashboard';
 import Profile from '../Pages/Profile';
 import Downloads from '../Pages/Downloads';
+import Feedback from '../Pages/Feedback';
 import NotFound from '../Pages/NotFound';
 
 // Protected Route Component
@@ -97,6 +98,14 @@ const Router = () => {
                 element={
                     <ProtectedRoute>
                         <Downloads />
+                    </ProtectedRoute>
+                } 
+            />
+            <Route 
+                path="/feedback" 
+                element={
+                    <ProtectedRoute>
+                        <Feedback />
                     </ProtectedRoute>
                 } 
             />

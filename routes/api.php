@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DatasetController;
 use App\Http\Controllers\Admin\AnalysisJobController;
 use App\Http\Controllers\Api\TokenController;
+use App\Http\Controllers\Api\FeedbackController;
 
 /*
 |--------------------------------------------------------------------------
@@ -62,6 +63,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Email verification
     Route::post('/email/verification-notification', [AuthController::class, 'sendEmailVerification']);
     Route::post('/email/verify', [AuthController::class, 'verifyEmail']);
+
+    // Feedback system
+    Route::get('/feedback/options', [FeedbackController::class, 'options']);
+    Route::post('/feedback', [FeedbackController::class, 'store']);
 
     // User entitlements
     Route::get('/me/entitlements', function (Request $request) {
