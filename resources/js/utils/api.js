@@ -64,20 +64,17 @@ api.interceptors.response.use(
         if (error.response?.status === 401 && !sessionExpiredShown && !logoutInProgress) {
             sessionExpiredShown = true;
             
-            // Immediate logout for security - no client-side delays that can be bypassed
             // Only show alert if not already on login page to avoid infinite loops
             if (!window.location.pathname.includes('/login')) {
-                // Show toast notification before redirect
+                // Show toast notification
                 toast.error('Your session has expired. You will be redirected to the login page.', {
                     duration: 3000,
                     position: 'top-right'
                 });
-                
-                // Perform logout after a brief delay to show the toast
-                setTimeout(() => {
-                    performSecureLogout();
-                }, 1000);
             }
+            
+            // Immediate logout for security - no delays that can be bypassed
+            performSecureLogout();
         }
         
         // Handle other error types
