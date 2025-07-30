@@ -16,6 +16,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
     const [isZooming, setIsZooming] = useState(false); // Track zooming state
     const [aoiEntitlements, setAoiEntitlements] = useState([]); // Store AOI entitlements
     const [showAoiBoundaries, setShowAoiBoundaries] = useState(true); // Toggle AOI visibility
+    const [tileLayers, setTileLayers] = useState([]); // Available tile layers
+    const [visibleTileLayers, setVisibleTileLayers] = useState(new Set()); // Currently visible tile layers
+    const [showTileLayers, setShowTileLayers] = useState(false); // Toggle all tile layers visibility
 
     // Anomaly color helper function
     const getAnomalyColor = (isAnomaly) => {
@@ -298,6 +301,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                 setSelectedDataset(availableDatasets[0]);
             }
 
+            // Load tile layers
+            loadTileLayers();
+
             // Load building footprint data for current view
             loadBuildingData();
             
@@ -311,6 +317,17 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
     };
 
 
+
+    // Load available tile layers
+    const loadTileLayers = async () => {
+        try {
+            const response = await apiClient.get('/tiles/layers');
+            const layers = response.data.layers || [];
+            setTileLayers(layers);
+        } catch (error) {
+            console.error('Failed to load tile layers:', error);
+        }
+    };
 
     // Load building footprint data (bounds-based for performance)
     const loadBuildingData = async () => {
@@ -664,6 +681,112 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         }
     };
 
+    // Add tile layer to map
+    const addTileLayer = (layerName) => {
+        if (!map.current) return;
+
+        const sourceId = `tiles-${layerName}`;
+        const layerId = `tiles-${layerName}-layer`;
+
+        // Remove existing layer if it exists
+        if (map.current.getLayer(layerId)) {
+            map.current.removeLayer(layerId);
+        }
+        if (map.current.getSource(sourceId)) {
+            map.current.removeSource(sourceId);
+        }
+
+        // Add tile source
+        map.current.addSource(sourceId, {
+            type: 'raster',
+            tiles: [`${window.location.origin}/api/tiles/${layerName}/{z}/{x}/{y}.png`],
+            tileSize: 256,
+            minzoom: 11,
+            maxzoom: 14,
+            scheme: 'xyz', // Explicitly specify XYZ scheme
+            // Handle missing tiles gracefully
+            bounds: [2.23962759265300, 48.81837244150312, 2.34634047084554, 48.87724759682047] // Paris bounds from tilemapresource.xml
+        });
+
+        // Add tile layer
+        map.current.addLayer({
+            id: layerId,
+            type: 'raster',
+            source: sourceId,
+            paint: {
+                'raster-opacity': 0.8
+            }
+        });
+
+        // Update visible layers state
+        setVisibleTileLayers(prev => new Set([...prev, layerName]));
+    };
+
+    // Remove tile layer from map
+    const removeTileLayer = (layerName) => {
+        if (!map.current) return;
+
+        const sourceId = `tiles-${layerName}`;
+        const layerId = `tiles-${layerName}-layer`;
+
+        if (map.current.getLayer(layerId)) {
+            map.current.removeLayer(layerId);
+        }
+        if (map.current.getSource(sourceId)) {
+            map.current.removeSource(sourceId);
+        }
+
+        // Update visible layers state
+        setVisibleTileLayers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(layerName);
+            return newSet;
+        });
+    };
+
+    // Toggle all tile layers visibility
+    const toggleAllTileLayers = () => {
+        if (showTileLayers) {
+            // Hide all tile layers
+            tileLayers.forEach(layer => {
+                removeTileLayer(layer.name);
+            });
+            setShowTileLayers(false);
+        } else {
+            // Show all tile layers
+            tileLayers.forEach(layer => {
+                addTileLayer(layer.name);
+            });
+            setShowTileLayers(true);
+        }
+    };
+
+    // Zoom to tile boundaries
+    const zoomToTileBoundaries = () => {
+        if (!map.current || !tileLayers || tileLayers.length === 0) {
+            return;
+        }
+        
+        // Use the bounds from tilemapresource.xml for Paris thermal data
+        const bounds = [
+            [2.23962759265300, 48.81837244150312], // Southwest
+            [2.34634047084554, 48.87724759682047]  // Northeast
+        ];
+        
+        map.current.fitBounds(bounds, {
+            padding: 50,
+            duration: 2000
+        });
+        
+        // Ensure tile layers are visible when zooming to them
+        if (!showTileLayers) {
+            setShowTileLayers(true);
+            tileLayers.forEach(layer => {
+                addTileLayer(layer.name);
+            });
+        }
+    };
+
     // Zoom to a specific building (slower animation)
     const zoomToBuilding = (building) => {
         if (!map.current || !building) return;
@@ -732,6 +855,45 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                         <span>Normal</span>
                     </div>
                 </div>
+
+                {/* Tile Layers Section */}
+                {tileLayers.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="flex items-center justify-between mb-1">
+                            <h5 className="font-semibold">Tile Layers</h5>
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={() => zoomToTileBoundaries()}
+                                    className="px-2 py-1 text-xs rounded bg-green-500 text-white hover:bg-green-600 cursor-pointer transition-colors duration-200"
+                                    title="Zoom to tile boundaries"
+                                >
+                                    📍
+                                </button>
+                                <button
+                                    onClick={() => toggleAllTileLayers()}
+                                    className={`px-2 py-1 text-xs rounded cursor-pointer transition-colors duration-200 ${
+                                        showTileLayers 
+                                            ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                >
+                                    {showTileLayers ? 'Hide' : 'Show'}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            {tileLayers.map((layer) => (
+                                <div key={layer.name} className="flex items-center gap-2">
+                                    <div className="w-4 h-3 rounded" style={{ backgroundColor: '#8b5cf6' }}></div>
+                                    <span className="truncate">{layer.display_name}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="text-gray-600 text-xs mt-1">
+                            {tileLayers.length} tile layer{tileLayers.length !== 1 ? 's' : ''}
+                        </p>
+                    </div>
+                )}
                 
                 {/* AOI Boundaries Section */}
                 {aoiEntitlements.length > 0 && (
