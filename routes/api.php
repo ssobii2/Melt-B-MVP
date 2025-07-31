@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\DatasetController;
 use App\Http\Controllers\Admin\AnalysisJobController;
 use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\FeedbackController;
+use App\Http\Controllers\Api\TilesController;
 
 /*
 |--------------------------------------------------------------------------
@@ -171,4 +172,11 @@ Route::prefix('webhooks')->group(function () {
     Route::post('/analysis-complete', [WebhookController::class, 'analysisComplete']);
     Route::get('/health', [WebhookController::class, 'healthCheck']);
     Route::post('/test', [WebhookController::class, 'test']);
+});
+
+// Public tile endpoints (no authentication required)
+Route::prefix('tiles')->group(function () {
+    Route::get('/layers', [TilesController::class, 'getLayers']);
+    Route::get('/{layer}/bounds', [TilesController::class, 'getBounds']);
+    Route::get('/{layer}/{z}/{x}/{y}.png', [TilesController::class, 'serveTile']);
 });

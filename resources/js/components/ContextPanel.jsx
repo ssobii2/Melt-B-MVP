@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiClient } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
-const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight }) => {
+const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight, isDisabled = false, onToggleAttempt }) => {
     const { isAdmin } = useAuth();
     const [isOpen, setIsOpen] = useState(true);
     const [buildings, setBuildings] = useState([]);
@@ -183,6 +183,13 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
         }
     }, [selectedBuilding?.gid]);
 
+    // Auto-close when disabled (thermal tiles are visible)
+    useEffect(() => {
+        if (isDisabled && isOpen) {
+            setIsOpen(false);
+        }
+    }, [isDisabled, isOpen]);
+
     const handleBuildingHover = (building) => {
         if (onBuildingHighlight) {
             onBuildingHighlight(building);
@@ -209,9 +216,18 @@ const ContextPanel = ({ selectedBuilding, onBuildingSelect, onBuildingHighlight 
         <div className={`bg-white shadow-xl border border-gray-200 rounded-lg transition-all duration-300 ${isOpen ? 'w-96 h-[calc(100vh-22rem)]' : 'w-10 h-10'} backdrop-blur-sm bg-white/95`}>
             {/* Toggle Button */}
             <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`w-full h-10 flex items-center ${isOpen ? 'justify-between px-4' : 'justify-center'} ${isOpen ? 'border-b border-gray-200' : ''} cursor-pointer hover:bg-gray-50`}
-                title={isOpen ? 'Close panel' : 'Open Building Explorer'}
+                onClick={() => {
+                    if (isDisabled && !isOpen) {
+                        // Prevent opening when disabled and notify user
+                        if (onToggleAttempt) {
+                            onToggleAttempt();
+                        }
+                        return;
+                    }
+                    setIsOpen(!isOpen);
+                }}
+                className={`w-full h-10 flex items-center ${isOpen ? 'justify-between px-4' : 'justify-center'} ${isOpen ? 'border-b border-gray-200' : ''} ${isDisabled && !isOpen ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:text-gray-700'}`}
+                title={isOpen ? 'Close panel' : isDisabled ? 'Hide thermal tiles to access Building Explorer' : 'Open Building Explorer'}
             >
                 {isOpen && (
                     <h3 className="text-lg font-medium text-gray-900 mt-1">Building Explorer</h3>

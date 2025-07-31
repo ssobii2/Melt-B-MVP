@@ -6,12 +6,14 @@ import ContextPanel from '../components/ContextPanel';
 import BuildingDetailsDrawer from '../components/BuildingDetailsDrawer';
 import { useAuth } from '../contexts/AuthContext';
 import { apiClient } from '../utils/api';
+import { Toaster, toast } from 'react-hot-toast';
 
 export default function Dashboard() {
     const { user } = useAuth();
     const [selectedBuilding, setSelectedBuilding] = useState(null);
     const [highlightedBuilding, setHighlightedBuilding] = useState(null);
     const [currentMapBounds, setCurrentMapBounds] = useState(null);
+    const [hasVisibleTiles, setHasVisibleTiles] = useState(false);
     const [buildingStats, setBuildingStats] = useState({
         totalBuildings: '--',
         anomalyBuildings: '--',
@@ -76,10 +78,20 @@ export default function Dashboard() {
         setHighlightedBuilding(building);
     };
 
+    const handleTileVisibilityChange = (hasVisibleTiles) => {
+        setHasVisibleTiles(hasVisibleTiles);
+    };
+
+    const handleBuildingExplorerToggleAttempt = () => {
+        toast.error('Please hide all thermal tiles to access the Building Explorer');
+    };
+
     return (
         <DashboardLayout title="Thermal Analysis Dashboard">
+            <Toaster position="top-right" />
+            
             {/* Welcome Header */}
-            <div className="bg-white shadow-sm border-b border-gray-200 mb-6">
+            <div className="bg-white shadow-sm border-b border-gray-200 rounded-lg mb-6">
                 <div className="px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div>
@@ -116,6 +128,7 @@ export default function Dashboard() {
                             selectedBuilding={selectedBuilding}
                             highlightedBuilding={highlightedBuilding}
                             onMapBoundsChange={handleMapBoundsChange}
+                            onTileVisibilityChange={handleTileVisibilityChange}
                         />
                         
                         {/* Context Panel Overlay */}
@@ -124,6 +137,8 @@ export default function Dashboard() {
                                 selectedBuilding={selectedBuilding}
                                 onBuildingSelect={handleBuildingClick}
                                 onBuildingHighlight={handleBuildingHighlight}
+                                isDisabled={hasVisibleTiles}
+                                onToggleAttempt={handleBuildingExplorerToggleAttempt}
                             />
                         </div>
                     </div>
