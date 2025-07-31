@@ -208,10 +208,10 @@ export default function Profile() {
     };
 
     return (
-        <DashboardLayout>
+        <DashboardLayout title="Profile">
             <Toaster position="top-right" />
             <div className="py-12">
-                <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+                <div className="max-w-9xl mx-auto sm:px-6 lg:px-8 space-y-6">
                     {/* Messages */}
                     {/* Toast notifications will handle success and error messages */}
 

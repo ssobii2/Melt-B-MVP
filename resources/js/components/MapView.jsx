@@ -4,7 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { apiClient } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
-const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMapBoundsChange }) => {
+const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMapBoundsChange, onTileVisibilityChange }) => {
     const { isAdmin } = useAuth();
     const mapContainer = useRef(null);
     const map = useRef(null);
@@ -15,7 +15,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
     const [allBuildings, setAllBuildings] = useState([]); // Store all accessible buildings
     const [isZooming, setIsZooming] = useState(false); // Track zooming state
     const [aoiEntitlements, setAoiEntitlements] = useState([]); // Store AOI entitlements
-    const [visibleAoiBoundaries, setVisibleAoiBoundaries] = useState(new Set()); // Currently visible AOI boundaries
+    const [visibleAoiBoundaries, setVisibleAoiBoundaries] = useState(new Set()); // Currently visible AOI boundaries (empty by default)
     const [tileLayers, setTileLayers] = useState([]); // Available tile layers
     const [visibleTileLayers, setVisibleTileLayers] = useState(new Set()); // Currently visible tile layers
     const [expandedTileLayers, setExpandedTileLayers] = useState(false); // Toggle tile layers panel expansion
@@ -274,6 +274,21 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         }
     }, [selectedBuilding]);
 
+    // Update building visibility when tile layers change
+    useEffect(() => {
+        if (map.current) {
+            // Use setTimeout to ensure all layers are loaded
+            setTimeout(() => updateBuildingVisibility(), 50);
+        }
+    }, [Array.from(visibleTileLayers)]);
+
+    // Notify parent component when tile visibility changes
+    useEffect(() => {
+        if (onTileVisibilityChange) {
+            onTileVisibilityChange(visibleTileLayers.size > 0);
+        }
+    }, [visibleTileLayers.size, onTileVisibilityChange]);
+
     // Load initial data when map is ready
     const loadInitialData = async () => {
         try {
@@ -410,6 +425,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             data: geojson
         });
 
+        // Determine if buildings should be visible based on tile state
+        const shouldHideBuildings = visibleTileLayers.size > 0;
+
         // Add building fill layer with anomaly-based coloring
         map.current.addLayer({
             id: 'buildings-fill',
@@ -425,6 +443,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                     '#cccccc' // Default gray for buildings without anomaly data
                 ],
                 'fill-opacity': 0.7
+            },
+            layout: {
+                'visibility': shouldHideBuildings ? 'none' : 'visible'
             }
         });
 
@@ -437,6 +458,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                 'line-color': '#ffffff',
                 'line-width': 1,
                 'line-opacity': 0.8
+            },
+            layout: {
+                'visibility': shouldHideBuildings ? 'none' : 'visible'
             }
         });
 
@@ -459,6 +483,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         map.current.on('mouseleave', 'buildings-fill', () => {
             map.current.getCanvas().style.cursor = '';
         });
+
+        // Update building visibility after layers are created
+        setTimeout(() => updateBuildingVisibility(), 50);
     };
 
     // Highlight selected and hovered buildings
@@ -602,7 +629,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                     'fill-opacity': 0.15
                 },
                 layout: {
-                    'visibility': 'visible'
+                    'visibility': 'none'
                 }
             });
 
@@ -617,19 +644,11 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                     'line-opacity': 0.8
                 },
                 layout: {
-                    'visibility': 'visible'
+                    'visibility': 'none'
                 }
             });
         });
     };
-
-    // Initialize AOI boundaries as visible when loaded
-    useEffect(() => {
-        if (aoiEntitlements.length > 0 && visibleAoiBoundaries.size === 0) {
-            const initialVisibleAoiBoundaries = new Set(aoiEntitlements.map(entitlement => entitlement.id));
-            setVisibleAoiBoundaries(initialVisibleAoiBoundaries);
-        }
-    }, [aoiEntitlements]);
 
     // Add tile layer to map
     const addTileLayer = (layerName) => {
@@ -664,12 +683,31 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             type: 'raster',
             source: sourceId,
             paint: {
-                'raster-opacity': 0.8
+                'raster-opacity': 1.0
             }
         });
 
-        // Update visible layers state
-        setVisibleTileLayers(prev => new Set([...prev, layerName]));
+        // Update visible layers state and building visibility
+        setVisibleTileLayers(prev => {
+            const newSet = new Set([...prev, layerName]);
+            // Update building visibility immediately after state change
+            setTimeout(() => updateBuildingVisibility(), 0);
+            return newSet;
+        });
+    };
+
+    // Toggle building visibility based on tile layer state
+    const updateBuildingVisibility = () => {
+        if (!map.current) return;
+        
+        const buildingLayers = ['buildings-fill', 'buildings-stroke'];
+        const shouldHideBuildings = visibleTileLayers.size > 0;
+        
+        buildingLayers.forEach(layerId => {
+            if (map.current.getLayer(layerId)) {
+                map.current.setLayoutProperty(layerId, 'visibility', shouldHideBuildings ? 'none' : 'visible');
+            }
+        });
     };
 
     // Remove tile layer from map
@@ -686,10 +724,12 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             map.current.removeSource(sourceId);
         }
 
-        // Update visible layers state
+        // Update visible layers state and building visibility
         setVisibleTileLayers(prev => {
             const newSet = new Set(prev);
             newSet.delete(layerName);
+            // Update building visibility immediately after state change
+            setTimeout(() => updateBuildingVisibility(), 0);
             return newSet;
         });
     };
@@ -701,6 +741,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         } else {
             addTileLayer(layerName);
         }
+        
+        // Update building visibility after layers are created
+        setTimeout(() => updateBuildingVisibility(), 50);
     };
 
     // Zoom to specific tile layer boundaries
@@ -885,9 +928,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             
             <div ref={mapContainer} className="w-full h-full" />
             
-                        {/* Map Legend */}
-            <div className={`absolute top-4 left-4 bg-white rounded-lg shadow-lg transition-all duration-500 ease-in-out transform ${
-                expandedLegend ? 'p-3 text-xs max-w-56 scale-100' : 'p-2 w-10 h-10 scale-100'
+            {/* Map Legend */}
+            <div className={`absolute top-4 left-4 bg-white rounded-lg shadow-lg transition-all duration-300 ${
+                expandedLegend ? 'w-56 h-auto p-3 text-xs' : 'w-10 h-10 p-2'
             }`}>
                 {expandedLegend ? (
                     <>
@@ -895,7 +938,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                             <h4 className="font-semibold">Map Legend</h4>
                             <button
                                 onClick={() => setExpandedLegend(false)}
-                                className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                                className="text-gray-500 hover:text-gray-700 transition-colors duration-200 cursor-pointer"
                             >
                                 <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -921,7 +964,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                                     <h5 className="font-semibold">Tile Layers</h5>
                                     <button
                                         onClick={() => setExpandedTileLayers(!expandedTileLayers)}
-                                        className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                                        className="text-gray-500 hover:text-gray-700 transition-colors duration-200 cursor-pointer"
                                     >
                                         <svg className={`w-4 h-4 transition-transform duration-200 ${expandedTileLayers ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -935,7 +978,6 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                                         {tileLayers.map((layer) => (
                                             <div key={layer.name} className="flex items-center justify-between gap-2">
                                                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                    <div className="w-4 h-3 rounded flex-shrink-0" style={{ backgroundColor: '#8b5cf6' }}></div>
                                                     <span className="truncate text-xs">{layer.display_name}</span>
                                                 </div>
                                                 <div className="flex gap-1 flex-shrink-0">
@@ -974,7 +1016,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                                     <h5 className="font-semibold">AOI Boundaries</h5>
                                     <button
                                         onClick={() => setExpandedAoiBoundaries(!expandedAoiBoundaries)}
-                                        className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                                        className="text-gray-500 hover:text-gray-700 transition-colors duration-200 cursor-pointer "
                                     >
                                         <svg className={`w-4 h-4 transition-transform duration-200 ${expandedAoiBoundaries ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -987,11 +1029,11 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                                     <div className="space-y-1">
                                         {aoiEntitlements.map((entitlement, index) => {
                                             const colors = [
-                                                { border: '#10b981', fill: '#10b981' },
-                                                { border: '#f59e0b', fill: '#f59e0b' },
-                                                { border: '#8b5cf6', fill: '#8b5cf6' },
-                                                { border: '#ef4444', fill: '#ef4444' },
-                                                { border: '#06b6d4', fill: '#06b6d4' }
+                                                { border: '#10b981', fill: 'rgba(16, 185, 129, 0.15)' },
+                                                { border: '#f59e0b', fill: 'rgba(245, 158, 11, 0.15)' },
+                                                { border: '#8b5cf6', fill: 'rgba(139, 92, 246, 0.15)' },
+                                                { border: '#ef4444', fill: 'rgba(239, 68, 68, 0.15)' },
+                                                { border: '#06b6d4', fill: 'rgba(6, 182, 212, 0.15)' }
                                             ];
                                             const color = colors[index % colors.length];
                                             return (
@@ -1044,7 +1086,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                 ) : (
                     <button
                         onClick={() => setExpandedLegend(true)}
-                        className="w-full h-full flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                        className="w-full h-full flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors duration-200 cursor-pointer"
                     >
                         <svg className="w-5 h-5 transform -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
