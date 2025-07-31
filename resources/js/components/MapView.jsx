@@ -15,10 +15,12 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
     const [allBuildings, setAllBuildings] = useState([]); // Store all accessible buildings
     const [isZooming, setIsZooming] = useState(false); // Track zooming state
     const [aoiEntitlements, setAoiEntitlements] = useState([]); // Store AOI entitlements
-    const [showAoiBoundaries, setShowAoiBoundaries] = useState(true); // Toggle AOI visibility
+    const [visibleAoiBoundaries, setVisibleAoiBoundaries] = useState(new Set()); // Currently visible AOI boundaries
     const [tileLayers, setTileLayers] = useState([]); // Available tile layers
     const [visibleTileLayers, setVisibleTileLayers] = useState(new Set()); // Currently visible tile layers
-    const [showTileLayers, setShowTileLayers] = useState(false); // Toggle all tile layers visibility
+    const [expandedTileLayers, setExpandedTileLayers] = useState(false); // Toggle tile layers panel expansion
+    const [expandedAoiBoundaries, setExpandedAoiBoundaries] = useState(false); // Toggle AOI boundaries panel expansion
+    const [expandedLegend, setExpandedLegend] = useState(true); // Toggle entire legend panel expansion
 
     // Anomaly color helper function
     const getAnomalyColor = (isAnomaly) => {
@@ -532,19 +534,22 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             return;
         }
 
-        // Remove existing AOI layers
-        if (map.current.getLayer('aoi-boundaries-fill')) {
-            map.current.removeLayer('aoi-boundaries-fill');
-        }
-        if (map.current.getLayer('aoi-boundaries-stroke')) {
-            map.current.removeLayer('aoi-boundaries-stroke');
-        }
-        if (map.current.getSource('aoi-boundaries')) {
-            map.current.removeSource('aoi-boundaries');
-        }
+        // Remove existing AOI layers and sources
+        aoiEntitlements.forEach(entitlement => {
+            const layerId = `aoi-boundary-${entitlement.id}`;
+            if (map.current.getLayer(`${layerId}-fill`)) {
+                map.current.removeLayer(`${layerId}-fill`);
+            }
+            if (map.current.getLayer(`${layerId}-stroke`)) {
+                map.current.removeLayer(`${layerId}-stroke`);
+            }
+            if (map.current.getSource(layerId)) {
+                map.current.removeSource(layerId);
+            }
+        });
 
-        // Convert AOI entitlements to GeoJSON
-        const aoiFeatures = aoiEntitlements.map((entitlement, index) => {
+        // Create individual layers for each AOI boundary
+        aoiEntitlements.forEach((entitlement, index) => {
             // Convert aoi_geom to proper GeoJSON format
             let geometry;
             if (entitlement.aoi_geom && entitlement.aoi_geom.type === 'Polygon') {
@@ -555,131 +560,76 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                     coordinates: entitlement.aoi_geom.coordinates
                 };
             } else {
-                return null;
+                return;
             }
 
-            const feature = {
-                type: 'Feature',
-                geometry: geometry,
-                properties: {
-                    entitlement_id: entitlement.id,
-                    dataset_name: entitlement.dataset?.name || 'Unknown Dataset',
-                    index: index
-                }
-            };
-            return feature;
-        }).filter(feature => feature !== null);
-
-        if (aoiFeatures.length === 0) return;
-
-        const aoiGeojson = {
-            type: 'FeatureCollection',
-            features: aoiFeatures
-        };
-
-        // Add AOI source
-        map.current.addSource('aoi-boundaries', {
-            type: 'geojson',
-            data: aoiGeojson
-        });
-
-        // Add AOI fill layer (semi-transparent)
-        map.current.addLayer({
-            id: 'aoi-boundaries-fill',
-            type: 'fill',
-            source: 'aoi-boundaries',
-            paint: {
-                'fill-color': [
-                    'case',
-                    ['==', ['%', ['get', 'index'], 5], 0], '#10b981', // Green
-                    ['==', ['%', ['get', 'index'], 5], 1], '#f59e0b', // Orange  
-                    ['==', ['%', ['get', 'index'], 5], 2], '#8b5cf6', // Purple
-                    ['==', ['%', ['get', 'index'], 5], 3], '#ef4444', // Red
-                    '#06b6d4' // Cyan
-                ],
-                'fill-opacity': 0.15
-            }
-        });
-
-        // Add AOI stroke layer
-        map.current.addLayer({
-            id: 'aoi-boundaries-stroke',
-            type: 'line',
-            source: 'aoi-boundaries',
-            paint: {
-                'line-color': [
-                    'case',
-                    ['==', ['%', ['get', 'index'], 5], 0], '#10b981', // Green
-                    ['==', ['%', ['get', 'index'], 5], 1], '#f59e0b', // Orange
-                    ['==', ['%', ['get', 'index'], 5], 2], '#8b5cf6', // Purple
-                    ['==', ['%', ['get', 'index'], 5], 3], '#ef4444', // Red
-                    '#06b6d4' // Cyan
-                ],
-                'line-width': 2,
-                'line-opacity': 0.8
-            }
-        });
-    };
-
-    // Toggle AOI boundary visibility
-    useEffect(() => {
-        if (!map.current) return;
-
-        const layers = ['aoi-boundaries-fill', 'aoi-boundaries-stroke'];
-        layers.forEach(layerId => {
-            if (map.current.getLayer(layerId)) {
-                map.current.setLayoutProperty(layerId, 'visibility', showAoiBoundaries ? 'visible' : 'none');
-            }
-        });
-    }, [showAoiBoundaries]);
-
-    // Zoom to AOI boundaries
-    const zoomToAoiBoundaries = () => {
-        if (!map.current || !aoiEntitlements || aoiEntitlements.length === 0) {
-            return;
-        }
-        
-        // Calculate bounds of all AOI polygons
-        let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-        let hasValidBounds = false;
-
-        aoiEntitlements.forEach((entitlement) => {
-            const geometry = entitlement.aoi_geom;
-            if (geometry && geometry.coordinates && geometry.coordinates[0]) {
-                geometry.coordinates[0].forEach(coord => {
-                    if (coord && coord.length >= 2) {
-                        const [lng, lat] = coord;
-                        if (!isNaN(lng) && !isNaN(lat)) {
-                            minLng = Math.min(minLng, lng);
-                            minLat = Math.min(minLat, lat);
-                            maxLng = Math.max(maxLng, lng);
-                            maxLat = Math.max(maxLat, lat);
-                            hasValidBounds = true;
-                        }
-                    }
-                });
-            }
-        });
-
-        if (hasValidBounds) {
-            // Add some padding to the bounds
-            const padding = 0.001; // Adjust as needed
-            const bounds = [
-                [minLng - padding, minLat - padding], // Southwest
-                [maxLng + padding, maxLat + padding]  // Northeast
+            const colors = [
+                { border: '#10b981', fill: '#10b981' },
+                { border: '#f59e0b', fill: '#f59e0b' },
+                { border: '#8b5cf6', fill: '#8b5cf6' },
+                { border: '#ef4444', fill: '#ef4444' },
+                { border: '#06b6d4', fill: '#06b6d4' }
             ];
-            
-            map.current.fitBounds(bounds, {
-                padding: 50,
-                duration: 2000
+            const color = colors[index % colors.length];
+
+            const layerId = `aoi-boundary-${entitlement.id}`;
+            const aoiGeojson = {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    geometry: geometry,
+                    properties: {
+                        entitlement_id: entitlement.id,
+                        dataset_name: entitlement.dataset?.name || 'Unknown Dataset',
+                        index: index
+                    }
+                }]
+            };
+
+            // Add AOI source
+            map.current.addSource(layerId, {
+                type: 'geojson',
+                data: aoiGeojson
             });
-            
-            // Ensure AOI boundaries are visible when zooming to them
-            if (!showAoiBoundaries) {
-                setShowAoiBoundaries(true);
-            }
-        }
+
+            // Add AOI fill layer (semi-transparent)
+            map.current.addLayer({
+                id: `${layerId}-fill`,
+                type: 'fill',
+                source: layerId,
+                paint: {
+                    'fill-color': color.fill,
+                    'fill-opacity': 0.15
+                },
+                layout: {
+                    'visibility': 'visible'
+                }
+            });
+
+            // Add AOI stroke layer
+            map.current.addLayer({
+                id: `${layerId}-stroke`,
+                type: 'line',
+                source: layerId,
+                paint: {
+                    'line-color': color.border,
+                    'line-width': 2,
+                    'line-opacity': 0.8
+                },
+                layout: {
+                    'visibility': 'visible'
+                }
+            });
+        });
     };
+
+    // Initialize AOI boundaries as visible when loaded
+    useEffect(() => {
+        if (aoiEntitlements.length > 0 && visibleAoiBoundaries.size === 0) {
+            const initialVisibleAoiBoundaries = new Set(aoiEntitlements.map(entitlement => entitlement.id));
+            setVisibleAoiBoundaries(initialVisibleAoiBoundaries);
+        }
+    }, [aoiEntitlements]);
 
     // Add tile layer to map
     const addTileLayer = (layerName) => {
@@ -744,46 +694,139 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         });
     };
 
-    // Toggle all tile layers visibility
-    const toggleAllTileLayers = () => {
-        if (showTileLayers) {
-            // Hide all tile layers
-            tileLayers.forEach(layer => {
-                removeTileLayer(layer.name);
-            });
-            setShowTileLayers(false);
+    // Toggle individual tile layer visibility
+    const toggleTileLayer = (layerName) => {
+        if (visibleTileLayers.has(layerName)) {
+            removeTileLayer(layerName);
         } else {
-            // Show all tile layers
-            tileLayers.forEach(layer => {
-                addTileLayer(layer.name);
-            });
-            setShowTileLayers(true);
+            addTileLayer(layerName);
         }
     };
 
-    // Zoom to tile boundaries
-    const zoomToTileBoundaries = () => {
-        if (!map.current || !tileLayers || tileLayers.length === 0) {
-            return;
-        }
+    // Zoom to specific tile layer boundaries
+    const zoomToTileLayer = async (layerName) => {
+        if (!map.current) return;
         
-        // Use the bounds from tilemapresource.xml for Paris thermal data
-        const bounds = [
-            [2.23962759265300, 48.81837244150312], // Southwest
-            [2.34634047084554, 48.87724759682047]  // Northeast
-        ];
-        
-        map.current.fitBounds(bounds, {
-            padding: 50,
-            duration: 2000
-        });
-        
-        // Ensure tile layers are visible when zooming to them
-        if (!showTileLayers) {
-            setShowTileLayers(true);
-            tileLayers.forEach(layer => {
-                addTileLayer(layer.name);
+        try {
+            // Try to get bounds from tilemapresource.xml
+            const response = await fetch(`/api/tiles/${layerName}/bounds`);
+            if (response.ok) {
+                const boundsData = await response.json();
+                const bounds = [
+                    [boundsData.minx, boundsData.miny], // Southwest
+                    [boundsData.maxx, boundsData.maxy]  // Northeast
+                ];
+                
+                map.current.fitBounds(bounds, {
+                    padding: 50,
+                    duration: 2000
+                });
+                
+                // Show the tile layer if it's not visible
+                if (!visibleTileLayers.has(layerName)) {
+                    addTileLayer(layerName);
+                }
+            } else {
+                // Fallback to default Paris bounds
+                const fallbackBounds = [
+                    [2.23962759265300, 48.81837244150312], // Southwest
+                    [2.34634047084554, 48.87724759682047]  // Northeast
+                ];
+                
+                map.current.fitBounds(fallbackBounds, {
+                    padding: 50,
+                    duration: 2000
+                });
+                
+                if (!visibleTileLayers.has(layerName)) {
+                    addTileLayer(layerName);
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to get tile bounds, using fallback:', error);
+            // Fallback to default Paris bounds
+            const fallbackBounds = [
+                [2.23962759265300, 48.81837244150312], // Southwest
+                [2.34634047084554, 48.87724759682047]  // Northeast
+            ];
+            
+            map.current.fitBounds(fallbackBounds, {
+                padding: 50,
+                duration: 2000
             });
+            
+            if (!visibleTileLayers.has(layerName)) {
+                addTileLayer(layerName);
+            }
+        }
+    };
+
+    // Toggle individual AOI boundary visibility
+    const toggleAoiBoundary = (entitlementId) => {
+        const newVisibleAoiBoundaries = new Set(visibleAoiBoundaries);
+        if (newVisibleAoiBoundaries.has(entitlementId)) {
+            newVisibleAoiBoundaries.delete(entitlementId);
+        } else {
+            newVisibleAoiBoundaries.add(entitlementId);
+        }
+        setVisibleAoiBoundaries(newVisibleAoiBoundaries);
+        
+        // Update map layer visibility
+        if (map.current) {
+            const layerId = `aoi-boundary-${entitlementId}`;
+            const isVisible = newVisibleAoiBoundaries.has(entitlementId);
+            const visibility = isVisible ? 'visible' : 'none';
+            
+            if (map.current.getLayer(`${layerId}-fill`)) {
+                map.current.setLayoutProperty(`${layerId}-fill`, 'visibility', visibility);
+            }
+            if (map.current.getLayer(`${layerId}-stroke`)) {
+                map.current.setLayoutProperty(`${layerId}-stroke`, 'visibility', visibility);
+            }
+        }
+    };
+
+    // Zoom to specific AOI boundary
+    const zoomToAoiBoundary = (entitlement) => {
+        if (!map.current || !entitlement.aoi_geom) return;
+        
+        try {
+            const geometry = entitlement.aoi_geom;
+            if (geometry && geometry.coordinates && geometry.coordinates[0]) {
+                // Calculate bounds from AOI coordinates
+                let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+                
+                geometry.coordinates[0].forEach(coord => {
+                    if (coord && coord.length >= 2) {
+                        const [lng, lat] = coord;
+                        if (!isNaN(lng) && !isNaN(lat)) {
+                            minLng = Math.min(minLng, lng);
+                            minLat = Math.min(minLat, lat);
+                            maxLng = Math.max(maxLng, lng);
+                            maxLat = Math.max(maxLat, lat);
+                        }
+                    }
+                });
+                
+                if (minLng !== Infinity && minLat !== Infinity) {
+                    const bounds = [
+                        [minLng, minLat], // Southwest
+                        [maxLng, maxLat]  // Northeast
+                    ];
+                    
+                    map.current.fitBounds(bounds, {
+                        padding: 50,
+                        duration: 2000
+                    });
+                    
+                    // Ensure AOI boundary is visible
+                    if (!visibleAoiBoundaries.has(entitlement.id)) {
+                        toggleAoiBoundary(entitlement.id);
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to calculate AOI bounds:', error);
         }
     };
 
@@ -842,117 +885,171 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             
             <div ref={mapContainer} className="w-full h-full" />
             
-            {/* Map Legend */}
-            <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 text-xs max-w-48">
-                <h4 className="font-semibold mb-2">Anomaly Detection</h4>
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#ef4444' }}></div>
-                        <span>Anomaly</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 rounded" style={{ backgroundColor: '#3b82f6' }}></div>
-                        <span>Normal</span>
-                    </div>
-                </div>
+                        {/* Map Legend */}
+            <div className={`absolute top-4 left-4 bg-white rounded-lg shadow-lg transition-all duration-500 ease-in-out transform ${
+                expandedLegend ? 'p-3 text-xs max-w-56 scale-100' : 'p-2 w-10 h-10 scale-100'
+            }`}>
+                {expandedLegend ? (
+                    <>
+                        <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold">Map Legend</h4>
+                            <button
+                                onClick={() => setExpandedLegend(false)}
+                                className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                            >
+                                <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-1 mb-2">
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-3 rounded" style={{ backgroundColor: '#ef4444' }}></div>
+                                <span>Anomaly</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-3 rounded" style={{ backgroundColor: '#3b82f6' }}></div>
+                                <span>Normal</span>
+                            </div>
+                        </div>
 
-                {/* Tile Layers Section */}
-                {tileLayers.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                        <div className="flex items-center justify-between mb-1">
-                            <h5 className="font-semibold">Tile Layers</h5>
-                            <div className="flex gap-1">
-                                <button
-                                    onClick={() => zoomToTileBoundaries()}
-                                    className="px-2 py-1 text-xs rounded bg-green-500 text-white hover:bg-green-600 cursor-pointer transition-colors duration-200"
-                                    title="Zoom to tile boundaries"
-                                >
-                                    📍
-                                </button>
-                                <button
-                                    onClick={() => toggleAllTileLayers()}
-                                    className={`px-2 py-1 text-xs rounded cursor-pointer transition-colors duration-200 ${
-                                        showTileLayers 
-                                            ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    }`}
-                                >
-                                    {showTileLayers ? 'Hide' : 'Show'}
-                                </button>
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            {tileLayers.map((layer) => (
-                                <div key={layer.name} className="flex items-center gap-2">
-                                    <div className="w-4 h-3 rounded" style={{ backgroundColor: '#8b5cf6' }}></div>
-                                    <span className="truncate">{layer.display_name}</span>
+                        {/* Tile Layers Section */}
+                        {tileLayers.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                                <div className="flex items-center justify-between mb-1">
+                                    <h5 className="font-semibold">Tile Layers</h5>
+                                    <button
+                                        onClick={() => setExpandedTileLayers(!expandedTileLayers)}
+                                        className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                                    >
+                                        <svg className={`w-4 h-4 transition-transform duration-200 ${expandedTileLayers ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
                                 </div>
-                            ))}
-                        </div>
-                        <p className="text-gray-600 text-xs mt-1">
-                            {tileLayers.length} tile layer{tileLayers.length !== 1 ? 's' : ''}
-                        </p>
-                    </div>
-                )}
-                
-                {/* AOI Boundaries Section */}
-                {aoiEntitlements.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                        <div className="flex items-center justify-between mb-1">
-                            <h5 className="font-semibold">AOI Boundaries</h5>
-                            <div className="flex gap-1">
-                                <button
-                                    onClick={() => zoomToAoiBoundaries()}
-                                    className="px-2 py-1 text-xs rounded bg-green-500 text-white hover:bg-green-600 cursor-pointer transition-colors duration-200"
-                                    title="Zoom to AOI boundaries"
-                                >
-                                    📍
-                                </button>
-                                <button
-                                    onClick={() => setShowAoiBoundaries(!showAoiBoundaries)}
-                                    className={`px-2 py-1 text-xs rounded cursor-pointer transition-colors duration-200 ${
-                                        showAoiBoundaries 
-                                            ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    }`}
-                                >
-                                    {showAoiBoundaries ? 'Hide' : 'Show'}
-                                </button>
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            {aoiEntitlements.map((entitlement, index) => {
-                                const colors = [
-                                    { border: '#10b981', fill: 'rgba(16, 185, 129, 0.15)' },
-                                    { border: '#f59e0b', fill: 'rgba(245, 158, 11, 0.15)' },
-                                    { border: '#8b5cf6', fill: 'rgba(139, 92, 246, 0.15)' },
-                                    { border: '#ef4444', fill: 'rgba(239, 68, 68, 0.15)' },
-                                    { border: '#06b6d4', fill: 'rgba(6, 182, 212, 0.15)' }
-                                ];
-                                const color = colors[index % colors.length];
-                                return (
-                                    <div key={entitlement.id} className="flex items-center gap-2">
-                                        <div 
-                                            className="w-4 h-3 rounded border-2" 
-                                            style={{ borderColor: color.border, backgroundColor: color.fill }}
-                                        ></div>
-                                        <span className="truncate">{entitlement.dataset?.name || `AOI ${index + 1}`}</span>
+                                <div className={`overflow-hidden transition-all duration-200 ease-in-out ${
+                                    expandedTileLayers ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                                }`}>
+                                    <div className="space-y-1">
+                                        {tileLayers.map((layer) => (
+                                            <div key={layer.name} className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    <div className="w-4 h-3 rounded flex-shrink-0" style={{ backgroundColor: '#8b5cf6' }}></div>
+                                                    <span className="truncate text-xs">{layer.display_name}</span>
+                                                </div>
+                                                <div className="flex gap-1 flex-shrink-0">
+                                                    <button
+                                                        onClick={() => zoomToTileLayer(layer.name)}
+                                                        className="px-1 py-1 text-xs rounded bg-green-500 text-white hover:bg-green-600 cursor-pointer transition-colors duration-200"
+                                                        title="Zoom to tile layer"
+                                                    >
+                                                        📍
+                                                    </button>
+                                                    <button
+                                                        onClick={() => toggleTileLayer(layer.name)}
+                                                        className={`px-2 py-1 text-xs rounded cursor-pointer transition-colors duration-200 ${
+                                                            visibleTileLayers.has(layer.name)
+                                                                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                        }`}
+                                                    >
+                                                        {visibleTileLayers.has(layer.name) ? 'Hide' : 'Show'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                );
-                            })}
-                        </div>
-                        <p className="text-gray-600 text-xs mt-1">
-                            {aoiEntitlements.length} AOI entitlement{aoiEntitlements.length !== 1 ? 's' : ''}
-                        </p>
-                    </div>
-                )}
-                
-                {selectedDataset && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                        <p className="text-gray-600 text-xs">
-                            Dataset: {selectedDataset.name}
-                        </p>
-                    </div>
+                                </div>
+                                <p className="text-gray-600 text-xs mt-1">
+                                    {tileLayers.length} tile layer{tileLayers.length !== 1 ? 's' : ''}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* AOI Boundaries Section */}
+                        {aoiEntitlements.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                                <div className="flex items-center justify-between mb-1">
+                                    <h5 className="font-semibold">AOI Boundaries</h5>
+                                    <button
+                                        onClick={() => setExpandedAoiBoundaries(!expandedAoiBoundaries)}
+                                        className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                                    >
+                                        <svg className={`w-4 h-4 transition-transform duration-200 ${expandedAoiBoundaries ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div className={`overflow-hidden transition-all duration-200 ease-in-out ${
+                                    expandedAoiBoundaries ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                                }`}>
+                                    <div className="space-y-1">
+                                        {aoiEntitlements.map((entitlement, index) => {
+                                            const colors = [
+                                                { border: '#10b981', fill: '#10b981' },
+                                                { border: '#f59e0b', fill: '#f59e0b' },
+                                                { border: '#8b5cf6', fill: '#8b5cf6' },
+                                                { border: '#ef4444', fill: '#ef4444' },
+                                                { border: '#06b6d4', fill: '#06b6d4' }
+                                            ];
+                                            const color = colors[index % colors.length];
+                                            return (
+                                                <div key={entitlement.id} className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                        <div 
+                                                            className="w-4 h-3 rounded border-2 flex-shrink-0" 
+                                                            style={{ borderColor: color.border, backgroundColor: color.fill }}
+                                                        ></div>
+                                                        <span className="truncate text-xs">{entitlement.dataset?.name || `AOI ${index + 1}`}</span>
+                                                    </div>
+                                                    <div className="flex gap-1 flex-shrink-0">
+                                                        <button
+                                                            onClick={() => zoomToAoiBoundary(entitlement)}
+                                                            className="px-1 py-1 text-xs rounded bg-green-500 text-white hover:bg-green-600 cursor-pointer transition-colors duration-200"
+                                                            title="Zoom to AOI boundary"
+                                                        >
+                                                            📍
+                                                        </button>
+                                                        <button
+                                                            onClick={() => toggleAoiBoundary(entitlement.id)}
+                                                            className={`px-2 py-1 text-xs rounded cursor-pointer transition-colors duration-200 ${
+                                                                visibleAoiBoundaries.has(entitlement.id)
+                                                                    ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                                                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                            }`}
+                                                        >
+                                                            {visibleAoiBoundaries.has(entitlement.id) ? 'Hide' : 'Show'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                <p className="text-gray-600 text-xs mt-1">
+                                    {aoiEntitlements.length} AOI entitlement{aoiEntitlements.length !== 1 ? 's' : ''}
+                                </p>
+                            </div>
+                        )}
+
+                        {selectedDataset && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                                <p className="text-gray-600 text-xs truncate">
+                                    Dataset: {selectedDataset.name}
+                                </p>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <button
+                        onClick={() => setExpandedLegend(true)}
+                        className="w-full h-full flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                    >
+                        <svg className="w-5 h-5 transform -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
                 )}
             </div>
         </div>

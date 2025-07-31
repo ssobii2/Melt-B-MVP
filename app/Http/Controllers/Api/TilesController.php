@@ -80,4 +80,39 @@ class TilesController extends Controller
 
         return response()->json(['layers' => $layers]);
     }
+
+    /**
+     * Get tile layer bounds from tilemapresource.xml
+     */
+    public function getBounds(Request $request, $layer)
+    {
+        $tilesPath = storage_path("data/tiles/{$layer}");
+        
+        if (!File::exists($tilesPath)) {
+            return response()->json(['error' => 'Layer not found'], 404);
+        }
+
+        // Look for any .xml file in the layer directory
+        $xmlFiles = File::glob("{$tilesPath}/*.xml");
+        
+        if (empty($xmlFiles)) {
+            return response()->json(['error' => 'No tilemapresource.xml found'], 404);
+        }
+
+        // Use the first .xml file found
+        $xmlFile = $xmlFiles[0];
+        $xmlContent = File::get($xmlFile);
+        
+        // Simple XML parsing to extract bounds
+        if (preg_match('/<BoundingBox\s+minx="([^"]+)"\s+miny="([^"]+)"\s+maxx="([^"]+)"\s+maxy="([^"]+)"/', $xmlContent, $matches)) {
+            return response()->json([
+                'minx' => (float) $matches[1],
+                'miny' => (float) $matches[2],
+                'maxx' => (float) $matches[3],
+                'maxy' => (float) $matches[4]
+            ]);
+        }
+
+        return response()->json(['error' => 'Could not parse bounds from XML'], 404);
+    }
 } 
