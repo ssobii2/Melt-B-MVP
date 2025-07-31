@@ -928,6 +928,21 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             
             <div ref={mapContainer} className="w-full h-full" />
             
+            {/* Custom scrollbar styles */}
+            <style>{`
+                .overflow-y-auto::-webkit-scrollbar {
+                    width: 4px;
+                }
+                .overflow-y-auto::-webkit-scrollbar-track {
+                    background: #f1f5f9;
+                    border-radius: 2px;
+                }
+                .overflow-y-auto::-webkit-scrollbar-thumb {
+                    background: #94a3b8;
+                    border-radius: 2px;
+                }
+            `}</style>
+            
             {/* Map Legend */}
             <div className={`absolute top-4 left-4 bg-white rounded-lg shadow-lg transition-all duration-300 ${
                 expandedLegend ? 'w-56 h-auto p-3 text-xs' : 'w-10 h-10 p-2'
@@ -974,7 +989,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                                 <div className={`overflow-hidden transition-all duration-200 ease-in-out ${
                                     expandedTileLayers ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                                 }`}>
-                                    <div className="space-y-1">
+                                    <div className="space-y-1 max-h-35 overflow-y-auto pr-1">
                                         {tileLayers.map((layer) => (
                                             <div key={layer.name} className="flex items-center justify-between gap-2">
                                                 <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -1026,7 +1041,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                                 <div className={`overflow-hidden transition-all duration-200 ease-in-out ${
                                     expandedAoiBoundaries ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                                 }`}>
-                                    <div className="space-y-1">
+                                    <div className="space-y-1 max-h-35 overflow-y-auto pr-1">
                                         {aoiEntitlements.map((entitlement, index) => {
                                             const colors = [
                                                 { border: '#10b981', fill: 'rgba(16, 185, 129, 0.15)' },
