@@ -21,6 +21,17 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
     const [expandedTileLayers, setExpandedTileLayers] = useState(false); // Toggle tile layers panel expansion
     const [expandedAoiBoundaries, setExpandedAoiBoundaries] = useState(false); // Toggle AOI boundaries panel expansion
     const [expandedLegend, setExpandedLegend] = useState(true); // Toggle entire legend panel expansion
+    // Use ref to track current tile visibility state for event handlers
+    const visibleTileLayersRef = useRef(new Set());
+    
+    // Use ref to track if a building data request is in progress
+    const buildingDataRequestRef = useRef(null);
+    
+    // Use ref to track if a timeout is already pending
+    const timeoutPendingRef = useRef(false);
+    
+    // Use ref to track the current timeout
+    const buildingLoadTimeoutRef = useRef(null);
 
     // Anomaly color helper function
     const getAnomalyColor = (isAnomaly) => {
@@ -245,11 +256,33 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
 
                 // Add moveend handler here after map is loaded
                 const handleMoveEnd = () => {
-                    loadBuildingData();
-                    // Notify parent component about bounds change for real-time stats
-                    if (onMapBoundsChange) {
-                        const bounds = map.current.getBounds();
-                        onMapBoundsChange(bounds);
+                    // Clear any existing timeout
+                    if (buildingLoadTimeoutRef.current) {
+                        clearTimeout(buildingLoadTimeoutRef.current);
+                        buildingLoadTimeoutRef.current = null;
+                    }
+                    
+                    // Only load building data and update stats if no tile layers are visible
+                    if (visibleTileLayersRef.current.size === 0 && !timeoutPendingRef.current) {
+                        // Set pending flag to prevent multiple timeouts
+                        timeoutPendingRef.current = true;
+                        
+                        // Debounce building loading - only load after 1000ms of no movement
+                        const timeout = setTimeout(() => {
+                            // Reset pending flag
+                            timeoutPendingRef.current = false;
+                            
+                            // Double-check that tiles are still not visible before loading
+                            if (visibleTileLayersRef.current.size === 0) {
+                                loadBuildingData();
+                                // Notify parent component about bounds change for real-time stats
+                                if (onMapBoundsChange) {
+                                    const bounds = map.current.getBounds();
+                                    onMapBoundsChange(bounds);
+                                }
+                            }
+                        }, 1000);
+                        buildingLoadTimeoutRef.current = timeout;
                     }
                 };
                 map.current.on('moveend', handleMoveEnd);
@@ -260,6 +293,14 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
 
         // Cleanup function
         return () => {
+            if (buildingLoadTimeoutRef.current) {
+                clearTimeout(buildingLoadTimeoutRef.current);
+            }
+            if (buildingDataRequestRef.current) {
+                buildingDataRequestRef.current.abort();
+                buildingDataRequestRef.current = null;
+            }
+            timeoutPendingRef.current = false;
             if (map.current) {
                 map.current.remove();
                 map.current = null;
@@ -277,10 +318,15 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
     // Update building visibility when tile layers change
     useEffect(() => {
         if (map.current) {
-            // Use setTimeout to ensure all layers are loaded
-            setTimeout(() => updateBuildingVisibility(), 50);
+            // Update building visibility immediately
+            updateBuildingVisibility();
         }
     }, [Array.from(visibleTileLayers)]);
+    
+    // Update ref when visibleTileLayers changes
+    useEffect(() => {
+        visibleTileLayersRef.current = visibleTileLayers;
+    }, [visibleTileLayers]);
 
     // Notify parent component when tile visibility changes
     useEffect(() => {
@@ -321,8 +367,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             // Load tile layers
             loadTileLayers();
 
-            // Load building footprint data for current view
-            loadBuildingData();
+            if (visibleTileLayersRef.current.size === 0) {
+                loadBuildingData();
+            }
             
             // Add AOI boundaries if any exist
             if (aoiEntitlements.length > 0) {
@@ -348,6 +395,20 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
 
     // Load building footprint data (bounds-based for performance)
     const loadBuildingData = async () => {
+        // Don't load building data if tiles are visible
+        if (visibleTileLayersRef.current.size > 0) {
+            return;
+        }
+        
+        // Cancel any ongoing request
+        if (buildingDataRequestRef.current) {
+            buildingDataRequestRef.current.abort();
+        }
+        
+        // Create new AbortController for this request
+        const abortController = new AbortController();
+        buildingDataRequestRef.current = abortController;
+        
         try {
             // Get current map bounds for filtering
             const bounds = map.current.getBounds();
@@ -362,7 +423,8 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                     west: bounds.getWest(),
                     limit: 1000,
                     include_geometry: 1
-                }
+                },
+                signal: abortController.signal
             });
 
             const buildings = response.data.data;
@@ -377,7 +439,15 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             
             addBuildingLayer(buildings);
         } catch (error) {
-            console.error('Failed to load building data:', error);
+            // Don't log abort/cancel errors as they're expected when requests are cancelled
+            if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
+                console.error('Failed to load building data:', error);
+            }
+        } finally {
+            // Clear the request reference if this was the current request
+            if (buildingDataRequestRef.current === abortController) {
+                buildingDataRequestRef.current = null;
+            }
         }
     };
 
@@ -670,8 +740,8 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             type: 'raster',
             tiles: [`${window.location.origin}/api/tiles/${layerName}/{z}/{x}/{y}.png`],
             tileSize: 256,
-            minzoom: 11,
-            maxzoom: 14,
+            minzoom: 8,
+            maxzoom: 15,
             scheme: 'xyz', // Explicitly specify XYZ scheme
             // Handle missing tiles gracefully
             bounds: [2.23962759265300, 48.81837244150312, 2.34634047084554, 48.87724759682047] // Paris bounds from tilemapresource.xml
@@ -690,8 +760,8 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         // Update visible layers state and building visibility
         setVisibleTileLayers(prev => {
             const newSet = new Set([...prev, layerName]);
-            // Update building visibility immediately after state change
-            setTimeout(() => updateBuildingVisibility(), 0);
+            // Update building visibility immediately
+            updateBuildingVisibility();
             return newSet;
         });
     };
@@ -728,8 +798,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         setVisibleTileLayers(prev => {
             const newSet = new Set(prev);
             newSet.delete(layerName);
-            // Update building visibility immediately after state change
-            setTimeout(() => updateBuildingVisibility(), 0);
+            // Update building visibility immediately
+            updateBuildingVisibility();
+            
             return newSet;
         });
     };
@@ -741,9 +812,6 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         } else {
             addTileLayer(layerName);
         }
-        
-        // Update building visibility after layers are created
-        setTimeout(() => updateBuildingVisibility(), 50);
     };
 
     // Zoom to specific tile layer boundaries
