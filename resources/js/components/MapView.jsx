@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { apiClient } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import Cookies from 'js-cookie';
 
 const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMapBoundsChange, onTileVisibilityChange }) => {
     const { isAdmin } = useAuth();
@@ -26,9 +27,6 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
     
     // Use ref to track if a building data request is in progress
     const buildingDataRequestRef = useRef(null);
-    
-    // Use ref to track if a timeout is already pending
-    const timeoutPendingRef = useRef(false);
     
     // Use ref to track the current timeout
     const buildingLoadTimeoutRef = useRef(null);
@@ -231,7 +229,23 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                 center: initialView.center,
                 zoom: initialView.zoom,
                 maxZoom: 20,
-                attributionControl: false // Remove default attribution control
+                attributionControl: false, // Remove default attribution control
+                transformRequest: (url, resourceType) => {
+                    if (resourceType === 'Tile' && (url.includes('/api/tiles/') || url.includes('/api/admin/tiles/'))) {
+                        // Get the auth token from cookies (same as the rest of the app)
+                        const token = Cookies.get('auth_token');
+                        if (token) {
+                            const result = {
+                                url: url,
+                                headers: {
+                                    'Authorization': `Bearer ${token}`
+                                }
+                            };
+                            return result;
+                        }
+                    }
+                    return { url: url };
+                }
             });
 
             // Add custom attribution control (collapsed by default)
@@ -263,25 +277,19 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                     }
                     
                     // Only load building data and update stats if no tile layers are visible
-                    if (visibleTileLayersRef.current.size === 0 && !timeoutPendingRef.current) {
-                        // Set pending flag to prevent multiple timeouts
-                        timeoutPendingRef.current = true;
-                        
-                        // Debounce building loading - only load after 1000ms of no movement
+                    if (visibleTileLayersRef.current.size === 0) {
+                        // Debounce building loading - only load after 500ms of no movement
                         const timeout = setTimeout(() => {
-                            // Reset pending flag
-                            timeoutPendingRef.current = false;
-                            
                             // Double-check that tiles are still not visible before loading
                             if (visibleTileLayersRef.current.size === 0) {
                                 loadBuildingData();
                                 // Notify parent component about bounds change for real-time stats
-                                if (onMapBoundsChange) {
+                                if (onMapBoundsChange && map.current) {
                                     const bounds = map.current.getBounds();
                                     onMapBoundsChange(bounds);
                                 }
                             }
-                        }, 1000);
+                        }, 500); // Reduced from 1000ms to 500ms for better responsiveness
                         buildingLoadTimeoutRef.current = timeout;
                     }
                 };
@@ -300,7 +308,6 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                 buildingDataRequestRef.current.abort();
                 buildingDataRequestRef.current = null;
             }
-            timeoutPendingRef.current = false;
             if (map.current) {
                 map.current.remove();
                 map.current = null;
@@ -335,18 +342,15 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         }
     }, [visibleTileLayers.size, onTileVisibilityChange]);
 
-    // Load initial data when map is ready
+    // Load initial data (entitlements, datasets, tile layers, building data)
     const loadInitialData = async () => {
         try {
-            // Load user entitlements to get available datasets
+            // Load user entitlements (AOI boundaries are now fetched through separate endpoint)
             const entitlementsResponse = await apiClient.get('/me/entitlements');
             const entitlements = entitlementsResponse.data.entitlements || [];
             
-            // Extract AOI entitlements with geometry
-            const aoiEntitlements = entitlements.filter(entitlement => 
-                entitlement.type === 'DS-AOI' && entitlement.aoi_geom
-            );
-            setAoiEntitlements(aoiEntitlements);
+            // Initialize empty AOI entitlements (will be populated by loadAoiBoundaries)
+            setAoiEntitlements([]);
             
             // Extract unique datasets from entitlements
             const availableDatasets = entitlements
@@ -371,10 +375,8 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                 loadBuildingData();
             }
             
-            // Add AOI boundaries if any exist
-            if (aoiEntitlements.length > 0) {
-                addAoiBoundaries(aoiEntitlements);
-            }
+            // Load AOI boundaries (now uses separate endpoints for both admin and regular users)
+            loadAoiBoundaries();
         } catch (error) {
             console.error('Failed to load initial map data:', error);
         }
@@ -385,11 +387,43 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
     // Load available tile layers
     const loadTileLayers = async () => {
         try {
-            const response = await apiClient.get('/tiles/layers');
+            // Use admin endpoint if user is admin to see all tile layers without entitlement filtering
+            const endpoint = isAdmin ? '/admin/tiles/layers' : '/tiles/layers';
+            const response = await apiClient.get(endpoint);
             const layers = response.data.layers || [];
             setTileLayers(layers);
         } catch (error) {
             console.error('Failed to load tile layers:', error);
+            // If unauthorized, user doesn't have tile entitlements
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                setTileLayers([]);
+            }
+        }
+    };
+
+    // Load AOI boundaries for users
+    const loadAoiBoundaries = async () => {
+        try {
+            // Use admin endpoint if user is admin to see all AOI boundaries without entitlement filtering
+            const endpoint = isAdmin ? '/admin/aoi-boundaries/all' : '/aoi-boundaries';
+            const response = await apiClient.get(endpoint);
+            const aoiFeatures = response.data.features || [];
+            
+            // Convert GeoJSON features to entitlement-like objects for consistency
+            const aoiEntitlements = aoiFeatures.map(feature => ({
+                id: feature.properties.entitlement_id,
+                type: feature.properties.type,
+                dataset: { name: feature.properties.dataset_name }, // Add dataset object for legend
+                aoi_geom: feature.geometry
+            }));
+            
+            // Update the aoiEntitlements state to show in legend
+            setAoiEntitlements(aoiEntitlements);
+            
+            // Add AOI boundaries to map
+            addAoiBoundaries(aoiEntitlements);
+        } catch (error) {
+            console.error('Failed to load AOI boundaries:', error);
         }
     };
 
@@ -738,7 +772,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         // Add tile source
         map.current.addSource(sourceId, {
             type: 'raster',
-            tiles: [`${window.location.origin}/api/tiles/${layerName}/{z}/{x}/{y}.png`],
+            tiles: [`${window.location.origin}/api/${isAdmin ? 'admin/tiles' : 'tiles'}/${layerName}/{z}/{x}/{y}.png`],
             tileSize: 256,
             minzoom: 8,
             maxzoom: 15,
@@ -798,8 +832,17 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         setVisibleTileLayers(prev => {
             const newSet = new Set(prev);
             newSet.delete(layerName);
+            
             // Update building visibility immediately
             updateBuildingVisibility();
+            
+            // If this was the last tile layer removed, reload building data for current view
+            if (newSet.size === 0) {
+                // Use setTimeout to ensure state update completes first
+                setTimeout(() => {
+                    loadBuildingData();
+                }, 0);
+            }
             
             return newSet;
         });
@@ -819,39 +862,23 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         if (!map.current) return;
         
         try {
-            // Try to get bounds from tilemapresource.xml
-            const response = await fetch(`/api/tiles/${layerName}/bounds`);
-            if (response.ok) {
-                const boundsData = await response.json();
-                const bounds = [
-                    [boundsData.minx, boundsData.miny], // Southwest
-                    [boundsData.maxx, boundsData.maxy]  // Northeast
-                ];
-                
-                map.current.fitBounds(bounds, {
-                    padding: 50,
-                    duration: 2000
-                });
-                
-                // Show the tile layer if it's not visible
-                if (!visibleTileLayers.has(layerName)) {
-                    addTileLayer(layerName);
-                }
-            } else {
-                // Fallback to default Paris bounds
-                const fallbackBounds = [
-                    [2.23962759265300, 48.81837244150312], // Southwest
-                    [2.34634047084554, 48.87724759682047]  // Northeast
-                ];
-                
-                map.current.fitBounds(fallbackBounds, {
-                    padding: 50,
-                    duration: 2000
-                });
-                
-                if (!visibleTileLayers.has(layerName)) {
-                    addTileLayer(layerName);
-                }
+            // Try to get bounds from tilemapresource.xml using authenticated request
+            const endpoint = isAdmin ? `/admin/tiles/${layerName}/bounds` : `/tiles/${layerName}/bounds`;
+            const response = await apiClient.get(endpoint);
+            const boundsData = response.data;
+            const bounds = [
+                [boundsData.minx, boundsData.miny], // Southwest
+                [boundsData.maxx, boundsData.maxy]  // Northeast
+            ];
+            
+            map.current.fitBounds(bounds, {
+                padding: 50,
+                duration: 2000
+            });
+            
+            // Show the tile layer if it's not visible
+            if (!visibleTileLayers.has(layerName)) {
+                addTileLayer(layerName);
             }
         } catch (error) {
             console.warn('Failed to get tile bounds, using fallback:', error);

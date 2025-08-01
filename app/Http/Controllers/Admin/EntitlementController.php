@@ -154,6 +154,7 @@ class EntitlementController extends Controller
         'dataset_id' => 'integer|required|Dataset ID',
         'aoi_coordinates' => 'array|optional|AOI coordinates for DS-AOI and TILES types (array of [lng, lat] pairs)',
         'building_gids' => 'array|optional|Building GIDs for DS-BLD type',
+        'tile_layers' => 'array|optional|Tile layers for TILES type',
         'download_formats' => 'array|optional|Allowed download formats (csv, geojson)',
         'expires_at' => 'string|optional|Expiration date (ISO 8601 format)'
     ])]
@@ -191,6 +192,8 @@ class EntitlementController extends Controller
             'aoi_coordinates.*.*' => ['numeric'],
             'building_gids' => ['sometimes', 'array'],
             'building_gids.*' => ['string'],
+            'tile_layers' => ['sometimes', 'array'],
+            'tile_layers.*' => ['string'],
             'download_formats' => ['sometimes', 'array'],
             'download_formats.*' => ['string', 'in:csv,geojson'],
             'expires_at' => ['sometimes', 'nullable', 'date', 'after:now'],
@@ -251,12 +254,28 @@ class EntitlementController extends Controller
                     'errors' => ['building_gids' => ['Required for DS-BLD type']]
                 ], 422);
             }
+        } elseif ($request->type === 'TILES') {
+            // TILES should not have building GIDs
+            if ($request->has('building_gids')) {
+                return response()->json([
+                    'message' => 'TILES entitlements cannot have building restrictions.',
+                    'errors' => ['building_gids' => ['Not allowed for TILES type']]
+                ], 422);
+            }
+            // TILES should have tile layers
+            if (!$request->has('tile_layers') || empty($request->tile_layers)) {
+                return response()->json([
+                    'message' => 'TILES entitlements require tile layers.',
+                    'errors' => ['tile_layers' => ['Required for TILES type']]
+                ], 422);
+            }
         }
 
         $entitlementData = [
             'type' => $request->type,
             'dataset_id' => $request->dataset_id,
             'building_gids' => $request->building_gids,
+            'tile_layers' => $request->tile_layers,
             'download_formats' => $request->download_formats,
             'expires_at' => $request->expires_at,
         ];
@@ -304,6 +323,7 @@ class EntitlementController extends Controller
             newValues: [
                 'type' => $entitlement->type,
                 'dataset_id' => $entitlement->dataset_id,
+                'tile_layers' => $entitlement->tile_layers,
                 'expires_at' => $entitlement->expires_at?->toISOString()
             ],
             ipAddress: $request->ip(),
@@ -327,6 +347,7 @@ class EntitlementController extends Controller
         'dataset_id' => 'integer|optional|Dataset ID',
         'aoi_coordinates' => 'array|optional|AOI coordinates for DS-AOI and TILES types',
         'building_gids' => 'array|optional|Building GIDs for DS-BLD type',
+        'tile_layers' => 'array|optional|Tile layers for TILES type',
         'download_formats' => 'array|optional|Allowed download formats (csv, geojson)',
         'expires_at' => 'string|optional|Expiration date (ISO 8601 format)'
     ])]
@@ -400,6 +421,8 @@ class EntitlementController extends Controller
             'aoi_coordinates.*.*' => ['numeric'],
             'building_gids' => ['sometimes', 'array'],
             'building_gids.*' => ['string'],
+            'tile_layers' => ['sometimes', 'array'],
+            'tile_layers.*' => ['string'],
             'download_formats' => ['sometimes', 'array'],
             'download_formats.*' => ['string', 'in:csv,geojson'],
             'expires_at' => ['sometimes', 'nullable', 'date', 'after:now'],
@@ -412,8 +435,8 @@ class EntitlementController extends Controller
             ], 422);
         }
 
-        $oldValues = $entitlement->only(['type', 'dataset_id', 'building_gids', 'download_formats', 'expires_at']);
-        $updateData = $request->only(['dataset_id', 'building_gids', 'download_formats', 'expires_at']);
+        $oldValues = $entitlement->only(['type', 'dataset_id', 'building_gids', 'tile_layers', 'download_formats', 'expires_at']);
+        $updateData = $request->only(['dataset_id', 'building_gids', 'tile_layers', 'download_formats', 'expires_at']);
 
         // Handle AOI geometry update
         if ($request->has('aoi_coordinates')) {
@@ -456,7 +479,7 @@ class EntitlementController extends Controller
             targetType: 'entitlement',
             targetId: $entitlement->id,
             oldValues: $oldValues,
-            newValues: $entitlement->only(['type', 'dataset_id', 'building_gids', 'download_formats', 'expires_at']),
+            newValues: $entitlement->only(['type', 'dataset_id', 'building_gids', 'tile_layers', 'download_formats', 'expires_at']),
             ipAddress: $request->ip(),
             userAgent: $request->userAgent()
         );
@@ -604,55 +627,5 @@ class EntitlementController extends Controller
         ];
 
         return response()->json($stats);
-    }
-
-    /**
-     * Get all AOI geometries for map display.
-     */
-    #[OperationId('admin.entitlements.allAois')]
-    #[Summary('Get all AOI geometries')]
-    #[Description('Get all existing AOI geometries as GeoJSON FeatureCollection for displaying on the map.')]
-    #[Response(200, 'AOI geometries as GeoJSON', [
-        'type' => 'FeatureCollection',
-        'features' => [
-            [
-                'type' => 'Feature',
-                'properties' => [
-                    'entitlement_id' => 1,
-                    'type' => 'DS-AOI',
-                    'dataset_name' => 'Thermal Dataset 2024'
-                ],
-                'geometry' => [
-                    'type' => 'Polygon',
-                    'coordinates' => [[[-1.0, 51.0], [-1.0, 52.0], [0.0, 52.0], [0.0, 51.0], [-1.0, 51.0]]]
-                ]
-            ]
-        ]
-    ])]
-    public function allAois(): JsonResponse
-    {
-        $entitlements = Entitlement::with('dataset:id,name')
-            ->whereIn('type', ['DS-AOI', 'TILES'])
-            ->whereNotNull('aoi_geom')
-            ->get();
-
-        $features = $entitlements->map(function ($entitlement) {
-            return [
-                'type' => 'Feature',
-                'properties' => [
-                    'entitlement_id' => $entitlement->id,
-                    'type' => $entitlement->type,
-                    'dataset_name' => $entitlement->dataset->name ?? 'Unknown Dataset'
-                ],
-                'geometry' => $entitlement->aoi_geom ? $entitlement->aoi_geom->toArray() : null
-            ];
-        })->filter(function ($feature) {
-            return $feature['geometry'] !== null;
-        })->values();
-
-        return response()->json([
-            'type' => 'FeatureCollection',
-            'features' => $features
-        ]);
     }
 }

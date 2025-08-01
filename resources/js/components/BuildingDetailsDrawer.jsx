@@ -13,6 +13,7 @@ import {
 import { Bar, Line } from 'react-chartjs-2';
 import { apiClient } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import toast, { Toaster } from 'react-hot-toast';
 
 // Register Chart.js components
 ChartJS.register(
@@ -84,39 +85,66 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
 
     // Check if user can download in specific format
     const canDownloadFormat = (format) => {
+        // Admin users can download any format
+        if (user?.role === 'admin') {
+            return true;
+        }
+        
         if (!userEntitlements || !Array.isArray(userEntitlements)) {
             return false;
         }
-        return userEntitlements.some(entitlement => {
-            // Check if user has access to this building/dataset
-            const hasAccess = entitlement.type === 'DS-ALL' || 
-                (entitlement.type === 'DS-BLD' && entitlement.building_gids?.includes(selectedBuilding.gid));
+        
+        // Find entitlements that grant access to this specific building
+        const buildingAccessEntitlements = userEntitlements.filter(entitlement => {
+            // Only check DS-ALL, DS-AOI, and DS-BLD entitlements (TILES entitlements don't grant download access)
+            const hasDownloadType = ['DS-ALL', 'DS-AOI', 'DS-BLD'].includes(entitlement.type);
             
-            // Check if the format is allowed in download_formats
-            const hasFormatPermission = entitlement.download_formats && 
+            if (!hasDownloadType) return false;
+            
+            // Check if user has access to this building/dataset
+            if (entitlement.type === 'DS-ALL') {
+                return true; // DS-ALL grants access to all buildings in the dataset
+            } else if (entitlement.type === 'DS-BLD') {
+                return entitlement.building_gids?.includes(selectedBuilding.gid);
+            } else if (entitlement.type === 'DS-AOI') {
+                // For DS-AOI, we assume the user has access if they can see the building
+                // The backend will handle the spatial filtering
+                return true;
+            }
+            
+            return false;
+        });
+        
+        // Check if any of the building access entitlements have the specific format
+        return buildingAccessEntitlements.some(entitlement => {
+            return entitlement.download_formats && 
                 Array.isArray(entitlement.download_formats) && 
                 entitlement.download_formats.includes(format);
-            
-            return hasAccess && hasFormatPermission;
         });
     };
 
     // Handle download
     const handleDownload = async (format) => {
         if (!selectedBuilding || !canDownloadFormat(format)) {
-            alert('You do not have permission to download data in this format.');
+            toast.error('You do not have permission to download data in this format.');
             return;
         }
 
         try {
+            // Show loading toast
+            const toastId = toast.loading(`Preparing ${format === 'csv' ? 'CSV' : 'GeoJSON'} download...`);
+
             // Find the dataset ID for this building
             const datasetId = selectedBuilding.dataset_id;
             if (!datasetId) {
-                alert('No dataset information available for this building.');
+                toast.error('No dataset information available for this building.', { id: toastId });
                 return;
             }
 
-            const response = await apiClient.get(`/downloads/${datasetId}`, {
+            // Use admin endpoint for admin users, regular endpoint for others
+            const endpoint = user?.role === 'admin' ? `/admin/downloads/${datasetId}` : `/downloads/${datasetId}`;
+
+            const response = await apiClient.get(endpoint, {
                 params: { 
                     format,
                     building_gid: selectedBuilding.gid // Pass the building GID to download only this building
@@ -133,9 +161,20 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
+
+            // Show success toast
+            toast.success(`${format === 'csv' ? 'CSV' : 'GeoJSON'} download completed!`, { id: toastId });
         } catch (error) {
             console.error('Download failed:', error);
-            alert('Download failed. Please try again.');
+            
+            let errorMessage = 'Download failed. Please try again.';
+            if (error.response?.status === 403) {
+                errorMessage = 'You do not have permission to download this format.';
+            } else if (error.response?.status === 404) {
+                errorMessage = 'Building or dataset not found.';
+            }
+            
+            toast.error(errorMessage);
         }
     };
 
@@ -215,6 +254,7 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
 
     return (
         <div className="bg-white overflow-hidden shadow rounded-lg mb-6">
+            <Toaster position="top-right" />
             <div className="px-4 py-5 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -336,7 +376,7 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
                                             }`}
                                             title={!canDownloadFormat(format) ? 'You do not have permission to download in this format' : ''}
                                         >
-                                            Download as {format.toUpperCase()}
+                                            Download as {format === 'csv' ? 'CSV' : 'GeoJSON'}
                                         </button>
                                     ))}
                                 </div>
@@ -615,8 +655,6 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
                                 )}
                             </div>
                         )}
-
-
                     </div>
                 </div>
             </div>

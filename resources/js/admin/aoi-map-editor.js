@@ -75,7 +75,7 @@ class AOIMapEditor {
 
     async loadExistingAOIs() {
         try {
-            const data = await adminTokenHandler.get('/api/admin/entitlements/all-aois');
+            const data = await adminTokenHandler.get('/api/admin/aoi-boundaries/all');
             this.existingAOIs = data.features || [];
             this.displayExistingAOIs();
         } catch (error) {

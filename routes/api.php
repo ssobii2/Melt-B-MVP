@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DatasetController;
 use App\Http\Controllers\Admin\AnalysisJobController;
+use App\Http\Controllers\Admin\TilesController as AdminTilesController;
 use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\TilesController;
@@ -115,6 +116,9 @@ Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
     // Data download endpoints
     Route::get('/downloads/{id}', [DownloadController::class, 'download'])
         ->where(['id' => '[0-9]+']);
+
+    // AOI boundaries endpoint (filtered by entitlements)
+    Route::get('/aoi-boundaries', [\App\Http\Controllers\Api\AoiBoundariesController::class, 'getBoundaries']);
 });
 
 // Admin-only routes (same token, but checks user role)
@@ -137,10 +141,12 @@ Route::middleware(['auth:sanctum', 'auth.admin.api'])->prefix('admin')->group(fu
     Route::post('/users/{id}/verify-email', [UserController::class, 'verifyEmail']);
 
     // Entitlement management - specific routes first
-    Route::get('/entitlements/all-aois', [EntitlementController::class, 'allAois']);
     Route::get('/entitlements/datasets', [EntitlementController::class, 'datasets']);
     Route::get('/entitlements/stats', [EntitlementController::class, 'stats']);
     Route::apiResource('entitlements', EntitlementController::class);
+
+    // AOI boundaries management (admin access to all AOI boundaries)
+    Route::get('/aoi-boundaries/all', [\App\Http\Controllers\Admin\AoiBoundariesController::class, 'all']);
 
     // Dataset management - specific routes first
     Route::get('/datasets/stats', [DatasetController::class, 'stats']);
@@ -162,6 +168,11 @@ Route::middleware(['auth:sanctum', 'auth.admin.api'])->prefix('admin')->group(fu
     Route::get('/buildings/{gid}', [\App\Http\Controllers\Admin\BuildingController::class, 'show']);
     Route::get('/buildings/export', [\App\Http\Controllers\Admin\BuildingController::class, 'export']);
 
+    // Admin data download endpoints
+    Route::get('/downloads/datasets', [\App\Http\Controllers\Api\DownloadController::class, 'adminDatasets']);
+    Route::get('/downloads/{id}', [\App\Http\Controllers\Api\DownloadController::class, 'adminDownload'])
+        ->where(['id' => '[0-9]+']);
+
     // Admin Analysis Jobs Management  
     Route::get('/analysis-jobs/stats', [AnalysisJobController::class, 'stats']);
     Route::apiResource('analysis-jobs', AnalysisJobController::class);
@@ -174,9 +185,16 @@ Route::prefix('webhooks')->group(function () {
     Route::post('/test', [WebhookController::class, 'test']);
 });
 
-// Public tile endpoints (no authentication required)
-Route::prefix('tiles')->group(function () {
+// Protected tile endpoints with entitlement filtering
+Route::middleware(['auth:sanctum', 'auth.api', 'check.entitlements'])->prefix('tiles')->group(function () {
     Route::get('/layers', [TilesController::class, 'getLayers']);
     Route::get('/{layer}/bounds', [TilesController::class, 'getBounds']);
     Route::get('/{layer}/{z}/{x}/{y}.png', [TilesController::class, 'serveTile']);
+});
+
+// Admin tile endpoints (unrestricted access for administrative oversight)
+Route::middleware(['auth:sanctum', 'auth.admin.api'])->prefix('admin/tiles')->group(function () {
+    Route::get('/layers', [AdminTilesController::class, 'getLayers']);
+    Route::get('/{layer}/bounds', [AdminTilesController::class, 'getBounds']);
+    Route::get('/{layer}/{z}/{x}/{y}.png', [AdminTilesController::class, 'serveTile']);
 });

@@ -93,6 +93,11 @@ $(document).ready(function() {
         edit: new Set()
     };
     
+    window.globalTileLayerSelection = {
+        create: new Set(),
+        edit: new Set()
+    };
+    
     window.buildingPagination = {
         create: { currentPage: 1, totalPages: 1, perPage: 50 },
         edit: { currentPage: 1, totalPages: 1, perPage: 50 }
@@ -101,12 +106,14 @@ $(document).ready(function() {
     // Initialize create form UI function
     async function initializeCreateForm() {
         // Clear all fields
-        $('#createAoiCoordinates, #createBuildingGids').val('');
+        $('#createAoiCoordinates, #createBuildingGids, #createTileLayers').val('');
         $('#createBuildingDataset, #createBuildingSearch').val('');
         $('#createBuildingList').html('<p class="text-muted text-center mb-0">Select a dataset to view buildings</p>');
-        $('#createSelectedCount').text('0');
+        $('#createTileLayerList').html('<p class="text-muted text-center mb-0">Loading tile layers...</p>');
+        $('#createSelectedCount, #createSelectedTileCount').text('0');
         // Clear global selection state
         window.globalBuildingSelection.create.clear();
+        window.globalTileLayerSelection.create.clear();
         
         // Initialize AOI map for create modal
         if (createMapEditor && typeof createMapEditor.clearCurrentAOI === 'function') {
@@ -132,11 +139,9 @@ $(document).ready(function() {
         // This prevents unnecessary map loading for non-AOI entitlements
     });
     
-    // Initialize edit map when modal is opened
+    // Initialize edit map when modal is opened (only for AOI types)
     $('#editEntitlementModal').on('show.bs.modal', function() {
-        setTimeout(() => {
-            initializeAOIMap('edit');
-        }, 300);
+        // AOI map will be initialized later in editEntitlement function if needed
     });
     
     // Auto-load buildings when create modal opens and DS-BLD is selected
@@ -152,19 +157,8 @@ $(document).ready(function() {
         }
     });
     
-    // Auto-load buildings when edit modal opens
-    $('#editEntitlementModal').on('show.bs.modal', function() {
-        const entitlementType = $('#editType').val();
-        if (entitlementType === 'DS-BLD') {
-            // Only auto-load if a dataset is already selected
-            const selectedDataset = $('#editBuildingDataset').val();
-            if (selectedDataset) {
-                setTimeout(() => {
-                    loadBuildingsForSelection('edit');
-                }, 100);
-            }
-        }
-    });
+    // Auto-load buildings when edit modal opens (handled in editEntitlement function)
+    // This event handler is kept for backward compatibility but building loading is now handled in editEntitlement
 
     // Search functionality
     let searchTimeout;
@@ -285,6 +279,9 @@ $(document).ready(function() {
                 details = `${buildingCount} Buildings`;
             } else if (entitlement.type === 'DS-ALL') {
                 details = 'Full Access';
+            } else if (entitlement.type === 'TILES') {
+                const tileCount = entitlement.tile_layers ? entitlement.tile_layers.length : 0;
+                details = `${tileCount} Tile Layers`;
             }
 
             html += `
@@ -393,7 +390,8 @@ $(document).ready(function() {
         const colors = {
             'DS-ALL': 'success',
             'DS-AOI': 'warning',
-            'DS-BLD': 'info'
+            'DS-BLD': 'info',
+            'TILES': 'primary'
         };
         return colors[type] || 'secondary';
     }
@@ -410,9 +408,19 @@ $(document).ready(function() {
         }
         const aoiSection = $(`#${prefix}AoiSection`);
         const buildingSection = $(`#${prefix}BuildingSection`);
+        const tileSection = $(`#${prefix}TileSection`);
+        const downloadFormatsSection = $(`#${prefix}DownloadFormatsSection`);
 
         aoiSection.hide();
         buildingSection.hide();
+        tileSection.hide();
+
+        // Show download formats section for all types except TILES and DS-ALL
+        if (type === 'TILES' || type === 'DS-ALL') {
+            downloadFormatsSection.hide();
+        } else {
+            downloadFormatsSection.show();
+        }
 
         if (type === 'DS-AOI') {
             aoiSection.show();
@@ -423,12 +431,8 @@ $(document).ready(function() {
                 setTimeout(() => {
                     initializeAOIMap(prefix);
                 }, 100);
-            } else {
-                // For edit modal, initialize immediately since we're editing existing AOI
-                setTimeout(() => {
-                    initializeAOIMap(prefix);
-                }, 100);
             }
+            // For edit modal, initialization is handled in editEntitlement function
         } else if (type === 'DS-BLD') {
             buildingSection.show();
             // Load datasets for building filtering
@@ -440,6 +444,16 @@ $(document).ready(function() {
                 $(`#${prefix}BuildingSearch`).val('');
                 $(`#${prefix}BuildingGids`).val('');
                 $(`#${prefix}SelectedCount`).text('0');
+            }
+        } else if (type === 'TILES') {
+            tileSection.show();
+            // Load tile layers for selection
+            // For edit mode, don't load here - let editEntitlement function handle it with pre-selected layers
+            if (prefix === 'create') {
+                loadTileLayersForSelection(prefix);
+                // For create modal, clear any previous selections and reset UI
+                $(`#${prefix}TileLayers`).val('');
+                $(`#${prefix}SelectedTileCount`).text('0');
             }
         }
     };
@@ -990,6 +1004,112 @@ $(document).ready(function() {
         updateSelectedCount(prefix);
     };
 
+    // Load tile layers for selection
+    window.loadTileLayersForSelection = function(prefix, preSelectedLayers = []) {
+        const tileLayerList = $(`#${prefix}TileLayerList`);
+        
+        // Initialize global selection state with pre-selected layers if provided
+        if (preSelectedLayers && preSelectedLayers.length > 0) {
+            window.globalTileLayerSelection[prefix].clear();
+            preSelectedLayers.forEach(layer => {
+                window.globalTileLayerSelection[prefix].add(layer);
+            });
+        }
+        
+        // Show loading state
+        tileLayerList.html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading tile layers...</div>');
+        
+        adminTokenHandler.get('/api/admin/tiles/layers', {
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+        .done(function(response) {
+            tileLayerList.html('');
+            
+            if (response.layers && response.layers.length > 0) {
+                const globalSelection = window.globalTileLayerSelection[prefix];
+                
+                response.layers.forEach(layer => {
+                    const isSelected = globalSelection.has(layer.name);
+                    const checkboxDiv = $(`
+                        <div class="form-check">
+                            <input class="form-check-input tile-layer-checkbox" type="checkbox" 
+                                   value="${layer.name}" id="${prefix}TileLayer${layer.name.replace(/[^a-zA-Z0-9]/g, '_')}" ${isSelected ? 'checked' : ''}>
+                            <label class="form-check-label" for="${prefix}TileLayer${layer.name.replace(/[^a-zA-Z0-9]/g, '_')}">
+                                ${layer.display_name || layer.name}
+                            </label>
+                        </div>
+                    `);
+                    tileLayerList.append(checkboxDiv);
+                });
+                
+                // Add event listeners to update global selection
+                tileLayerList.find('.tile-layer-checkbox').on('change', function() {
+                    const layerName = $(this).val();
+                    if ($(this).is(':checked')) {
+                        globalSelection.add(layerName);
+                    } else {
+                        globalSelection.delete(layerName);
+                    }
+                    updateSelectedTileCount(prefix);
+                });
+                
+                updateSelectedTileCount(prefix);
+            } else {
+                tileLayerList.html('<p class="text-muted text-center">No tile layers found</p>');
+            }
+        })
+        .fail(function(xhr, status, error) {
+            console.error('Error loading tile layers:', error);
+            const errorMessage = xhr.responseJSON?.message || 'Failed to load tile layers';
+            if (typeof toastr !== 'undefined') {
+                toastr.error(errorMessage, 'Error');
+            }
+            tileLayerList.html('<p class="text-danger text-center">Error loading tile layers</p>');
+        });
+    };
+
+    // Update selected tile layer count
+    function updateSelectedTileCount(prefix) {
+        const globalSelection = window.globalTileLayerSelection[prefix];
+        const countSpan = $(`#${prefix}SelectedTileCount`);
+        countSpan.text(globalSelection.size);
+        
+        // Update the hidden field with selected layers from global selection
+        const selectedLayers = Array.from(globalSelection);
+        const layersField = $(`#${prefix}TileLayers`);
+        layersField.val(JSON.stringify(selectedLayers, null, 2));
+    }
+
+    // Select all tile layers
+    window.selectAllTileLayers = function(prefix) {
+        const checkboxes = $(`#${prefix}TileLayerList .tile-layer-checkbox`);
+        const globalSelection = window.globalTileLayerSelection[prefix];
+        
+        checkboxes.each(function() {
+            const layerName = $(this).val();
+            $(this).prop('checked', true);
+            globalSelection.add(layerName);
+        });
+        
+        updateSelectedTileCount(prefix);
+    };
+
+    // Clear tile layer selection
+    window.clearTileLayerSelection = function(prefix) {
+        const checkboxes = $(`#${prefix}TileLayerList .tile-layer-checkbox`);
+        const globalSelection = window.globalTileLayerSelection[prefix];
+        
+        checkboxes.each(function() {
+            const layerName = $(this).val();
+            globalSelection.delete(layerName);
+            $(this).prop('checked', false);
+        });
+        
+        updateSelectedTileCount(prefix);
+    };
+
     // Note: Method toggle handlers removed as we now only support bounding box for AOI and building selection for DS-BLD
 
     // Handle dataset filter change for buildings
@@ -1040,12 +1160,14 @@ $(document).ready(function() {
         $('#createEntitlementForm')[0].reset();
         // Clear all create modal fields and reset UI
         $('#createBuildingDataset, #createBuildingSearch').val('');
-        $('#createBuildingGids, #createAoiCoordinates').val('');
-        $('#createSelectedCount').text('0');
+        $('#createBuildingGids, #createAoiCoordinates, #createTileLayers').val('');
+        $('#createSelectedCount, #createSelectedTileCount').text('0');
         $('#createBuildingList').html('<p class="text-muted text-center">Select a dataset to view buildings</p>');
+        $('#createTileLayerList').html('<p class="text-muted text-center">Loading tile layers...</p>');
         $('#createBuildingPagination').hide();
         // Clear global selection state
         window.globalBuildingSelection.create.clear();
+        window.globalTileLayerSelection.create.clear();
         toggleEntitlementFields('create');
     });
 
@@ -1064,9 +1186,8 @@ $(document).ready(function() {
         $('input[name="download_formats[]"]:checked').each(function() {
             downloadFormats.push($(this).val());
         });
-        if (downloadFormats.length > 0) {
-            formData.download_formats = downloadFormats;
-        }
+        // Always include download_formats, even if empty (to clear existing formats)
+        formData.download_formats = downloadFormats;
 
         // Handle type-specific fields
         if (formData.type === 'DS-AOI') {
@@ -1121,6 +1242,35 @@ $(document).ready(function() {
                 });
                 return;
             }
+        } else if (formData.type === 'TILES') {
+            const tileLayersText = $('#createTileLayers').val().trim();
+            if (tileLayersText) {
+                try {
+                    formData.tile_layers = JSON.parse(tileLayersText);
+                    if (!Array.isArray(formData.tile_layers) || formData.tile_layers.length === 0) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No Tile Layers Selected',
+                            text: 'Please select at least one tile layer or enter valid tile layer names.'
+                        });
+                        return;
+                    }
+                } catch (e) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid Tile Layers',
+                        text: 'Invalid tile layers format. Please check your JSON syntax or select tile layers from the list.'
+                    });
+                    return;
+                }
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Missing Tile Layers',
+                    text: 'Tile layers are required for this entitlement type.'
+                });
+                return;
+            }
         }
 
         adminTokenHandler.post('/api/admin/entitlements', JSON.stringify(formData), {
@@ -1134,12 +1284,14 @@ $(document).ready(function() {
                 $('#createEntitlementForm')[0].reset();
                 // Clear all create modal fields and reset UI
                 $('#createBuildingDataset, #createBuildingSearch').val('');
-                $('#createBuildingGids, #createAoiCoordinates').val('');
-                $('#createSelectedCount').text('0');
+                $('#createBuildingGids, #createAoiCoordinates, #createTileLayers').val('');
+                $('#createSelectedCount, #createSelectedTileCount').text('0');
                 $('#createBuildingList').html('<p class="text-muted text-center">Select a dataset to view buildings</p>');
+                $('#createTileLayerList').html('<p class="text-muted text-center">Loading tile layers...</p>');
                 $('#createBuildingPagination').hide();
                 // Clear global selection state
                 window.globalBuildingSelection.create.clear();
+                window.globalTileLayerSelection.create.clear();
                 toggleEntitlementFields('create');
                 // Force reload by clearing any potential cache
                 setTimeout(function() {
@@ -1198,6 +1350,8 @@ $(document).ready(function() {
                     html += `<p><strong>Building GIDs:</strong> ${entitlement.building_gids.length} buildings</p>`;
                 } else if (entitlement.type === 'DS-AOI' && entitlement.aoi_geom) {
                     html += `<p><strong>AOI:</strong> Polygon defined</p>`;
+                } else if (entitlement.type === 'TILES' && entitlement.tile_layers) {
+                    html += `<p><strong>Tile Layers:</strong> ${entitlement.tile_layers.length} layers</p>`;
                 }
 
                 html += `
@@ -1279,8 +1433,15 @@ $(document).ready(function() {
                 toggleEntitlementFields('edit');
 
                 // Clear type-specific fields first
-                $('#editBuildingGids').val('');
+                $('#editBuildingGids, #editTileLayers').val('');
                 $('#editAoiCoordinates').val('');
+                
+                // Initialize AOI map only for DS-AOI type entitlements
+                if (entitlement.type === 'DS-AOI') {
+                    setTimeout(() => {
+                        initializeAOIMap('edit');
+                    }, 300);
+                }
                 
                 // Clear bounding box fields
                 $('#editNorthBound, #editSouthBound, #editEastBound, #editWestBound').val('');
@@ -1289,9 +1450,11 @@ $(document).ready(function() {
                 $('#editBuildingDataset').val('');
                 $('#editBuildingSearch').val('');
                 $('#editBuildingList').html('<p class="text-muted text-center mb-0">Loading buildings...</p>');
-                $('#editSelectedCount').text('0');
+                $('#editSelectedCount, #editSelectedTileCount').text('0');
+                $('#editTileLayerList').html('<p class="text-muted text-center mb-0">Loading tile layers...</p>');
                 // Clear global selection state
                 window.globalBuildingSelection.edit.clear();
+                window.globalTileLayerSelection.edit.clear();
                 
                 // Remove any existing polygon info displays
                 const existingEditInfo = document.querySelector('#editPolygonInfo');
@@ -1316,6 +1479,19 @@ $(document).ready(function() {
                             }, 100);
                         });
                     }
+                }
+
+                // Handle tile layers for TILES type
+                if (entitlement.tile_layers) {
+                    $('#editTileLayers').val(JSON.stringify(entitlement.tile_layers, null, 2));
+                    // Auto-load tile layers with pre-selection for TILES type
+                    if (entitlement.type === 'TILES') {
+                        setTimeout(() => {
+                            loadTileLayersForSelection('edit', entitlement.tile_layers);
+                        }, 100);
+                    }
+                } else {
+                    $('#editTileLayers').val('');
                 }
 
                 // Handle AOI coordinates - check both aoi_coordinates and aoi_geom
@@ -1412,9 +1588,8 @@ $(document).ready(function() {
         $('input[name="edit_download_formats[]"]:checked').each(function() {
             downloadFormats.push($(this).val());
         });
-        if (downloadFormats.length > 0) {
-            formData.download_formats = downloadFormats;
-        }
+        // Always include download_formats, even if empty (to clear existing formats)
+        formData.download_formats = downloadFormats;
 
         // Handle type-specific fields
         if (entitlementType === 'DS-AOI') {
@@ -1482,6 +1657,35 @@ $(document).ready(function() {
                     icon: 'error',
                     title: 'Missing Building GIDs',
                     text: 'Building GIDs are required for this entitlement type.'
+                });
+                return;
+            }
+        } else if (entitlementType === 'TILES') {
+            const tileLayersText = $('#editTileLayers').val().trim();
+            if (tileLayersText) {
+                try {
+                    formData.tile_layers = JSON.parse(tileLayersText);
+                    if (!Array.isArray(formData.tile_layers) || formData.tile_layers.length === 0) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No Tile Layers Selected',
+                            text: 'Please select at least one tile layer or enter valid tile layer names.'
+                        });
+                        return;
+                    }
+                } catch (e) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid Tile Layers',
+                        text: 'Invalid tile layers format. Please check your JSON syntax or select tile layers from the list.'
+                    });
+                    return;
+                }
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Missing Tile Layers',
+                    text: 'Tile layers are required for this entitlement type.'
                 });
                 return;
             }

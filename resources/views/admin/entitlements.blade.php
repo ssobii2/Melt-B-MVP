@@ -44,6 +44,7 @@
                             <option value="DS-ALL">DS-ALL (Full Dataset)</option>
                             <option value="DS-AOI">DS-AOI (Area of Interest)</option>
                             <option value="DS-BLD">DS-BLD (Specific Buildings)</option>
+                            <option value="TILES">TILES (Tile Layers)</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -123,6 +124,7 @@
                                     <option value="DS-ALL">DS-ALL (Full Dataset Access)</option>
                                     <option value="DS-AOI">DS-AOI (Area of Interest)</option>
                                     <option value="DS-BLD">DS-BLD (Specific Buildings)</option>
+                                    <option value="TILES">TILES (Tile Layers)</option>
                                 </select>
                                 <small class="form-text text-muted">Choose the type of access this entitlement provides</small>
                             </div>
@@ -237,7 +239,39 @@
                         </div>
                     </div>
 
-                    <div class="row">
+                    <!-- Tile Layers (for TILES) -->
+                    <div id="createTileSection" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-layer-group"></i> Tile Layer Selection
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label>Available Tile Layers</label>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span>Select Tile Layers (<span id="createSelectedTileCount">0</span> selected) <span class="text-danger">*</span></span>
+                                        <div>
+                                            <button type="button" class="btn btn-sm btn-outline-primary mr-1" onclick="selectAllTileLayers('create')">
+                                                Select All
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearTileLayerSelection('create')">
+                                                Clear All
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="createTileLayerList" class="border rounded p-2 bg-light" style="max-height: 300px; overflow-y: auto;">
+                                        <p class="text-muted text-center mb-0">Loading tile layers...</p>
+                                    </div>
+                                </div>
+                                <!-- Hidden field to store selected tile layers -->
+                                <input type="hidden" id="createTileLayers" name="tile_layers">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row" id="createDownloadFormatsSection">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="createDownloadFormats">Download Formats</label>
@@ -410,7 +444,39 @@
                         </div>
                     </div>
 
-                    <div class="row">
+                    <!-- Tile Layers (for TILES) -->
+                    <div id="editTileSection" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-layer-group"></i> Tile Layer Selection
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label>Available Tile Layers</label>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span>Select Tile Layers (<span id="editSelectedTileCount">0</span> selected) <span class="text-danger">*</span></span>
+                                        <div>
+                                            <button type="button" class="btn btn-sm btn-outline-primary mr-1" onclick="selectAllTileLayers('edit')">
+                                                Select All
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearTileLayerSelection('edit')">
+                                                Clear All
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="editTileLayerList" class="border rounded p-2 bg-light" style="max-height: 300px; overflow-y: auto;">
+                                        <p class="text-muted text-center mb-0">Loading tile layers...</p>
+                                    </div>
+                                </div>
+                                <!-- Hidden field to store selected tile layers -->
+                                <input type="hidden" id="editTileLayers" name="tile_layers">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row" id="editDownloadFormatsSection">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label>Download Formats</label>

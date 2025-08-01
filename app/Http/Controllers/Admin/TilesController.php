@@ -1,87 +1,44 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Auth;
-use App\Services\UserEntitlementService;
+use Dedoc\Scramble\Attributes\Tag;
+use Dedoc\Scramble\Attributes\Response;
+use Dedoc\Scramble\Attributes\OperationId;
+use Dedoc\Scramble\Attributes\Summary;
+use Dedoc\Scramble\Attributes\Description;
 
+#[Tag('Admin - Tiles')]
+#[Response(401, 'Unauthorized')]
+#[Response(403, 'Forbidden')]
 class TilesController extends Controller
 {
-    protected $entitlementService;
-
-    public function __construct(UserEntitlementService $entitlementService)
-    {
-        $this->entitlementService = $entitlementService;
-    }
-
     /**
-     * Serve tile files from storage/data/tiles directory
+     * Get all available tile layers for admin viewing (unrestricted access)
      */
-    public function serveTile(Request $request, $layer, $z, $x, $y)
+    #[OperationId('admin.tiles.layers')]
+    #[Summary('Get all available tile layers')]
+    #[Description('Get a list of all available tile layers for admin viewing. Admin users have unrestricted access to all tile layers.')]
+    #[Response(200, 'All tile layers retrieved', [
+        'layers' => [
+            [
+                'name' => 'thermal_layer_1',
+                'display_name' => 'Thermal Layer 1',
+                'path' => 'thermal_layer_1'
+            ],
+            [
+                'name' => 'heat_map_2024',
+                'display_name' => 'Heat Map 2024',
+                'path' => 'heat_map_2024'
+            ]
+        ]
+    ])]
+    public function getLayers(): JsonResponse
     {
-        $user = $request->user();
-
-        // Check if user has access to this tile layer
-        if (!$this->entitlementService->hasTileAccess($user, $layer)) {
-            return response()->json(['error' => 'Access denied to this tile layer'], 403);
-        }
-
-        // Validate parameters
-        if (!is_numeric($z) || !is_numeric($x) || !is_numeric($y)) {
-            return response()->json(['error' => 'Invalid tile coordinates'], 400);
-        }
-
-        // Validate zoom level to prevent integer overflow
-        $z = (int) $z;
-        if ($z < 0 || $z > 24) {
-            return response()->json(['error' => 'Invalid zoom level. Must be between 0 and 24.'], 400);
-        }
-
-        // Validate tile coordinates
-        $x = (int) $x;
-        $y = (int) $y;
-        $maxTile = (1 << $z) - 1;
-        if ($x < 0 || $x > $maxTile || $y < 0 || $y > $maxTile) {
-            return response()->json(['error' => 'Tile coordinates out of bounds for zoom level.'], 400);
-        }
-
-        // Sanitize layer parameter to prevent directory traversal attacks
-        $layer = $this->sanitizeLayerName($layer);
-        if ($layer === null) {
-            return response()->json(['error' => 'Invalid layer name'], 400);
-        }
-
-        // Convert XYZ coordinates to TMS coordinates (flip Y axis)
-        $tmsY = (1 << $z) - 1 - $y;
-
-        // Construct the tile path with TMS coordinates
-        $tilePath = "data/tiles/{$layer}/{$z}/{$x}/{$tmsY}.png";
-        $fullPath = storage_path($tilePath);
-        
-        // Check if tile exists using direct file system access
-        if (!File::exists($fullPath)) {
-            // Return 204 No Content for missing tiles - MapLibre will handle this gracefully
-            return response('', 204);
-        }
-
-        // Get tile content using direct file access
-        $tileContent = File::get($fullPath);
-        
-        // Return tile with proper headers
-        return response($tileContent)
-            ->header('Content-Type', 'image/png')
-            ->header('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-    }
-
-    /**
-     * Get available tile layers for the authenticated user
-     */
-    public function getLayers(Request $request)
-    {
-        $user = $request->user();
         $tilesPath = storage_path('data/tiles');
         
         if (!File::exists($tilesPath)) {
@@ -94,10 +51,8 @@ class TilesController extends Controller
         foreach ($directories as $directory) {
             $layerName = basename($directory);
             
-            // Check if user has access to this layer
-            if (!$this->entitlementService->hasTileAccess($user, $layerName)) {
-                continue;
-            }
+            // Admin users see all tile layers without entitlement filtering
+            // This is intentional for administrative oversight
             
             // Check if this directory contains tile structure
             $hasTiles = false;
@@ -124,17 +79,20 @@ class TilesController extends Controller
     }
 
     /**
-     * Get tile layer bounds from tilemapresource.xml
+     * Get tile layer bounds from tilemapresource.xml (unrestricted access)
      */
-    public function getBounds(Request $request, $layer)
+    #[OperationId('admin.tiles.bounds')]
+    #[Summary('Get tile layer bounds')]
+    #[Description('Get the geographic bounds for a specific tile layer. Admin users have unrestricted access to all tile layers.')]
+    #[Response(200, 'Tile layer bounds', [
+        'minx' => -180.0,
+        'miny' => -90.0,
+        'maxx' => 180.0,
+        'maxy' => 90.0
+    ])]
+    #[Response(404, 'Layer not found')]
+    public function getBounds(Request $request, $layer): JsonResponse
     {
-        $user = $request->user();
-
-        // Check if user has access to this tile layer
-        if (!$this->entitlementService->hasTileAccess($user, $layer)) {
-            return response()->json(['error' => 'Access denied to this tile layer'], 403);
-        }
-
         // Sanitize layer parameter to prevent directory traversal attacks
         $layer = $this->sanitizeLayerName($layer);
         if ($layer === null) {
@@ -180,6 +138,64 @@ class TilesController extends Controller
         }
 
         return response()->json(['error' => 'Could not parse bounds from XML'], 404);
+    }
+
+    /**
+     * Serve tile files from storage/data/tiles directory (unrestricted access)
+     */
+    #[OperationId('admin.tiles.serve')]
+    #[Summary('Serve tile file')]
+    #[Description('Serve a specific tile file. Admin users have unrestricted access to all tiles.')]
+    #[Response(200, 'Tile image', 'image/png')]
+    #[Response(204, 'Tile not found')]
+    #[Response(400, 'Invalid parameters')]
+    public function serveTile(Request $request, $layer, $z, $x, $y)
+    {
+        // Validate parameters
+        if (!is_numeric($z) || !is_numeric($x) || !is_numeric($y)) {
+            return response()->json(['error' => 'Invalid tile coordinates'], 400);
+        }
+
+        // Validate zoom level to prevent integer overflow
+        $z = (int) $z;
+        if ($z < 0 || $z > 24) {
+            return response()->json(['error' => 'Invalid zoom level. Must be between 0 and 24.'], 400);
+        }
+
+        // Validate tile coordinates
+        $x = (int) $x;
+        $y = (int) $y;
+        $maxTile = (1 << $z) - 1;
+        if ($x < 0 || $x > $maxTile || $y < 0 || $y > $maxTile) {
+            return response()->json(['error' => 'Tile coordinates out of bounds for zoom level.'], 400);
+        }
+
+        // Sanitize layer parameter to prevent directory traversal attacks
+        $layer = $this->sanitizeLayerName($layer);
+        if ($layer === null) {
+            return response()->json(['error' => 'Invalid layer name'], 400);
+        }
+
+        // Convert XYZ coordinates to TMS coordinates (flip Y axis)
+        $tmsY = (1 << $z) - 1 - $y;
+
+        // Construct the tile path with TMS coordinates
+        $tilePath = "data/tiles/{$layer}/{$z}/{$x}/{$tmsY}.png";
+        $fullPath = storage_path($tilePath);
+        
+        // Check if tile exists using direct file system access
+        if (!File::exists($fullPath)) {
+            // Return 204 No Content for missing tiles - MapLibre will handle this gracefully
+            return response('', 204);
+        }
+
+        // Get tile content using direct file access
+        $tileContent = File::get($fullPath);
+        
+        // Return tile with proper headers
+        return response($tileContent)
+            ->header('Content-Type', 'image/png')
+            ->header('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
     }
 
     /**
