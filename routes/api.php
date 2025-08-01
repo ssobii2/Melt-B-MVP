@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DatasetController;
 use App\Http\Controllers\Admin\AnalysisJobController;
+use App\Http\Controllers\Admin\TilesController as AdminTilesController;
 use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\TilesController;
@@ -179,4 +180,9 @@ Route::prefix('tiles')->group(function () {
     Route::get('/layers', [TilesController::class, 'getLayers']);
     Route::get('/{layer}/bounds', [TilesController::class, 'getBounds']);
     Route::get('/{layer}/{z}/{x}/{y}.png', [TilesController::class, 'serveTile']);
+});
+
+// Admin tile endpoints
+Route::middleware(['auth:sanctum', 'auth.admin.api'])->prefix('admin/tiles')->group(function () {
+    Route::get('/layers', [AdminTilesController::class, 'getAllLayers']);
 });

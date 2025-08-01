@@ -5,14 +5,35 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Auth;
+use App\Services\UserEntitlementService;
 
 class TilesController extends Controller
 {
+    protected $entitlementService;
+
+    public function __construct(UserEntitlementService $entitlementService)
+    {
+        $this->entitlementService = $entitlementService;
+    }
+
     /**
      * Serve tile files from storage/data/tiles directory
      */
     public function serveTile(Request $request, $layer, $z, $x, $y)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $user = Auth::user();
+
+        // Check if user has access to this tile layer
+        if (!$this->entitlementService->hasTileAccess($user, $layer)) {
+            return response()->json(['error' => 'Access denied to this tile layer'], 403);
+        }
+
         // Validate parameters
         if (!is_numeric($z) || !is_numeric($x) || !is_numeric($y)) {
             return response()->json(['error' => 'Invalid tile coordinates'], 400);
@@ -61,10 +82,16 @@ class TilesController extends Controller
     }
 
     /**
-     * Get available tile layers
+     * Get available tile layers for the authenticated user
      */
     public function getLayers()
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return response()->json(['layers' => []]);
+        }
+
+        $user = Auth::user();
         $tilesPath = storage_path('data/tiles');
         
         if (!File::exists($tilesPath)) {
@@ -76,6 +103,11 @@ class TilesController extends Controller
         
         foreach ($directories as $directory) {
             $layerName = basename($directory);
+            
+            // Check if user has access to this layer
+            if (!$this->entitlementService->hasTileAccess($user, $layerName)) {
+                continue;
+            }
             
             // Check if this directory contains tile structure
             $hasTiles = false;
@@ -106,6 +138,18 @@ class TilesController extends Controller
      */
     public function getBounds(Request $request, $layer)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $user = Auth::user();
+
+        // Check if user has access to this tile layer
+        if (!$this->entitlementService->hasTileAccess($user, $layer)) {
+            return response()->json(['error' => 'Access denied to this tile layer'], 403);
+        }
+
         // Sanitize layer parameter to prevent directory traversal attacks
         $layer = $this->sanitizeLayerName($layer);
         if ($layer === null) {

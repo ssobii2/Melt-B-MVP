@@ -25,6 +25,7 @@ class EntitlementResource extends JsonResource
                 }
             ),
             'building_gids' => $this->building_gids,
+            'tile_layers' => $this->tile_layers,
             'download_formats' => $this->download_formats,
             'expires_at' => $this->expires_at?->toISOString(),
             

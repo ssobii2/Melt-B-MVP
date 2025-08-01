@@ -127,6 +127,60 @@ class UserEntitlementService
     }
 
     /**
+     * Check if user has access to a specific tile layer
+     */
+    public function hasTileAccess(User $user, string $tileLayer): bool
+    {
+        $entitlements = $this->getUserEntitlements($user);
+        
+        foreach ($entitlements as $entitlement) {
+            // Skip expired entitlements
+            if ($entitlement->isExpired()) {
+                continue;
+            }
+
+            // Check if this is a TILES entitlement
+            if ($entitlement->type === 'TILES') {
+                // Check if the tile layer is in the allowed tile layers
+                if ($entitlement->tile_layers && is_array($entitlement->tile_layers)) {
+                    if (in_array($tileLayer, $entitlement->tile_layers)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get all available tile layers for a user
+     */
+    public function getAvailableTileLayers(User $user): array
+    {
+        $entitlements = $this->getUserEntitlements($user);
+        $availableLayers = [];
+        
+        foreach ($entitlements as $entitlement) {
+            // Skip expired entitlements
+            if ($entitlement->isExpired()) {
+                continue;
+            }
+
+            // Check if this is a TILES entitlement
+            if ($entitlement->type === 'TILES') {
+                // Add tile layers to available list
+                if ($entitlement->tile_layers && is_array($entitlement->tile_layers)) {
+                    $availableLayers = array_merge($availableLayers, $entitlement->tile_layers);
+                }
+            }
+        }
+
+        // Remove duplicates and return unique layers
+        return array_unique($availableLayers);
+    }
+
+    /**
      * Clear cached entitlements for a user
      */
     public function clearUserEntitlementsCache(User $user): void

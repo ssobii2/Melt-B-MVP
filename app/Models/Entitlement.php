@@ -22,6 +22,7 @@ class Entitlement extends Model
         'dataset_id',
         'aoi_geom',
         'building_gids',
+        'tile_layers',
         'download_formats',
         'expires_at',
     ];
@@ -34,6 +35,7 @@ class Entitlement extends Model
     protected $casts = [
         'aoi_geom' => Polygon::class,
         'building_gids' => 'array',
+        'tile_layers' => 'array',
         'download_formats' => 'array',
         'expires_at' => 'datetime',
     ];
