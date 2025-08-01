@@ -231,7 +231,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                 maxZoom: 20,
                 attributionControl: false, // Remove default attribution control
                 transformRequest: (url, resourceType) => {
-                    if (resourceType === 'Tile' && url.includes('/api/tiles/')) {
+                    if (resourceType === 'Tile' && (url.includes('/api/tiles/') || url.includes('/api/admin/tiles/'))) {
                         // Get the auth token from cookies (same as the rest of the app)
                         const token = Cookies.get('auth_token');
                         if (token) {
@@ -392,7 +392,9 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
     // Load available tile layers
     const loadTileLayers = async () => {
         try {
-            const response = await apiClient.get('/tiles/layers');
+            // Use admin endpoint if user is admin to see all tile layers without entitlement filtering
+            const endpoint = isAdmin ? '/admin/tiles/layers' : '/tiles/layers';
+            const response = await apiClient.get(endpoint);
             const layers = response.data.layers || [];
             setTileLayers(layers);
         } catch (error) {
@@ -749,7 +751,7 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         // Add tile source
         map.current.addSource(sourceId, {
             type: 'raster',
-            tiles: [`${window.location.origin}/api/tiles/${layerName}/{z}/{x}/{y}.png`],
+            tiles: [`${window.location.origin}/api/${isAdmin ? 'admin/tiles' : 'tiles'}/${layerName}/{z}/{x}/{y}.png`],
             tileSize: 256,
             minzoom: 8,
             maxzoom: 15,
@@ -840,7 +842,8 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         
         try {
             // Try to get bounds from tilemapresource.xml using authenticated request
-            const response = await apiClient.get(`/tiles/${layerName}/bounds`);
+            const endpoint = isAdmin ? `/admin/tiles/${layerName}/bounds` : `/tiles/${layerName}/bounds`;
+            const response = await apiClient.get(endpoint);
             const boundsData = response.data;
             const bounds = [
                 [boundsData.minx, boundsData.miny], // Southwest

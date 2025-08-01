@@ -176,13 +176,15 @@ Route::prefix('webhooks')->group(function () {
 });
 
 // Protected tile endpoints with entitlement filtering
-Route::middleware(['auth.tiles', 'check.entitlements'])->prefix('tiles')->group(function () {
+Route::middleware(['auth:sanctum', 'auth.api', 'check.entitlements'])->prefix('tiles')->group(function () {
     Route::get('/layers', [TilesController::class, 'getLayers']);
     Route::get('/{layer}/bounds', [TilesController::class, 'getBounds']);
     Route::get('/{layer}/{z}/{x}/{y}.png', [TilesController::class, 'serveTile']);
 });
 
-// Admin tile endpoints
+// Admin tile endpoints (unrestricted access for administrative oversight)
 Route::middleware(['auth:sanctum', 'auth.admin.api'])->prefix('admin/tiles')->group(function () {
-    Route::get('/layers', [AdminTilesController::class, 'getAllLayers']);
+    Route::get('/layers', [AdminTilesController::class, 'getLayers']);
+    Route::get('/{layer}/bounds', [AdminTilesController::class, 'getBounds']);
+    Route::get('/{layer}/{z}/{x}/{y}.png', [AdminTilesController::class, 'serveTile']);
 });

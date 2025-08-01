@@ -32,7 +32,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth.admin' => \App\Http\Middleware\EnsureAdminToken::class,
             'auth.admin.api' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'auth.api' => \App\Http\Middleware\HandleUnauthenticatedApiRequests::class,
-            'auth.tiles' => \App\Http\Middleware\AuthenticateTiles::class,
             'check.entitlements' => \App\Http\Middleware\CheckEntitlementsMiddleware::class,
         ]);
     })
