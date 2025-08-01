@@ -22,12 +22,7 @@ class TilesController extends Controller
      */
     public function serveTile(Request $request, $layer, $z, $x, $y)
     {
-        // Check if user is authenticated
-        if (!Auth::check()) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-
-        $user = Auth::user();
+        $user = $request->user();
 
         // Check if user has access to this tile layer
         if (!$this->entitlementService->hasTileAccess($user, $layer)) {
@@ -84,14 +79,9 @@ class TilesController extends Controller
     /**
      * Get available tile layers for the authenticated user
      */
-    public function getLayers()
+    public function getLayers(Request $request)
     {
-        // Check if user is authenticated
-        if (!Auth::check()) {
-            return response()->json(['layers' => []]);
-        }
-
-        $user = Auth::user();
+        $user = $request->user();
         $tilesPath = storage_path('data/tiles');
         
         if (!File::exists($tilesPath)) {
@@ -138,12 +128,7 @@ class TilesController extends Controller
      */
     public function getBounds(Request $request, $layer)
     {
-        // Check if user is authenticated
-        if (!Auth::check()) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-
-        $user = Auth::user();
+        $user = $request->user();
 
         // Check if user has access to this tile layer
         if (!$this->entitlementService->hasTileAccess($user, $layer)) {

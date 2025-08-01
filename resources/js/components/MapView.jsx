@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { apiClient } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import Cookies from 'js-cookie';
 
 const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMapBoundsChange, onTileVisibilityChange }) => {
     const { isAdmin } = useAuth();
@@ -228,7 +229,23 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                 center: initialView.center,
                 zoom: initialView.zoom,
                 maxZoom: 20,
-                attributionControl: false // Remove default attribution control
+                attributionControl: false, // Remove default attribution control
+                transformRequest: (url, resourceType) => {
+                    if (resourceType === 'Tile' && url.includes('/api/tiles/')) {
+                        // Get the auth token from cookies (same as the rest of the app)
+                        const token = Cookies.get('auth_token');
+                        if (token) {
+                            const result = {
+                                url: url,
+                                headers: {
+                                    'Authorization': `Bearer ${token}`
+                                }
+                            };
+                            return result;
+                        }
+                    }
+                    return { url: url };
+                }
             });
 
             // Add custom attribution control (collapsed by default)
@@ -380,6 +397,10 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             setTileLayers(layers);
         } catch (error) {
             console.error('Failed to load tile layers:', error);
+            // If unauthorized, user doesn't have tile entitlements
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                setTileLayers([]);
+            }
         }
     };
 
@@ -818,39 +839,22 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         if (!map.current) return;
         
         try {
-            // Try to get bounds from tilemapresource.xml
-            const response = await fetch(`/api/tiles/${layerName}/bounds`);
-            if (response.ok) {
-                const boundsData = await response.json();
-                const bounds = [
-                    [boundsData.minx, boundsData.miny], // Southwest
-                    [boundsData.maxx, boundsData.maxy]  // Northeast
-                ];
-                
-                map.current.fitBounds(bounds, {
-                    padding: 50,
-                    duration: 2000
-                });
-                
-                // Show the tile layer if it's not visible
-                if (!visibleTileLayers.has(layerName)) {
-                    addTileLayer(layerName);
-                }
-            } else {
-                // Fallback to default Paris bounds
-                const fallbackBounds = [
-                    [2.23962759265300, 48.81837244150312], // Southwest
-                    [2.34634047084554, 48.87724759682047]  // Northeast
-                ];
-                
-                map.current.fitBounds(fallbackBounds, {
-                    padding: 50,
-                    duration: 2000
-                });
-                
-                if (!visibleTileLayers.has(layerName)) {
-                    addTileLayer(layerName);
-                }
+            // Try to get bounds from tilemapresource.xml using authenticated request
+            const response = await apiClient.get(`/tiles/${layerName}/bounds`);
+            const boundsData = response.data;
+            const bounds = [
+                [boundsData.minx, boundsData.miny], // Southwest
+                [boundsData.maxx, boundsData.maxy]  // Northeast
+            ];
+            
+            map.current.fitBounds(bounds, {
+                padding: 50,
+                duration: 2000
+            });
+            
+            // Show the tile layer if it's not visible
+            if (!visibleTileLayers.has(layerName)) {
+                addTileLayer(layerName);
             }
         } catch (error) {
             console.warn('Failed to get tile bounds, using fallback:', error);

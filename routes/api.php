@@ -175,8 +175,8 @@ Route::prefix('webhooks')->group(function () {
     Route::post('/test', [WebhookController::class, 'test']);
 });
 
-// Public tile endpoints (no authentication required)
-Route::prefix('tiles')->group(function () {
+// Protected tile endpoints with entitlement filtering
+Route::middleware(['auth.tiles', 'check.entitlements'])->prefix('tiles')->group(function () {
     Route::get('/layers', [TilesController::class, 'getLayers']);
     Route::get('/{layer}/bounds', [TilesController::class, 'getBounds']);
     Route::get('/{layer}/{z}/{x}/{y}.png', [TilesController::class, 'serveTile']);
