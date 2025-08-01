@@ -409,10 +409,18 @@ $(document).ready(function() {
         const aoiSection = $(`#${prefix}AoiSection`);
         const buildingSection = $(`#${prefix}BuildingSection`);
         const tileSection = $(`#${prefix}TileSection`);
+        const downloadFormatsSection = $(`#${prefix}DownloadFormatsSection`);
 
         aoiSection.hide();
         buildingSection.hide();
         tileSection.hide();
+
+        // Show download formats section for all types except TILES
+        if (type === 'TILES') {
+            downloadFormatsSection.hide();
+        } else {
+            downloadFormatsSection.show();
+        }
 
         if (type === 'DS-AOI') {
             aoiSection.show();
@@ -1178,9 +1186,8 @@ $(document).ready(function() {
         $('input[name="download_formats[]"]:checked').each(function() {
             downloadFormats.push($(this).val());
         });
-        if (downloadFormats.length > 0) {
-            formData.download_formats = downloadFormats;
-        }
+        // Always include download_formats, even if empty (to clear existing formats)
+        formData.download_formats = downloadFormats;
 
         // Handle type-specific fields
         if (formData.type === 'DS-AOI') {
@@ -1581,9 +1588,8 @@ $(document).ready(function() {
         $('input[name="edit_download_formats[]"]:checked').each(function() {
             downloadFormats.push($(this).val());
         });
-        if (downloadFormats.length > 0) {
-            formData.download_formats = downloadFormats;
-        }
+        // Always include download_formats, even if empty (to clear existing formats)
+        formData.download_formats = downloadFormats;
 
         // Handle type-specific fields
         if (entitlementType === 'DS-AOI') {

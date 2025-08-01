@@ -271,7 +271,7 @@
                         </div>
                     </div>
 
-                    <div class="row">
+                    <div class="row" id="createDownloadFormatsSection">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="createDownloadFormats">Download Formats</label>
@@ -476,7 +476,7 @@
                         </div>
                     </div>
 
-                    <div class="row">
+                    <div class="row" id="editDownloadFormatsSection">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label>Download Formats</label>

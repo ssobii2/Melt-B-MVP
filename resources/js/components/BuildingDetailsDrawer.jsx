@@ -88,16 +88,27 @@ const BuildingDetailsDrawer = ({ selectedBuilding, onClose }) => {
             return false;
         }
         return userEntitlements.some(entitlement => {
+            // Only check DS-ALL, DS-AOI, and DS-BLD entitlements (TILES entitlements don't grant download access)
+            const hasDownloadType = ['DS-ALL', 'DS-AOI', 'DS-BLD'].includes(entitlement.type);
+            
             // Check if user has access to this building/dataset
-            const hasAccess = entitlement.type === 'DS-ALL' || 
-                (entitlement.type === 'DS-BLD' && entitlement.building_gids?.includes(selectedBuilding.gid));
+            let hasAccess = false;
+            if (entitlement.type === 'DS-ALL') {
+                hasAccess = true; // DS-ALL grants access to all buildings in the dataset
+            } else if (entitlement.type === 'DS-BLD') {
+                hasAccess = entitlement.building_gids?.includes(selectedBuilding.gid);
+            } else if (entitlement.type === 'DS-AOI') {
+                // For DS-AOI, we assume the user has access if they can see the building
+                // The backend will handle the spatial filtering
+                hasAccess = true;
+            }
             
             // Check if the format is allowed in download_formats
             const hasFormatPermission = entitlement.download_formats && 
                 Array.isArray(entitlement.download_formats) && 
                 entitlement.download_formats.includes(format);
             
-            return hasAccess && hasFormatPermission;
+            return hasDownloadType && hasAccess && hasFormatPermission;
         });
     };
 

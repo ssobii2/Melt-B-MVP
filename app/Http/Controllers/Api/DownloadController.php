@@ -16,6 +16,7 @@ use MatanYadaev\EloquentSpatial\Objects\Point;
 use MatanYadaev\EloquentSpatial\Objects\Polygon;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Illuminate\Http\JsonResponse;
 use Dedoc\Scramble\Attributes\Tag;
 use Dedoc\Scramble\Attributes\Response as ScrambleResponse;
 use Dedoc\Scramble\Attributes\OperationId;
@@ -113,8 +114,10 @@ class DownloadController extends Controller
             }
         }
 
-        // Apply the same ABAC logic from GET /api/buildings
-        $query = $query->applyEntitlementFilters($user);
+        // Apply download-specific ABAC logic - only include entitlements with download formats
+        $entitlements = $this->entitlementService->getUserEntitlements($user);
+        $downloadFilters = $this->entitlementService->generateDownloadEntitlementFilters($entitlements);
+        $query = $query->applyEntitlementFilters($downloadFilters);
 
         // Log the download action
         AuditLog::createEntry(
@@ -142,6 +145,146 @@ class DownloadController extends Controller
             default:
                 abort(400, 'Unsupported format');
         }
+    }
+
+    /**
+     * Admin download - download complete dataset without entitlement filtering
+     *
+     * @param Request $request
+     * @param int $id Dataset ID
+     * @return StreamedResponse|BinaryFileResponse
+     */
+    #[OperationId('adminDownloadDataset')]
+    #[Summary('Admin download dataset')]
+    #[Description('Admin endpoint to download complete building data from a dataset in CSV or GeoJSON format. Downloads entire dataset without entitlement filtering.')]
+    #[Parameters([
+        'format' => 'string|optional|Download format (csv, geojson) - defaults to csv',
+        'building_gid' => 'string|optional|Specific building GID to download (downloads single building instead of entire dataset)'
+    ])]
+    #[ScrambleResponse(200, 'File download started', [
+        'Content-Type' => 'text/csv or application/geo+json',
+        'Content-Disposition' => 'attachment; filename="buildings_dataset_2024-01-01.csv"'
+    ])]
+    #[ScrambleResponse(400, 'Invalid format or parameters', [
+        'message' => 'Invalid format. Supported formats: csv, geojson'
+    ])]
+    #[ScrambleResponse(403, 'Access denied', [
+        'message' => 'Admin privileges required'
+    ])]
+    #[ScrambleResponse(404, 'Dataset or building not found', [
+        'message' => 'Dataset not found'
+    ])]
+    #[ScrambleResponse(401, 'Authentication required', [
+        'message' => 'Authentication required'
+    ])]
+    public function adminDownload(Request $request, int $id)
+    {
+        // 1. Authentication & Admin Check - already handled by auth:sanctum and auth.admin.api
+        $user = $request->user();
+
+        // Verify user is admin
+        if (!$user->isAdmin()) {
+            abort(403, 'Admin privileges required');
+        }
+
+        // 2. Format Check
+        $format = $request->query('format', 'csv');
+        $buildingGid = $request->query('building_gid'); // Optional parameter for single building download
+
+        // Validate format
+        if (!in_array($format, ['csv', 'geojson'])) {
+            abort(400, 'Invalid format. Supported formats: csv, geojson');
+        }
+
+        // Verify dataset exists
+        $dataset = Dataset::find($id);
+        if (!$dataset) {
+            abort(404, 'Dataset not found');
+        }
+
+        // 3. Retrieve Data for Download (no entitlement filtering for admin)
+        $query = Building::query()->where('dataset_id', $id);
+
+        // If building_gid is specified, filter for that specific building
+        if ($buildingGid) {
+            $query = $query->where('gid', $buildingGid);
+            
+            // Verify the building exists
+            if (!$query->exists()) {
+                abort(404, 'Building not found');
+            }
+        }
+
+        // Log the admin download action
+        AuditLog::createEntry(
+            userId: $user->id,
+            action: 'admin_data_download',
+            targetType: 'dataset',
+            targetId: $dataset->id,
+            newValues: [
+                'dataset_name' => $dataset->name,
+                'format' => $format,
+                'building_gid' => $buildingGid,
+                'download_type' => $buildingGid ? 'single_building' : 'complete_dataset'
+            ],
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent()
+        );
+
+        // 4. Generate & Stream File
+        switch ($format) {
+            case 'csv':
+                return $this->downloadCsv($query, $dataset, $buildingGid);
+            case 'geojson':
+                return $this->downloadGeoJson($query, $dataset, $buildingGid);
+
+            default:
+                abort(400, 'Unsupported format');
+        }
+    }
+
+    /**
+     * Get all datasets for admin downloads
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    #[OperationId('adminGetDatasets')]
+    #[Summary('Get all datasets for admin downloads')]
+    #[Description('Get all available datasets for admin download functionality.')]
+    #[ScrambleResponse(200, 'List of datasets', [
+        'datasets' => [
+            [
+                'id' => 1,
+                'name' => 'Thermal Dataset 2024',
+                'data_type' => 'building_anomalies',
+                'description' => 'Thermal imaging data for buildings',
+                'version' => '1.0'
+            ]
+        ]
+    ])]
+    #[ScrambleResponse(403, 'Access denied', [
+        'message' => 'Admin privileges required'
+    ])]
+    #[ScrambleResponse(401, 'Authentication required', [
+        'message' => 'Authentication required'
+    ])]
+    public function adminDatasets(Request $request): JsonResponse
+    {
+        // Verify user is admin
+        $user = $request->user();
+        if (!$user->isAdmin()) {
+            abort(403, 'Admin privileges required');
+        }
+
+        // Get all datasets
+        $datasets = Dataset::select('id', 'name', 'data_type', 'description', 'version')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'datasets' => $datasets
+        ]);
     }
 
     /**

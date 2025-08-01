@@ -127,6 +127,69 @@ class UserEntitlementService
     }
 
     /**
+     * Generate entitlement filters specifically for downloads
+     * Only includes entitlements that have download formats assigned
+     */
+    public function generateDownloadEntitlementFilters(Collection $entitlements): array
+    {
+        $filters = [
+            'ds_all_datasets' => [],
+            'ds_aoi_polygons' => [],
+            'ds_building_gids' => [],
+            'allowed_download_formats' => []
+        ];
+
+        foreach ($entitlements as $entitlement) {
+            // Skip expired entitlements
+            if ($entitlement->isExpired()) {
+                continue;
+            }
+
+            // Only include entitlements that have download formats assigned
+            if (!$entitlement->download_formats || !is_array($entitlement->download_formats) || empty($entitlement->download_formats)) {
+                continue;
+            }
+
+            switch ($entitlement->type) {
+                case 'DS-ALL':
+                    $filters['ds_all_datasets'][] = $entitlement->dataset_id;
+                    break;
+
+                case 'DS-AOI':
+                    if ($entitlement->aoi_geom) {
+                        $filters['ds_aoi_polygons'][] = [
+                            'dataset_id' => $entitlement->dataset_id,
+                            'geometry' => $entitlement->aoi_geom
+                        ];
+                    }
+                    break;
+
+                case 'DS-BLD':
+                    if ($entitlement->building_gids && is_array($entitlement->building_gids)) {
+                        $filters['ds_building_gids'] = array_merge(
+                            $filters['ds_building_gids'],
+                            $entitlement->building_gids
+                        );
+                    }
+                    break;
+            }
+
+            // Collect allowed download formats
+            $filters['allowed_download_formats'] = array_merge(
+                $filters['allowed_download_formats'],
+                $entitlement->download_formats
+            );
+        }
+
+        // Remove duplicates
+        $filters['ds_all_datasets'] = array_unique($filters['ds_all_datasets']);
+        $filters['ds_building_gids'] = array_unique($filters['ds_building_gids']);
+        $filters['allowed_download_formats'] = array_unique($filters['allowed_download_formats']);
+
+        return $filters;
+    }
+
+    /**
      * Check if user has access to a specific tile layer
      */
     public function hasTileAccess(User $user, string $tileLayer): bool

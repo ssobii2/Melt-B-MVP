@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 export default function Downloads() {
     const { user, token } = useAuth();
     const [entitlements, setEntitlements] = useState([]);
+    const [adminDatasets, setAdminDatasets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [downloadingIds, setDownloadingIds] = useState(new Set());
@@ -19,19 +20,80 @@ export default function Downloads() {
     const fetchEntitlements = async () => {
         try {
             setLoading(true);
-            const response = await apiClient.get('/me/entitlements');
-            setEntitlements(response.data.entitlements || []);
+            
+            if (user?.role === 'admin') {
+                // For admin users, fetch all datasets
+                const response = await apiClient.get('/admin/downloads/datasets');
+                setAdminDatasets(response.data.datasets || []);
+            } else {
+                // For regular users, fetch entitlements
+                const response = await apiClient.get('/me/entitlements');
+                setEntitlements(response.data.entitlements || []);
+            }
+            
             setError(null);
         } catch (err) {
-            console.error('Failed to fetch entitlements:', err);
+            console.error('Failed to fetch data:', err);
             setError('Failed to load your data access permissions. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleDownload = async (entitlementId, format) => {
-        const downloadId = `${entitlementId}-${format}`;
+    // Get downloadable datasets - different logic for admin vs regular users
+    const getDownloadableDatasets = () => {
+        // For admin users, fetch all datasets directly
+        if (user?.role === 'admin') {
+            return adminDatasets || [];
+        }
+
+        // For regular users, filter entitlements and group by dataset
+        const downloadableEntitlements = entitlements.filter(entitlement => {
+            // Only show DS-ALL, DS-AOI, and DS-BLD entitlements
+            const hasDownloadType = ['DS-ALL', 'DS-AOI', 'DS-BLD'].includes(entitlement.type);
+            
+            // Must have download formats assigned
+            const hasDownloadFormats = entitlement.download_formats && 
+                Array.isArray(entitlement.download_formats) && 
+                entitlement.download_formats.length > 0;
+            
+            // Must be active (not expired)
+            const isActive = isEntitlementActive(entitlement);
+            
+            return hasDownloadType && hasDownloadFormats && isActive;
+        });
+
+        // Group by dataset
+        const datasetGroups = {};
+        downloadableEntitlements.forEach(entitlement => {
+            const datasetId = entitlement.dataset?.id;
+            if (!datasetId) return;
+
+            if (!datasetGroups[datasetId]) {
+                datasetGroups[datasetId] = {
+                    dataset: entitlement.dataset,
+                    entitlements: [],
+                    bestEntitlement: null
+                };
+            }
+
+            datasetGroups[datasetId].entitlements.push(entitlement);
+
+            // Determine the best entitlement for this dataset
+            // Priority: DS-ALL > DS-AOI > DS-BLD
+            const currentBest = datasetGroups[datasetId].bestEntitlement;
+            if (!currentBest || 
+                (entitlement.type === 'DS-ALL' && currentBest.type !== 'DS-ALL') ||
+                (entitlement.type === 'DS-AOI' && currentBest.type === 'DS-BLD')) {
+                datasetGroups[datasetId].bestEntitlement = entitlement;
+            }
+        });
+
+        return Object.values(datasetGroups);
+    };
+
+    const handleDownload = async (datasetId, format) => {
+        const downloadId = `${datasetId}-${format}`;
         setDownloadingIds(prev => new Set([...prev, downloadId]));
         setError(null);
 
@@ -39,13 +101,27 @@ export default function Downloads() {
             // Show initial feedback
             const toastId = toast.loading(`Preparing ${format.toUpperCase()} download...`);
 
-            // Get the dataset ID from the entitlement
-            const entitlement = entitlements.find(e => e.id === entitlementId);
-            if (!entitlement || !entitlement.dataset) {
-                throw new Error('Dataset not found for this entitlement');
+            // Determine the endpoint based on user role
+            const endpoint = user?.role === 'admin' ? `/admin/downloads/${datasetId}` : `/downloads/${datasetId}`;
+            
+            // For admin users, get dataset info from adminDatasets
+            // For regular users, get dataset info from grouped data
+            let datasetName = 'Unknown Dataset';
+            if (user?.role === 'admin') {
+                const dataset = adminDatasets.find(ds => ds.id === datasetId);
+                if (!dataset) {
+                    throw new Error('Dataset not found');
+                }
+                datasetName = dataset.name;
+            } else {
+                const datasetGroup = downloadableDatasets.find(group => group.dataset.id === datasetId);
+                if (!datasetGroup || !datasetGroup.dataset) {
+                    throw new Error('Dataset not found');
+                }
+                datasetName = datasetGroup.dataset.name;
             }
             
-            const response = await apiClient.get(`/downloads/${entitlement.dataset.id}`, {
+            const response = await apiClient.get(endpoint, {
                 params: { format },
                 responseType: 'blob',
                 timeout: 300000, // 5 minutes timeout for large downloads
@@ -67,7 +143,7 @@ export default function Downloads() {
             
             // Get filename from response headers or create default
             const contentDisposition = response.headers['content-disposition'];
-            let filename = `dataset_${entitlementId}.${format.toLowerCase()}`;
+            let filename = `dataset_${datasetId}.${format.toLowerCase()}`;
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename="(.+)"/i);
                 if (filenameMatch) {
@@ -117,6 +193,19 @@ export default function Downloads() {
         return dataType?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown';
     };
 
+    const getEntitlementTypeLabel = (type) => {
+        switch (type) {
+            case 'DS-ALL':
+                return 'Full Dataset Access';
+            case 'DS-AOI':
+                return 'Area of Interest';
+            case 'DS-BLD':
+                return 'Specific Buildings';
+            default:
+                return type;
+        }
+    };
+
     const getStatusBadge = (entitlement) => {
         const now = new Date();
         const expiresAt = entitlement.expires_at ? new Date(entitlement.expires_at) : null;
@@ -133,6 +222,8 @@ export default function Downloads() {
         const expiresAt = entitlement.expires_at ? new Date(entitlement.expires_at) : null;
         return !expiresAt || expiresAt > now;
     };
+
+    const downloadableDatasets = getDownloadableDatasets();
 
     if (loading) {
         return (
@@ -155,7 +246,10 @@ export default function Downloads() {
                                     Data Download Center
                                 </h3>
                                 <p className="text-sm text-gray-600">
-                                    Download building energy data and thermal analysis results based on your access permissions.
+                                    {user?.role === 'admin' 
+                                        ? 'Download complete datasets with full building energy data and thermal analysis results.'
+                                        : 'Download building energy data and thermal analysis results based on your access permissions. Downloads include all buildings you have permission to view on the map.'
+                                    }
                                 </p>
                             </div>
 
@@ -165,76 +259,155 @@ export default function Downloads() {
                                     <p className="text-sm text-red-800">{error}</p>
                                 </div>
                             )}
-                            {entitlements.length === 0 ? (
+                            
+                            {downloadableDatasets.length === 0 ? (
                                 <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                                     <div className="px-6 py-4">
                                         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                             <AlertCircle className="h-5 w-5 text-amber-600" />
-                                            No Data Access
+                                            No Downloadable Data Available
                                         </h3>
                                         <p className="text-sm text-gray-600 mt-1">
-                                            You don't have access to any datasets yet. Contact your administrator to request data access.
+                                            You don't have access to any downloadable datasets. Contact your administrator to request data access with download permissions.
                                         </p>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    {entitlements.map((entitlement) => (
-                                        <div key={entitlement.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-                                            <div className="px-6 py-4">
-                                                <div className="flex items-center justify-between">
-                                                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                                        {getDataTypeIcon(entitlement.dataset?.data_type)}
-                                                        {entitlement.dataset?.name || 'Unknown Dataset'}
-                                                    </h3>
-                                                    {getStatusBadge(entitlement)}
-                                                </div>
-                                                <div className="text-sm text-gray-600 mt-2">
-                                                    Data Type: {formatDataType(entitlement.dataset?.data_type)}
-                                                    {entitlement.expires_at && (
-                                                        <span className="block mt-1">
-                                                            Expires: {new Date(entitlement.expires_at).toLocaleDateString()}
+                                    {user?.role === 'admin' ? (
+                                        // Admin view - show all datasets with both CSV and GeoJSON options
+                                        downloadableDatasets.map((dataset) => (
+                                            <div key={dataset.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                                                <div className="px-6 py-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                                                {getDataTypeIcon(dataset?.data_type)}
+                                                                {dataset?.name || 'Unknown Dataset'}
+                                                            </h3>
+                                                            <p className="text-sm text-gray-500 mt-1">
+                                                                Complete Dataset Access
+                                                            </p>
+                                                        </div>
+                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                            Admin Access
                                                         </span>
-                                                    )}
+                                                    </div>
+                                                    <div className="text-sm text-gray-600 mt-2">
+                                                        Data Type: {formatDataType(dataset?.data_type)}
+                                                        {dataset?.version && (
+                                                            <span className="block mt-1">
+                                                                Version: {dataset.version}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="px-6 pb-4">
-                                                <div className="flex gap-2 flex-wrap">
-                                                    {entitlement.download_formats?.includes('csv') && (
+                                                <div className="px-6 pb-4">
+                                                    <div className="flex gap-2 flex-wrap">
                                                         <button
-                                                            onClick={() => handleDownload(entitlement.id, 'csv')}
-                                                            disabled={!isEntitlementActive(entitlement) || downloadingIds.has(`${entitlement.id}-csv`)}
+                                                            onClick={() => handleDownload(dataset.id, 'csv')}
+                                                            disabled={downloadingIds.has(`${dataset.id}-csv`)}
                                                             className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                                         >
-                                                            {downloadingIds.has(`${entitlement.id}-csv`) ? (
+                                                            {downloadingIds.has(`${dataset.id}-csv`) ? (
                                                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                                             ) : (
                                                                 <FileText className="h-4 w-4 mr-2" />
                                                             )}
                                                             Download as CSV
                                                         </button>
-                                                    )}
-                                                    {entitlement.download_formats?.includes('geojson') && (
                                                         <button
-                                                            onClick={() => handleDownload(entitlement.id, 'geojson')}
-                                                            disabled={!isEntitlementActive(entitlement) || downloadingIds.has(`${entitlement.id}-geojson`)}
+                                                            onClick={() => handleDownload(dataset.id, 'geojson')}
+                                                            disabled={downloadingIds.has(`${dataset.id}-geojson`)}
                                                             className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                                         >
-                                                            {downloadingIds.has(`${entitlement.id}-geojson`) ? (
+                                                            {downloadingIds.has(`${dataset.id}-geojson`) ? (
                                                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                                             ) : (
                                                                 <Map className="h-4 w-4 mr-2" />
                                                             )}
                                                             Download as GeoJSON
                                                         </button>
-                                                    )}
-                                                    {(!entitlement.download_formats || entitlement.download_formats.length === 0) && (
-                                                        <p className="text-sm text-gray-500">No download formats assigned. Contact Admin</p>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        ))
+                                    ) : (
+                                        // Regular user view - show grouped entitlements
+                                        downloadableDatasets.map((datasetGroup) => {
+                                            const { dataset, bestEntitlement } = datasetGroup;
+                                            const allFormats = new Set();
+                                            
+                                            // Collect all available formats from all entitlements for this dataset
+                                            datasetGroup.entitlements.forEach(entitlement => {
+                                                if (entitlement.download_formats) {
+                                                    entitlement.download_formats.forEach(format => allFormats.add(format));
+                                                }
+                                            });
+
+                                            return (
+                                                <div key={dataset.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                                                    <div className="px-6 py-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <div>
+                                                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                                                    {getDataTypeIcon(dataset?.data_type)}
+                                                                    {dataset?.name || 'Unknown Dataset'}
+                                                                </h3>
+                                                                <p className="text-sm text-gray-500 mt-1">
+                                                                    {datasetGroup.entitlements.length > 1 
+                                                                        ? `${datasetGroup.entitlements.length} access permissions`
+                                                                        : 'Single access permission'
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                            {getStatusBadge(bestEntitlement)}
+                                                        </div>
+                                                        <div className="text-sm text-gray-600 mt-2">
+                                                            Data Type: {formatDataType(dataset?.data_type)}
+                                                            {bestEntitlement.expires_at && (
+                                                                <span className="block mt-1">
+                                                                    Expires: {new Date(bestEntitlement.expires_at).toLocaleDateString()}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="px-6 pb-4">
+                                                        <div className="flex gap-2 flex-wrap">
+                                                            {Array.from(allFormats).includes('csv') && (
+                                                                <button
+                                                                    onClick={() => handleDownload(dataset.id, 'csv')}
+                                                                    disabled={downloadingIds.has(`${dataset.id}-csv`)}
+                                                                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                >
+                                                                    {downloadingIds.has(`${dataset.id}-csv`) ? (
+                                                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                                    ) : (
+                                                                        <FileText className="h-4 w-4 mr-2" />
+                                                                    )}
+                                                                    Download as CSV
+                                                                </button>
+                                                            )}
+                                                            {Array.from(allFormats).includes('geojson') && (
+                                                                <button
+                                                                    onClick={() => handleDownload(dataset.id, 'geojson')}
+                                                                    disabled={downloadingIds.has(`${dataset.id}-geojson`)}
+                                                                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                >
+                                                                    {downloadingIds.has(`${dataset.id}-geojson`) ? (
+                                                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                                    ) : (
+                                                                        <Map className="h-4 w-4 mr-2" />
+                                                                    )}
+                                                                    Download as GeoJSON
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
                                 </div>
                             )}
                 </div>

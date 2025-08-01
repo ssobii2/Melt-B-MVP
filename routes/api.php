@@ -181,6 +181,11 @@ Route::middleware(['auth:sanctum', 'auth.admin.api'])->prefix('admin')->group(fu
     Route::get('/buildings/{gid}', [\App\Http\Controllers\Admin\BuildingController::class, 'show']);
     Route::get('/buildings/export', [\App\Http\Controllers\Admin\BuildingController::class, 'export']);
 
+    // Admin data download endpoints
+    Route::get('/downloads/datasets', [\App\Http\Controllers\Api\DownloadController::class, 'adminDatasets']);
+    Route::get('/downloads/{id}', [\App\Http\Controllers\Api\DownloadController::class, 'adminDownload'])
+        ->where(['id' => '[0-9]+']);
+
     // Admin Analysis Jobs Management  
     Route::get('/analysis-jobs/stats', [AnalysisJobController::class, 'stats']);
     Route::apiResource('analysis-jobs', AnalysisJobController::class);
