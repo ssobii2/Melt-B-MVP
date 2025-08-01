@@ -27,9 +27,6 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
     // Use ref to track if a building data request is in progress
     const buildingDataRequestRef = useRef(null);
     
-    // Use ref to track if a timeout is already pending
-    const timeoutPendingRef = useRef(false);
-    
     // Use ref to track the current timeout
     const buildingLoadTimeoutRef = useRef(null);
 
@@ -263,25 +260,19 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                     }
                     
                     // Only load building data and update stats if no tile layers are visible
-                    if (visibleTileLayersRef.current.size === 0 && !timeoutPendingRef.current) {
-                        // Set pending flag to prevent multiple timeouts
-                        timeoutPendingRef.current = true;
-                        
-                        // Debounce building loading - only load after 1000ms of no movement
+                    if (visibleTileLayersRef.current.size === 0) {
+                        // Debounce building loading - only load after 500ms of no movement
                         const timeout = setTimeout(() => {
-                            // Reset pending flag
-                            timeoutPendingRef.current = false;
-                            
                             // Double-check that tiles are still not visible before loading
                             if (visibleTileLayersRef.current.size === 0) {
                                 loadBuildingData();
                                 // Notify parent component about bounds change for real-time stats
-                                if (onMapBoundsChange) {
+                                if (onMapBoundsChange && map.current) {
                                     const bounds = map.current.getBounds();
                                     onMapBoundsChange(bounds);
                                 }
                             }
-                        }, 1000);
+                        }, 500); // Reduced from 1000ms to 500ms for better responsiveness
                         buildingLoadTimeoutRef.current = timeout;
                     }
                 };
@@ -300,7 +291,6 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                 buildingDataRequestRef.current.abort();
                 buildingDataRequestRef.current = null;
             }
-            timeoutPendingRef.current = false;
             if (map.current) {
                 map.current.remove();
                 map.current = null;
@@ -798,8 +788,17 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         setVisibleTileLayers(prev => {
             const newSet = new Set(prev);
             newSet.delete(layerName);
+            
             // Update building visibility immediately
             updateBuildingVisibility();
+            
+            // If this was the last tile layer removed, reload building data for current view
+            if (newSet.size === 0) {
+                // Use setTimeout to ensure state update completes first
+                setTimeout(() => {
+                    loadBuildingData();
+                }, 0);
+            }
             
             return newSet;
         });
