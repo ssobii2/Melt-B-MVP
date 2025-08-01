@@ -345,15 +345,12 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
     // Load initial data (entitlements, datasets, tile layers, building data)
     const loadInitialData = async () => {
         try {
-            // Load user entitlements (now includes AOI geometries accessible through DS-ALL)
+            // Load user entitlements (AOI boundaries are now fetched through separate endpoint)
             const entitlementsResponse = await apiClient.get('/me/entitlements');
             const entitlements = entitlementsResponse.data.entitlements || [];
             
-            // Extract AOI entitlements with geometry (now includes DS-ALL accessible AOIs)
-            const aoiEntitlements = entitlements.filter(entitlement => 
-                (entitlement.type === 'DS-AOI' || entitlement.type === 'TILES') && entitlement.aoi_geom
-            );
-            setAoiEntitlements(aoiEntitlements);
+            // Initialize empty AOI entitlements (will be populated by loadAoiBoundaries)
+            setAoiEntitlements([]);
             
             // Extract unique datasets from entitlements
             const availableDatasets = entitlements
@@ -378,10 +375,8 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
                 loadBuildingData();
             }
             
-            // Add AOI boundaries if any exist
-            if (aoiEntitlements.length > 0) {
-                addAoiBoundaries(aoiEntitlements);
-            }
+            // Load AOI boundaries (now uses separate endpoints for both admin and regular users)
+            loadAoiBoundaries();
         } catch (error) {
             console.error('Failed to load initial map data:', error);
         }
@@ -403,6 +398,32 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
             if (error.response?.status === 401 || error.response?.status === 403) {
                 setTileLayers([]);
             }
+        }
+    };
+
+    // Load AOI boundaries for users
+    const loadAoiBoundaries = async () => {
+        try {
+            // Use admin endpoint if user is admin to see all AOI boundaries without entitlement filtering
+            const endpoint = isAdmin ? '/admin/aoi-boundaries/all' : '/aoi-boundaries';
+            const response = await apiClient.get(endpoint);
+            const aoiFeatures = response.data.features || [];
+            
+            // Convert GeoJSON features to entitlement-like objects for consistency
+            const aoiEntitlements = aoiFeatures.map(feature => ({
+                id: feature.properties.entitlement_id,
+                type: feature.properties.type,
+                dataset: { name: feature.properties.dataset_name }, // Add dataset object for legend
+                aoi_geom: feature.geometry
+            }));
+            
+            // Update the aoiEntitlements state to show in legend
+            setAoiEntitlements(aoiEntitlements);
+            
+            // Add AOI boundaries to map
+            addAoiBoundaries(aoiEntitlements);
+        } catch (error) {
+            console.error('Failed to load AOI boundaries:', error);
         }
     };
 

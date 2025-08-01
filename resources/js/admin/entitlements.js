@@ -415,8 +415,8 @@ $(document).ready(function() {
         buildingSection.hide();
         tileSection.hide();
 
-        // Show download formats section for all types except TILES
-        if (type === 'TILES') {
+        // Show download formats section for all types except TILES and DS-ALL
+        if (type === 'TILES' || type === 'DS-ALL') {
             downloadFormatsSection.hide();
         } else {
             downloadFormatsSection.show();

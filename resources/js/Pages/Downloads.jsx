@@ -99,7 +99,7 @@ export default function Downloads() {
 
         try {
             // Show initial feedback
-            const toastId = toast.loading(`Preparing ${format.toUpperCase()} download...`);
+            const toastId = toast.loading(`Preparing ${format === 'csv' ? 'CSV' : 'GeoJSON'} download...`);
 
             // Determine the endpoint based on user role
             const endpoint = user?.role === 'admin' ? `/admin/downloads/${datasetId}` : `/downloads/${datasetId}`;
@@ -128,13 +128,13 @@ export default function Downloads() {
                 onDownloadProgress: (progressEvent) => {
                     if (progressEvent.lengthComputable) {
                         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                        toast.loading(`Downloading ${format.toUpperCase()}: ${percentCompleted}%`, { id: toastId });
+                        toast.loading(`Downloading ${format === 'csv' ? 'CSV' : 'GeoJSON'}: ${percentCompleted}%`, { id: toastId });
                     }
                 }
             });
 
             // Update toast for file processing
-            toast.loading(`Processing ${format.toUpperCase()} file...`, { id: toastId });
+            toast.loading(`Processing ${format === 'csv' ? 'CSV' : 'GeoJSON'} file...`, { id: toastId });
 
             // Create download link
             const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -158,7 +158,7 @@ export default function Downloads() {
             window.URL.revokeObjectURL(url);
 
             // Show success notification
-            toast.success(`${format.toUpperCase()} download completed!`, { id: toastId });
+            toast.success(`${format === 'csv' ? 'CSV' : 'GeoJSON'} download completed!`, { id: toastId });
 
         } catch (err) {
             console.error('Download failed:', err);

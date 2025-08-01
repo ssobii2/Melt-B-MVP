@@ -96,24 +96,6 @@ Route::middleware('auth:sanctum')->group(function () {
             })
             ->get();
 
-        // If user has DS-ALL access to any datasets, include all AOI entitlements from those datasets
-        $dsAllDatasets = $entitlements->where('type', 'DS-ALL')->pluck('dataset_id')->toArray();
-        
-        if (!empty($dsAllDatasets)) {
-            // Get all AOI entitlements from DS-ALL datasets that the user doesn't already have
-            $existingEntitlementIds = $entitlements->pluck('id')->toArray();
-            
-            $additionalAoiEntitlements = \App\Models\Entitlement::with('dataset:id,name,data_type')
-                ->whereIn('type', ['DS-AOI', 'TILES'])
-                ->whereIn('dataset_id', $dsAllDatasets)
-                ->whereNotIn('id', $existingEntitlementIds)
-                ->whereNotNull('aoi_geom')
-                ->get();
-            
-            // Merge the additional AOI entitlements with the user's direct entitlements
-            $entitlements = $entitlements->merge($additionalAoiEntitlements);
-        }
-
         return response()->json([
             'entitlements' => \App\Http\Resources\EntitlementResource::collection($entitlements)
         ]);
@@ -134,6 +116,9 @@ Route::middleware(['auth:sanctum', 'check.entitlements'])->group(function () {
     // Data download endpoints
     Route::get('/downloads/{id}', [DownloadController::class, 'download'])
         ->where(['id' => '[0-9]+']);
+
+    // AOI boundaries endpoint (filtered by entitlements)
+    Route::get('/aoi-boundaries', [\App\Http\Controllers\Api\AoiBoundariesController::class, 'getBoundaries']);
 });
 
 // Admin-only routes (same token, but checks user role)
@@ -156,10 +141,12 @@ Route::middleware(['auth:sanctum', 'auth.admin.api'])->prefix('admin')->group(fu
     Route::post('/users/{id}/verify-email', [UserController::class, 'verifyEmail']);
 
     // Entitlement management - specific routes first
-    Route::get('/entitlements/all-aois', [EntitlementController::class, 'allAois']);
     Route::get('/entitlements/datasets', [EntitlementController::class, 'datasets']);
     Route::get('/entitlements/stats', [EntitlementController::class, 'stats']);
     Route::apiResource('entitlements', EntitlementController::class);
+
+    // AOI boundaries management (admin access to all AOI boundaries)
+    Route::get('/aoi-boundaries/all', [\App\Http\Controllers\Admin\AoiBoundariesController::class, 'all']);
 
     // Dataset management - specific routes first
     Route::get('/datasets/stats', [DatasetController::class, 'stats']);
