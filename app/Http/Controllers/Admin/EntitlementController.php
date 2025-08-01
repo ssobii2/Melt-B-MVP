@@ -634,7 +634,7 @@ class EntitlementController extends Controller
      */
     #[OperationId('admin.entitlements.allAois')]
     #[Summary('Get all AOI geometries')]
-    #[Description('Get all existing AOI geometries as GeoJSON FeatureCollection for displaying on the map.')]
+    #[Description('Get all existing AOI geometries as GeoJSON FeatureCollection for displaying on the map. Includes AOI geometries from DS-AOI and TILES entitlements, as well as all AOI geometries from datasets where user has DS-ALL access.')]
     #[Response(200, 'AOI geometries as GeoJSON', [
         'type' => 'FeatureCollection',
         'features' => [
@@ -654,6 +654,7 @@ class EntitlementController extends Controller
     ])]
     public function allAois(): JsonResponse
     {
+        // Get all entitlements with AOI geometries (DS-AOI and TILES types)
         $entitlements = Entitlement::with('dataset:id,name')
             ->whereIn('type', ['DS-AOI', 'TILES'])
             ->whereNotNull('aoi_geom')

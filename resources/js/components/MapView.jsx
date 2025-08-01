@@ -342,16 +342,16 @@ const MapView = ({ onBuildingClick, selectedBuilding, highlightedBuilding, onMap
         }
     }, [visibleTileLayers.size, onTileVisibilityChange]);
 
-    // Load initial data when map is ready
+    // Load initial data (entitlements, datasets, tile layers, building data)
     const loadInitialData = async () => {
         try {
-            // Load user entitlements to get available datasets
+            // Load user entitlements (now includes AOI geometries accessible through DS-ALL)
             const entitlementsResponse = await apiClient.get('/me/entitlements');
             const entitlements = entitlementsResponse.data.entitlements || [];
             
-            // Extract AOI entitlements with geometry
+            // Extract AOI entitlements with geometry (now includes DS-ALL accessible AOIs)
             const aoiEntitlements = entitlements.filter(entitlement => 
-                entitlement.type === 'DS-AOI' && entitlement.aoi_geom
+                (entitlement.type === 'DS-AOI' || entitlement.type === 'TILES') && entitlement.aoi_geom
             );
             setAoiEntitlements(aoiEntitlements);
             

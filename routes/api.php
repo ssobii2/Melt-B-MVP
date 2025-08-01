@@ -96,6 +96,24 @@ Route::middleware('auth:sanctum')->group(function () {
             })
             ->get();
 
+        // If user has DS-ALL access to any datasets, include all AOI entitlements from those datasets
+        $dsAllDatasets = $entitlements->where('type', 'DS-ALL')->pluck('dataset_id')->toArray();
+        
+        if (!empty($dsAllDatasets)) {
+            // Get all AOI entitlements from DS-ALL datasets that the user doesn't already have
+            $existingEntitlementIds = $entitlements->pluck('id')->toArray();
+            
+            $additionalAoiEntitlements = \App\Models\Entitlement::with('dataset:id,name,data_type')
+                ->whereIn('type', ['DS-AOI', 'TILES'])
+                ->whereIn('dataset_id', $dsAllDatasets)
+                ->whereNotIn('id', $existingEntitlementIds)
+                ->whereNotNull('aoi_geom')
+                ->get();
+            
+            // Merge the additional AOI entitlements with the user's direct entitlements
+            $entitlements = $entitlements->merge($additionalAoiEntitlements);
+        }
+
         return response()->json([
             'entitlements' => \App\Http\Resources\EntitlementResource::collection($entitlements)
         ]);
